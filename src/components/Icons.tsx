@@ -1,5 +1,5 @@
 import React from 'react';
-import {House,Menu,Cloud,CloudCheck,CloudOff,HelpCircle,Check,CheckCircle2,MoreHorizontal,Plus,
+import {House,Menu,Cloud,CloudOff,HelpCircle,Check,CheckCircle2,MoreHorizontal,Plus,
   ChevronRight,ChevronLeft,ChevronDown,ChevronUp,X,GripVertical,Inbox,Target,BarChart3,CalendarDays,
   CalendarCheck2,Wallet,Dumbbell,Timer,Repeat2,Trophy,Settings,BookOpen,Briefcase,HeartPulse,Sparkles,
   Folder,Users,Car,ShoppingBag,Palette,GraduationCap,Clock,ArrowUpRight,ArrowDownRight,ArrowLeftRight,
