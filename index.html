@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1020">
+  <title>Мой дашборд — Telegram Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { color-scheme: dark; --bg:#0a1020; --card:#111b2d; --line:#24314b; --text:#f2f6ff; --muted:#94a3ba; --green:#91f5bd; --blue:#88b9ff; --purple:#c6a6ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; min-width:320px; }
+    body::before { content:""; position:fixed; pointer-events:none; z-index:-1; inset:0; background:radial-gradient(ellipse 80% 30% at 8% 0%,#18335b8a 0,transparent 100%); }
+    .app { max-width:520px; margin:0 auto; padding:24px 16px max(42px,env(safe-area-inset-bottom)); }
+    .eyebrow { font-size:11px; letter-spacing:.15em; font-weight:800; color:var(--green); }
+    .head { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:23px; }
+    h1 { font-size:29px; line-height:1.05; letter-spacing:-.045em; margin:8px 0 7px; }
+    .subtitle { font-size:13px; color:var(--muted); }
+    .avatar { height:45px; width:45px; display:grid; place-items:center; flex:none; border:1px solid #395070; border-radius:16px; background:linear-gradient(135deg,#244363,#121e38); font-size:24px; }
+    .date-pill { border:1px solid var(--line); display:inline-flex; gap:8px; align-items:center; border-radius:40px; padding:9px 12px; background:#101a2b; font-size:12px; color:#c5d2e7; margin-bottom:18px; }
+    .section-label { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 12px; }
+    .section-label h2 { font-size:17px; letter-spacing:-.02em; margin:0; }
+    .tiny { color:var(--muted); font-size:12px; }
+    .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin-bottom:23px; }
+    .metric { background:linear-gradient(155deg,#162238 0%,#101a2c 100%); border:1px solid #263853; border-radius:19px; padding:12px 11px 11px; min-width:0; }
+    .metric-top { display:flex; justify-content:space-between; align-items:center; gap:6px; color:#cad8ed; font-size:11px; }
+    .metric-icon { font-size:17px; }
+    .metric-num { font-size:25px; font-weight:800; letter-spacing:-.06em; margin-top:15px; white-space:nowrap; }
+    .metric-num span { font-size:13px; font-weight:500; letter-spacing:0; color:#8596b1; }
+    .progress { height:5px; border-radius:30px; background:#283751; overflow:hidden; margin-top:9px; }
+    .progress > div { height:100%; width:0%; border-radius:inherit; transition:width .2s; }
+    .metric:nth-child(1) .progress>div { background:var(--green); }
+    .metric:nth-child(2) .progress>div { background:var(--blue); }
+    .metric:nth-child(3) .progress>div { background:var(--purple); }
+    .metric-controls { display:flex; gap:5px; margin-top:13px; }
+    .ctrl { border:1px solid #314460; color:var(--text); background:#1b2a42; border-radius:10px; height:32px; min-width:0; flex:1; font-size:18px; cursor:pointer; }
+    .ctrl.plus { background:#e5f8ee; border-color:#e5f8ee; color:#112332; font-weight:700; }
+    .ctrl:active { transform:scale(.96); }
+    .chart-card { border:1px solid #273952; background:linear-gradient(170deg,#131e31,#101a2a); border-radius:22px; padding:18px 14px 12px; }
+    .card-head { display:flex; justify-content:space-between; align-items:center; }
+    .card-head h2 { font-size:17px; margin:0 0 6px; }
+    .pill { font-size:10px; font-weight:800; color:var(--green); background:#214232; padding:6px 9px; border-radius:10px; }
+    .tabs { display:flex; padding:4px; gap:3px; border-radius:12px; background:#0b1425; margin:17px 0 6px; }
+    .tab { flex:1; min-width:0; border:0; background:transparent; color:#8da1bd; font-size:12px; border-radius:9px; padding:9px 4px; cursor:pointer; }
+    .tab.active { color:#f8fbff; font-weight:700; background:#263751; }
+    .chart { width:100%; display:block; overflow:visible; }
+    .chart text { fill:#8294ad; font-size:14px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; }
+    .chart-grid { stroke:#2c3a51; stroke-width:1; stroke-dasharray:5 6; }
+    .chart-bottom { stroke:#34435b; stroke-width:1; }
+    .legend { display:flex; gap:7px; align-items:center; font-size:12px; color:#aabbd2; margin:4px 0 5px 6px; }
+    .legend-dot { height:8px; width:8px; border-radius:8px; background:var(--green); }
+    .insights { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:18px 0 24px; }
+    .insight { border:1px solid #263853; padding:14px; border-radius:17px; background:#111b2d; }
+    .insight-value { font-size:23px; font-weight:800; letter-spacing:-.03em; margin-bottom:3px; }
+    .insight-label { color:var(--muted); font-size:12px; line-height:1.4; }
+    .hint { border-radius:14px; background:#1e2c41; color:#aebdd3; padding:14px; font-size:12px; line-height:1.5; margin-top:16px; }
+    .hint strong { color:#e7f1ff; }
+    .demo-banner { border-radius:15px; padding:13px; background:#493a23; border:1px solid #756044; margin:0 0 20px; }
+    .demo-banner strong { font-size:13px; }
+    .demo-banner p { font-size:12px; color:#e8d3b0; margin:6px 0 11px; line-height:1.45; }
+    .button-main { width:100%; border:0; border-radius:11px; padding:11px; font-weight:750; font-size:13px; color:#1e2b30; background:#f6deb4; cursor:pointer; }
+    .footer { display:flex; justify-content:space-between; gap:10px; align-items:center; padding-top:2px; }
+    .footer button { border:1px solid #334861; background:transparent; border-radius:10px; color:#9fb3cc; padding:9px 11px; font-size:12px; cursor:pointer; }
+    .footnote { color:#71859f; font-size:11px; margin-top:18px; line-height:1.55; }
+    @media(max-width:380px) { .metric { padding:10px 8px; } .metric-top { font-size:10px; } .metric-num { font-size:23px; } .app {padding-left:12px;padding-right:12px;} }
+  </style>
+</head>
+<body>
+<main class="app">
+  <div class="head">
+    <div><div class="eyebrow">PERSONAL OS</div><h1>Мой дашборд</h1><div class="subtitle">Результат важнее мотивации</div></div>
+    <div class="avatar" aria-hidden="true">⚡</div>
+  </div>
+  <div id="weekLabel" class="date-pill">📆 Загрузка...</div>
+  <section id="demoBanner" class="demo-banner" hidden>
+    <strong>✨ Ты смотришь демо</strong>
+    <p>Показаны примерные показатели. Нажми на кнопку, чтобы начать отслеживать свои результаты с нуля.</p>
+    <button id="startReal" class="button-main" type="button">Начать свой учёт</button>
+  </section>
+  <div class="section-label"><h2>Цели на неделю</h2><span class="tiny">Обновляется по кнопке</span></div>
+  <section class="metrics" aria-label="Показатели за неделю">
+    <article class="metric" data-kind="task"><div class="metric-top"><span>Задачи</span><span class="metric-icon">✅</span></div><div class="metric-num"><b id="taskValue">0</b> <span id="taskTarget">/ 15</span></div><div class="progress"><div id="taskProgress"></div></div><div class="metric-controls"><button class="ctrl" data-action="minus" aria-label="Уменьшить количество задач">−</button><button class="ctrl plus" data-action="plus" aria-label="Добавить задачу">+</button></div></article>
+    <article class="metric" data-kind="sale"><div class="metric-top"><span>Продажи</span><span class="metric-icon">💰</span></div><div class="metric-num"><b id="saleValue">0</b> <span id="saleTarget">/ 3</span></div><div class="progress"><div id="saleProgress"></div></div><div class="metric-controls"><button class="ctrl" data-action="minus" aria-label="Уменьшить количество продаж">−</button><button class="ctrl plus" data-action="plus" aria-label="Добавить продажу">+</button></div></article>
+    <article class="metric" data-kind="sport"><div class="metric-top"><span>Спорт</span><span class="metric-icon">💪</span></div><div class="metric-num"><b id="sportValue">0</b> <span id="sportTarget">/ 3</span></div><div class="progress"><div id="sportProgress"></div></div><div class="metric-controls"><button class="ctrl" data-action="minus" aria-label="Уменьшить количество тренировок">−</button><button class="ctrl plus" data-action="plus" aria-label="Добавить тренировку">+</button></div></article>
+  </section>
+  <section class="chart-card" aria-label="График результатов">
+    <div class="card-head"><h2>Динамика за 7 дней</h2><span class="pill">WEEKLY</span></div>
+    <div class="tiny">Твои результаты с понедельника по воскресенье</div>
+    <div class="tabs" role="tablist" aria-label="Выбрать показатель">
+      <button class="tab active" data-view="task" role="tab" aria-selected="true">Задачи</button>
+      <button class="tab" data-view="sale" role="tab" aria-selected="false">Продажи</button>
+      <button class="tab" data-view="sport" role="tab" aria-selected="false">Спорт</button>
+    </div>
+    <svg class="chart" viewBox="0 0 640 270" role="img" aria-label="График прогресса по дням недели">
+      <defs><linearGradient id="fillArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#91f5bd" stop-opacity="0.25"/><stop offset="100%" stop-color="#91f5bd" stop-opacity="0"/></linearGradient></defs>
+      <g id="chartGrid"></g><g id="chartSeries"></g><g id="chartLabels"></g>
+    </svg>
+    <div class="legend"><span class="legend-dot" id="legendDot"></span><span id="legendLabel">Выполнено за день</span></div>
+  </section>
+  <section class="insights" aria-label="Итоги">
+    <div class="insight"><div class="insight-value" id="percentAll">0%</div><div class="insight-label">Общий прогресс по трём целям</div></div>
+    <div class="insight"><div class="insight-value" id="activeDays">0/7</div><div class="insight-label">Дней с результатами на неделе</div></div>
+  </section>
+  <div class="footer"><span class="tiny">Данные текущей недели</span><button id="resetWeek" type="button">Сбросить неделю</button></div>
+  <div class="hint"><strong>Как это работает:</strong> нажимай + после завершения действия. Прогресс и график обновятся автоматически. Значения хранятся в этом браузере/Telegram на данном устройстве.</div>
+  <p class="footnote">Это прототип без сервера. Для синхронизации с Telegram-ботом и между устройствами понадобится база данных и backend. Не вводи в HTML токен своего бота.</p>
+</main>
+<script>
+(() => {
+  "use strict";
+  const telegram = window.Telegram?.WebApp;
+  if (telegram) {
+    telegram.ready();
+    telegram.expand();
+    try { telegram.setHeaderColor?.('#0a1020'); telegram.setBackgroundColor?.('#0a1020'); } catch(e) { /* older client */ }
+  }
+  const kinds = ['task', 'sale', 'sport'];
+  const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const palette = { task: '#91f5bd', sale: '#88b9ff', sport: '#c6a6ff' };
+  const names = { task: 'Задачи', sale: 'Продажи', sport: 'Тренировки' };
+  const STORAGE = 'personal-os-mini-app-v1';
+  const $ = id => document.getElementById(id);
+  function mondayOf(date) { const d=new Date(date.getFullYear(),date.getMonth(),date.getDate()); d.setDate(d.getDate() - (d.getDay()+6)%7); return d; }
+  function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  const monday = mondayOf(new Date());
+  const week = ymd(monday);
+  const blank = () => ({week,mode:'real',targets:{task:15,sale:3,sport:3},values:{task:Array(7).fill(0),sale:Array(7).fill(0),sport:Array(7).fill(0)}});
+  const example = () => ({week,mode:'demo',targets:{task:15,sale:3,sport:3},values:{task:[2,1,3,1,2,1,0],sale:[0,0,1,0,1,0,0],sport:[1,0,0,1,0,1,0]}});
+  let state;
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE));
+    state = stored && stored.week === week && stored.values && kinds.every(k => Array.isArray(stored.values[k]) && stored.values[k].length === 7) ? stored : (stored ? blank() : example());
+  } catch { state = example(); }
+  let view = 'task';
+  const save = () => { try { localStorage.setItem(STORAGE,JSON.stringify(state)); } catch(e) { console.warn('Storage unavailable',e); } };
+  save();
+  const count = kind => state.values[kind].reduce((a,b)=>a+b,0);
+  const dayIndex = () => (new Date().getDay()+6)%7;
+  const formatDay = d => d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+  const sunday = new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+6);
+  $('weekLabel').textContent = `📆 ${formatDay(monday)} — ${formatDay(sunday)}`;
+  function chart() {
+    const values = state.values[view];
+    const color = palette[view];
+    const left=58,right=615,top=28,bottom=221;
+    const maximum = Math.max(3,Math.ceil(Math.max(...values)/2)*2+1);
+    const x=i=> left+(right-left)*i/6;
+    const y=v=> bottom-(v/maximum)*(bottom-top);
+    let grid = '', labels = '';
+    for(let i=0;i<4;i++) {
+      const v=Math.round(maximum*i/3);
+      const gy=y(maximum*i/3);
+      grid += `<line class="chart-grid" x1="${left}" y1="${gy}" x2="${right}" y2="${gy}"/>`;
+      labels += `<text x="${left-16}" y="${gy+5}" text-anchor="end">${v}</text>`;
+    }
+    for(let i=0;i<7;i++) labels += `<text x="${x(i)}" y="${bottom+32}" text-anchor="middle">${days[i]}</text>`;
+    const points = values.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+    const path = `M ${x(0)} ${bottom} L ${values.map((v,i)=>`${x(i)} ${y(v)}`).join(' L ')} L ${x(6)} ${bottom} Z`;
+    const dots = values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${i===dayIndex()?7:5}" fill="${color}" stroke="#142237" stroke-width="3"/>`).join('');
+    $('chartGrid').innerHTML=grid;
+    $('chartLabels').innerHTML=labels;
+    $('chartSeries').innerHTML=`<path d="${path}" fill="url(#fillArea)"/><polyline points="${points}" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>${dots}`;
+    document.querySelector('#fillArea stop').setAttribute('stop-color',color);
+    $('legendDot').style.background=color;
+    $('legendLabel').textContent=`${names[view]} за день`;
+  }
+  function render() {
+    $('demoBanner').hidden=state.mode!=='demo';
+    for(const k of kinds) {
+      const n=count(k), t=state.targets[k];
+      $(k+'Value').textContent=n;
+      $(k+'Target').textContent='/ '+t;
+      $(k+'Progress').style.width=Math.min(100,n/t*100)+'%';
+    }
+    const progress=kinds.reduce((sum,k)=>sum+Math.min(1,count(k)/state.targets[k]),0)/3;
+    $('percentAll').textContent=Math.round(100*progress)+'%';
+    const daysDone = days.filter((_,i)=>kinds.some(k=>state.values[k][i]>0)).length;
+    $('activeDays').textContent=daysDone+'/7';
+    chart();
+  }
+  function ensureReal() {
+    if(state.mode==='demo') {
+      const ok=confirm('Сейчас показаны примерные данные. Начать личный учёт с нуля?');
+      if(!ok) return false;
+      state=blank(); save();
+    }
+    return true;
+  }
+  document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{
+    if(!ensureReal()) return;
+    const kind=button.closest('[data-kind]').dataset.kind;
+    const i=dayIndex();
+    if(button.dataset.action==='plus') state.values[kind][i]++;
+    else if(state.values[kind][i]>0) state.values[kind][i]--;
+    save();render();
+    try { telegram?.HapticFeedback?.impactOccurred('light'); } catch(e) {}
+  }));
+  document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
+    view=button.dataset.view;
+    document.querySelectorAll('[data-view]').forEach(el=>{
+      const active=el===button;
+      el.classList.toggle('active',active);
+      el.setAttribute('aria-selected',active?'true':'false');
+    });
+    chart();
+  }));
+  $('startReal').addEventListener('click',()=>{state=blank();save();render();});
+  $('resetWeek').addEventListener('click',()=>{
+    if(confirm('Обнулить все результаты текущей недели?')) {state=blank();save();render();}
+  });
+  render();
+})();
+</script>
+</body>
+</html>
