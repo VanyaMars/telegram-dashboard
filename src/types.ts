@@ -1,0 +1,17 @@
+export type Tab='home'|'today'|'goals'|'analytics'|'buffer'|'calendar'|'tomorrow'|'finance'|'sport'|'focus'|'challenges'|'repeats'|'review'|'discipline'|'settings'|'categories'|'help';
+export type TaskPriority='important'|'extra';
+export type Task={id:string;title:string;notes:string;sphere:string;day:string|null;priority:TaskPriority;completed:boolean;created_at?:string;updated_at?:string;os61_position?:number|null;os61_category_id?:string|null;os6_repeat_id?:string|null};
+export type Category={id:string;name:string;color:string;icon:string;sort_order:number};
+export type Goal={id:string;title:string;notes:string;sphere:string;start_value:number;current_value:number;target_value:number;unit:string;deadline:string|null;updated_at?:string};
+export type GoalPoint={id:number;goal_id:string;value:number;recorded_at:string};
+export type Settings={tz:string;kpi_cutover:string;target_task:number;target_sale:number;target_sport:number;morning_time:string;evening_time:string;weekly_time:string;reminders_enabled:boolean};
+export type DayMetrics={tasks:number;sales:number;sport:number;important:number;extras:number;done_important:number;done_extras:number};
+export type Finance={id:string;day:string;direction:'income'|'expense';amount:number;currency:string;category:string;note:string;is_sale:boolean};
+export type Workout={id:string;day:string;title:string;duration_min:number;notes:string};
+export type BodyWeight={id:string;day:string;kg:number;note:string};
+export type Challenge={id:string;title:string;starts_on:string;ends_on:string;target_days:number;note:string};
+export type Repeat={id:string;title:string;sphere:string;priority:TaskPriority;frequency:'daily'|'weekly'|'monthly';interval_n:number;weekdays:number[];starts_on:string;ends_on:string|null;enabled:boolean};
+export type Focus={id:string;title:string;task_id:string|null;started_at:string|null;accumulated_seconds:number;state:'running'|'paused'|'finished'};
+export type Review={monday:string;wins:string;lessons:string;next_steps:string};
+export type OS6Data={settings:Settings;links:Array<{task_id:string;goal_id:string}>;finance:Finance[];workouts:Workout[];weight:BodyWeight[];repeats:Repeat[];challenges:Challenge[];challengeDays:Array<{challenge_id:string;day:string}>;reviews:Review[];focus:Focus[];exercises:Array<{id:string;workout_id:string;title:string;sets:number;reps:number;weight_kg:number|null}>;kpiHistory:Array<{effective_from:string;target_task:number;target_sale:number;target_sport:number}>};
+export type CloudStatus='connecting'|'saved'|'saving'|'error'|'demo';

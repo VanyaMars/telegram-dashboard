@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const require=createRequire(import.meta.url);
+const ts=require('typescript');
+import { fileURLToPath } from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const read=(p)=>fs.readFileSync(path.join(root,p),'utf8');
+const compileTS=(file)=>{
+  const source=read(file);
+  const result=ts.transpileModule(source,{fileName:file,reportDiagnostics:true,compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}});
+  const errs=result.diagnostics?.filter(d=>d.category===ts.DiagnosticCategory.Error)||[];
+  assert.equal(errs.length,0,`Syntax in ${file}: ${errs.map(d=>ts.flattenDiagnosticMessageText(d.messageText,' ')).join(' | ')}`);
+  return result.outputText;
+};
+// A syntax pass over all source files (tsc in npm run build verifies types).
+function visit(dir){for(const e of fs.readdirSync(path.join(root,dir),{withFileTypes:true})){const f=path.join(dir,e.name);if(e.isDirectory())visit(f);else if(/\.tsx?$/.test(e.name))compileTS(f);}}
+visit('src');compileTS('supabase/02-os61-index.ts');
+const code=compileTS('src/lib/date.ts');
+const env={exports:{}};
+vm.runInNewContext(code,{module:env,exports:env.exports,Date,Intl,Number,Math,Array,Map});
+const d=env.exports;
+assert.equal(d.dateInZone(new Date('2026-10-29T23:30:00Z'),'Europe/Stockholm'),'2026-10-30');
+assert.equal(d.dateInZone(new Date('2026-10-29T23:30:00Z'),'America/Los_Angeles'),'2026-10-29');
+assert.equal(d.mondayOf('2026-10-30'),'2026-10-26');
+assert.equal(d.dateAdd('2026-12-31',1),'2027-01-01');
+assert.equal(d.score(1,1,5,3),160);
+assert.equal(d.score(1,1,5,5),200);
+assert.equal(d.score(1,0,0,0),0);
+assert.equal(d.progress(3,5),60);
+const sql=read('supabase/01-migration.sql').replace(/--[^\n]*/g,'');
+assert.doesNotMatch(sql,/\b(drop\s+table|truncate\s+table)\b/i);
+assert.match(sql,/create\s+table\s+if\s+not\s+exists\s+public\.os61_categories/i);
+assert.match(sql,/revoke\s+all\s+on\s+public\.os61_categories\s+from\s+anon,authenticated/i);
+assert.match(read('supabase/02-os61-index.ts'),/verifyTelegram/);
+assert.match(read('.github/workflows/deploy.yml'),/npm run build/);
+assert.match(read('vite.config.ts'),/telegram-dashboard/);
+console.log('✓ 6.1 tests: date/timezone, 0–200%, migrations, TS syntax, secure deployment');
