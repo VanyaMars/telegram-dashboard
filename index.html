@@ -64,8 +64,6 @@
     .footnote { color:#71859f; font-size:11px; margin-top:18px; line-height:1.55; }
     @media(max-width:380px) { .metric { padding:10px 8px; } .metric-top { font-size:10px; } .metric-num { font-size:23px; } .app {padding-left:12px;padding-right:12px;} }
 
-    #apiUrlInput { display:block; width:100%; margin:8px 0; height:44px; border-radius:11px; border:1px solid #756044; background:#111b2d; color:#f2f6ff; padding:10px 12px; font-size:14px; }
-    #apiUrlInput::placeholder { color:#76849b; }
     #connectButton { margin-top:8px; }
     .connection-help { margin-bottom:0 !important; }
     button:disabled { opacity:.45; cursor:not-allowed; }
@@ -80,11 +78,10 @@
   </div>
   <div id="weekLabel" class="date-pill">📆 Загрузка...</div>
   <section id="connectBanner" class="demo-banner" hidden>
-    <strong>☁️ Подключение облачной базы</strong>
-    <p id="connectionText">Укажи Project URL из Supabase, чтобы синхронизировать свои данные.</p>
-    <input id="apiUrlInput" type="url" inputmode="url" autocomplete="url" placeholder="https://xxxx.supabase.co" aria-label="Адрес проекта Supabase">
-    <button id="connectButton" class="button-main" type="button">Подключить Supabase</button>
-    <p class="connection-help">Нужен адрес проекта, не API-ключ и не токен Telegram. Открывай приложение через своего Telegram-бота.</p>
+    <strong>⚠️ Не удалось синхронизировать</strong>
+    <p id="connectionText" role="alert">Проверяем вход через Telegram…</p>
+    <button id="connectButton" class="button-main" type="button">Повторить подключение</button>
+    <p class="connection-help">Открывай приложение кнопкой бота ProDesk. В обычном браузере Telegram-авторизация недоступна.</p>
   </section>
   <div class="section-label"><h2>Цели на неделю</h2><span class="tiny">Облачная статистика</span></div>
   <section class="metrics" aria-label="Показатели за неделю">
@@ -112,7 +109,7 @@
   </section>
   <div class="footer"><span class="tiny" id="connectedLabel">Подключаем облако…</span><button id="resetWeek" type="button">Сбросить неделю</button></div>
   <div class="hint"><strong>Как это работает:</strong> открывай через Telegram и нажимай + после завершения действия. Изменения сохраняются в Supabase и доступны на других устройствах.</div>
-  <p class="footnote">Вход проверяется по данным Telegram на сервере. Не вставляй токен своего бота или секретный ключ Supabase в HTML. <button type="button" id="changeDB" class="text-link">Настроить подключение</button></p>
+  <p class="footnote">Personal OS 2.1 · Вход через Telegram автоматический. Личные данные хранятся в Supabase, а не в памяти телефона. Токен бота остаётся только на сервере.</p>
 </main>
 <script>
 (() => {
@@ -131,7 +128,8 @@
   const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   const palette = { task: "#91f5bd", sale: "#88b9ff", sport: "#c6a6ff" };
   const names = { task: "Задачи", sale: "Продажи", sport: "Тренировки" };
-  const storageKey = "personal-os-supabase-project-url";
+  // Public Supabase PROJECT URL. This is not an API key or a secret.
+  const apiRoot = "https://lfhqzgmcvfebzcyvdqff.supabase.co";
   const $ = (id) => document.getElementById(id);
   const mondayOf = (date) => {
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -150,23 +148,10 @@
 
   let state = blank();
   let view = "task";
-  let apiRoot = localStorage.getItem(storageKey) || "";
   let connected = false;
   let busy = false;
 
   $("weekLabel").textContent = `📆 ${formatDay(monday)} — ${formatDay(sunday)}`;
-  $("apiUrlInput").value = apiRoot;
-
-  function normalizeProjectURL(input) {
-    let url;
-    try { url = new URL(input.trim()); }
-    catch { throw new Error("Вставь адрес в формате https://xxxx.supabase.co"); }
-    if (url.protocol !== "https:" || !/^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname)
-        || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash) {
-      throw new Error("Нужен именно Project URL вида https://xxxx.supabase.co");
-    }
-    return url.origin;
-  }
 
   function setBusy(value) {
     busy = value;
@@ -181,13 +166,15 @@
     $("connectedLabel").textContent = "Нет подключения к облаку";
   }
 
-  function hideConnect() {
+  function hideConnect(user) {
     $("connectBanner").hidden = true;
-    $("connectedLabel").textContent = "☁️ Данные сохраняются в Supabase";
+    const name = typeof user?.first_name === "string" ? user.first_name.trim().slice(0, 32) : "";
+    $("connectedLabel").textContent = name
+      ? `☁️ Синхронизировано · ${name}`
+      : "☁️ Синхронизировано с Supabase";
   }
 
   async function cloudRequest(action, details = {}) {
-    if (!apiRoot) throw new Error("Сначала укажи Project URL из Supabase.");
     if (!telegram?.initData) throw new Error("Открой дашборд через кнопку бота в Telegram (не напрямую в браузере).");
     const response = await fetch(`${apiRoot}/functions/v1/dashboard`, {
       method: "POST",
@@ -218,7 +205,6 @@
   }
 
   async function connect() {
-    if (!apiRoot) { showConnect("Укажи Project URL из Supabase и нажми «Подключить». "); return; }
     if (!telegram?.initData) {
       showConnect("Открой приложение кнопкой в своём Telegram-боте. В обычном браузере Telegram не передаёт данные для входа.");
       return;
@@ -229,7 +215,7 @@
       const result = await cloudRequest("read");
       connected = true;
       applyDays(result.days || []);
-      hideConnect();
+      hideConnect(result.user);
       setBusy(false);
     } catch (error) {
       connected = false;
@@ -282,13 +268,7 @@
     chart();
   }
 
-  $("connectButton").addEventListener("click", async () => {
-    try {
-      apiRoot = normalizeProjectURL($("apiUrlInput").value);
-      localStorage.setItem(storageKey, apiRoot);
-      await connect();
-    } catch(error) { showConnect(error.message || "Проверь адрес базы."); }
-  });
+  $("connectButton").addEventListener("click", connect);
 
   document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", async () => {
     if (busy || !connected) return;
@@ -329,14 +309,10 @@
     setBusy(false);
   });
 
-  $("changeDB").addEventListener("click", () => {
-    $("apiUrlInput").value = apiRoot;
-    showConnect("Здесь можно изменить адрес проекта Supabase. Старые данные в базе не удаляются.");
-  });
-
   render();
   setBusy(false);
-  connect();
+  connect(); // Auto-login on every launch; no localStorage needed.
+
 })();
 </script>
 </body>
