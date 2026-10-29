@@ -7,7 +7,7 @@ import {House,Menu,Cloud,CloudOff,HelpCircle,Check,CheckCircle2,MoreHorizontal,P
   RotateCcw,Bell,Info,ArrowRight,Focus,TrendingUp,TrendingDown,CircleHelp,Sun,ShieldCheck,
   ListChecks,LayoutDashboard,Calendar,Lightbulb,Zap,Lock,Play,Pause,Square,CheckSquare,
   type LucideIcon} from 'lucide-react';
-const icons:Record<string,LucideIcon>={home:House,menu:Menu,cloud:Cloud,'cloud-check':CloudCheck,'cloud-off':CloudOff,
+const icons:Record<string,LucideIcon>={home:House,menu:Menu,cloud:Cloud,'cloud-check':Cloud,'cloud-off':CloudOff,
   help:HelpCircle,check:Check,'check-circle':CheckCircle2,more:MoreHorizontal,plus:Plus,right:ChevronRight,
   left:ChevronLeft,down:ChevronDown,up:ChevronUp,x:X,grip:GripVertical,inbox:Inbox,target:Target,
   chart:BarChart3,calendar:CalendarDays,'calendar-check':CalendarCheck2,wallet:Wallet,dumbbell:Dumbbell,
