@@ -63,6 +63,13 @@
     .footer button { border:1px solid #334861; background:transparent; border-radius:10px; color:#9fb3cc; padding:9px 11px; font-size:12px; cursor:pointer; }
     .footnote { color:#71859f; font-size:11px; margin-top:18px; line-height:1.55; }
     @media(max-width:380px) { .metric { padding:10px 8px; } .metric-top { font-size:10px; } .metric-num { font-size:23px; } .app {padding-left:12px;padding-right:12px;} }
+
+    #apiUrlInput { display:block; width:100%; margin:8px 0; height:44px; border-radius:11px; border:1px solid #756044; background:#111b2d; color:#f2f6ff; padding:10px 12px; font-size:14px; }
+    #apiUrlInput::placeholder { color:#76849b; }
+    #connectButton { margin-top:8px; }
+    .connection-help { margin-bottom:0 !important; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .text-link { border:0; color:#a0b8d6; background:none; font:inherit; text-decoration:underline; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -72,12 +79,14 @@
     <div class="avatar" aria-hidden="true">⚡</div>
   </div>
   <div id="weekLabel" class="date-pill">📆 Загрузка...</div>
-  <section id="demoBanner" class="demo-banner" hidden>
-    <strong>✨ Ты смотришь демо</strong>
-    <p>Показаны примерные показатели. Нажми на кнопку, чтобы начать отслеживать свои результаты с нуля.</p>
-    <button id="startReal" class="button-main" type="button">Начать свой учёт</button>
+  <section id="connectBanner" class="demo-banner" hidden>
+    <strong>☁️ Подключение облачной базы</strong>
+    <p id="connectionText">Укажи Project URL из Supabase, чтобы синхронизировать свои данные.</p>
+    <input id="apiUrlInput" type="url" inputmode="url" autocomplete="url" placeholder="https://xxxx.supabase.co" aria-label="Адрес проекта Supabase">
+    <button id="connectButton" class="button-main" type="button">Подключить Supabase</button>
+    <p class="connection-help">Нужен адрес проекта, не API-ключ и не токен Telegram. Открывай приложение через своего Telegram-бота.</p>
   </section>
-  <div class="section-label"><h2>Цели на неделю</h2><span class="tiny">Обновляется по кнопке</span></div>
+  <div class="section-label"><h2>Цели на неделю</h2><span class="tiny">Облачная статистика</span></div>
   <section class="metrics" aria-label="Показатели за неделю">
     <article class="metric" data-kind="task"><div class="metric-top"><span>Задачи</span><span class="metric-icon">✅</span></div><div class="metric-num"><b id="taskValue">0</b> <span id="taskTarget">/ 15</span></div><div class="progress"><div id="taskProgress"></div></div><div class="metric-controls"><button class="ctrl" data-action="minus" aria-label="Уменьшить количество задач">−</button><button class="ctrl plus" data-action="plus" aria-label="Добавить задачу">+</button></div></article>
     <article class="metric" data-kind="sale"><div class="metric-top"><span>Продажи</span><span class="metric-icon">💰</span></div><div class="metric-num"><b id="saleValue">0</b> <span id="saleTarget">/ 3</span></div><div class="progress"><div id="saleProgress"></div></div><div class="metric-controls"><button class="ctrl" data-action="minus" aria-label="Уменьшить количество продаж">−</button><button class="ctrl plus" data-action="plus" aria-label="Добавить продажу">+</button></div></article>
@@ -101,9 +110,9 @@
     <div class="insight"><div class="insight-value" id="percentAll">0%</div><div class="insight-label">Общий прогресс по трём целям</div></div>
     <div class="insight"><div class="insight-value" id="activeDays">0/7</div><div class="insight-label">Дней с результатами на неделе</div></div>
   </section>
-  <div class="footer"><span class="tiny">Данные текущей недели</span><button id="resetWeek" type="button">Сбросить неделю</button></div>
-  <div class="hint"><strong>Как это работает:</strong> нажимай + после завершения действия. Прогресс и график обновятся автоматически. Значения хранятся в этом браузере/Telegram на данном устройстве.</div>
-  <p class="footnote">Это прототип без сервера. Для синхронизации с Telegram-ботом и между устройствами понадобится база данных и backend. Не вводи в HTML токен своего бота.</p>
+  <div class="footer"><span class="tiny" id="connectedLabel">Подключаем облако…</span><button id="resetWeek" type="button">Сбросить неделю</button></div>
+  <div class="hint"><strong>Как это работает:</strong> открывай через Telegram и нажимай + после завершения действия. Изменения сохраняются в Supabase и доступны на других устройствах.</div>
+  <p class="footnote">Вход проверяется по данным Telegram на сервере. Не вставляй токен своего бота или секретный ключ Supabase в HTML. <button type="button" id="changeDB" class="text-link">Настроить подключение</button></p>
 </main>
 <script>
 (() => {
@@ -112,103 +121,222 @@
   if (telegram) {
     telegram.ready();
     telegram.expand();
-    try { telegram.setHeaderColor?.('#0a1020'); telegram.setBackgroundColor?.('#0a1020'); } catch(e) { /* older client */ }
+    try {
+      telegram.setHeaderColor?.("#0a1020");
+      telegram.setBackgroundColor?.("#0a1020");
+    } catch (_) {}
   }
-  const kinds = ['task', 'sale', 'sport'];
-  const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  const palette = { task: '#91f5bd', sale: '#88b9ff', sport: '#c6a6ff' };
-  const names = { task: 'Задачи', sale: 'Продажи', sport: 'Тренировки' };
-  const STORAGE = 'personal-os-mini-app-v1';
-  const $ = id => document.getElementById(id);
-  function mondayOf(date) { const d=new Date(date.getFullYear(),date.getMonth(),date.getDate()); d.setDate(d.getDate() - (d.getDay()+6)%7); return d; }
-  function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+  const kinds = ["task", "sale", "sport"];
+  const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const palette = { task: "#91f5bd", sale: "#88b9ff", sport: "#c6a6ff" };
+  const names = { task: "Задачи", sale: "Продажи", sport: "Тренировки" };
+  const storageKey = "personal-os-supabase-project-url";
+  const $ = (id) => document.getElementById(id);
+  const mondayOf = (date) => {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  };
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const monday = mondayOf(new Date());
   const week = ymd(monday);
-  const blank = () => ({week,mode:'real',targets:{task:15,sale:3,sport:3},values:{task:Array(7).fill(0),sale:Array(7).fill(0),sport:Array(7).fill(0)}});
-  const example = () => ({week,mode:'demo',targets:{task:15,sale:3,sport:3},values:{task:[2,1,3,1,2,1,0],sale:[0,0,1,0,1,0,0],sport:[1,0,0,1,0,1,0]}});
-  let state;
-  try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE));
-    state = stored && stored.week === week && stored.values && kinds.every(k => Array.isArray(stored.values[k]) && stored.values[k].length === 7) ? stored : (stored ? blank() : example());
-  } catch { state = example(); }
-  let view = 'task';
-  const save = () => { try { localStorage.setItem(STORAGE,JSON.stringify(state)); } catch(e) { console.warn('Storage unavailable',e); } };
-  save();
-  const count = kind => state.values[kind].reduce((a,b)=>a+b,0);
-  const dayIndex = () => (new Date().getDay()+6)%7;
-  const formatDay = d => d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
-  const sunday = new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+6);
-  $('weekLabel').textContent = `📆 ${formatDay(monday)} — ${formatDay(sunday)}`;
+  const blank = () => ({
+    targets: {task: 15, sale: 3, sport: 3},
+    values: {task: Array(7).fill(0), sale: Array(7).fill(0), sport: Array(7).fill(0)}
+  });
+  const formatDay = (date) => date.toLocaleDateString("ru-RU", {day: "numeric", month: "short"});
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate()+6);
+
+  let state = blank();
+  let view = "task";
+  let apiRoot = localStorage.getItem(storageKey) || "";
+  let connected = false;
+  let busy = false;
+
+  $("weekLabel").textContent = `📆 ${formatDay(monday)} — ${formatDay(sunday)}`;
+  $("apiUrlInput").value = apiRoot;
+
+  function normalizeProjectURL(input) {
+    let url;
+    try { url = new URL(input.trim()); }
+    catch { throw new Error("Вставь адрес в формате https://xxxx.supabase.co"); }
+    if (url.protocol !== "https:" || !/^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname)
+        || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash) {
+      throw new Error("Нужен именно Project URL вида https://xxxx.supabase.co");
+    }
+    return url.origin;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    document.querySelectorAll(".ctrl, #resetWeek, #connectButton").forEach((element) => {
+      element.disabled = busy || (!connected && element.id !== "connectButton");
+    });
+  }
+
+  function showConnect(message) {
+    $("connectBanner").hidden = false;
+    $("connectionText").textContent = message;
+    $("connectedLabel").textContent = "Нет подключения к облаку";
+  }
+
+  function hideConnect() {
+    $("connectBanner").hidden = true;
+    $("connectedLabel").textContent = "☁️ Данные сохраняются в Supabase";
+  }
+
+  async function cloudRequest(action, details = {}) {
+    if (!apiRoot) throw new Error("Сначала укажи Project URL из Supabase.");
+    if (!telegram?.initData) throw new Error("Открой дашборд через кнопку бота в Telegram (не напрямую в браузере).");
+    const response = await fetch(`${apiRoot}/functions/v1/dashboard`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, initData: telegram.initData, week, ...details }),
+    });
+    let result = {};
+    try { result = await response.json(); } catch (_) {}
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || `Ошибка соединения: HTTP ${response.status}`);
+    }
+    return result;
+  }
+
+  function applyDays(rows) {
+    state = blank();
+    const first = Date.parse(week + "T00:00:00Z");
+    for (const row of rows) {
+      const current = Date.parse(String(row.day) + "T00:00:00Z");
+      const dayIndex = Math.round((current-first)/86400000);
+      if (dayIndex >= 0 && dayIndex < 7) {
+        state.values.task[dayIndex] = Math.max(0, Number(row.tasks) || 0);
+        state.values.sale[dayIndex] = Math.max(0, Number(row.sales) || 0);
+        state.values.sport[dayIndex] = Math.max(0, Number(row.workouts) || 0);
+      }
+    }
+    render();
+  }
+
+  async function connect() {
+    if (!apiRoot) { showConnect("Укажи Project URL из Supabase и нажми «Подключить». "); return; }
+    if (!telegram?.initData) {
+      showConnect("Открой приложение кнопкой в своём Telegram-боте. В обычном браузере Telegram не передаёт данные для входа.");
+      return;
+    }
+    setBusy(true);
+    $("connectedLabel").textContent = "Подключаемся к Supabase…";
+    try {
+      const result = await cloudRequest("read");
+      connected = true;
+      applyDays(result.days || []);
+      hideConnect();
+      setBusy(false);
+    } catch (error) {
+      connected = false;
+      showConnect(error.message || "Не удалось подключиться к облаку.");
+      setBusy(false);
+    }
+  }
+
   function chart() {
     const values = state.values[view];
     const color = palette[view];
-    const left=58,right=615,top=28,bottom=221;
-    const maximum = Math.max(3,Math.ceil(Math.max(...values)/2)*2+1);
-    const x=i=> left+(right-left)*i/6;
-    const y=v=> bottom-(v/maximum)*(bottom-top);
-    let grid = '', labels = '';
-    for(let i=0;i<4;i++) {
-      const v=Math.round(maximum*i/3);
-      const gy=y(maximum*i/3);
+    const left = 58, right = 615, top = 28, bottom = 221;
+    const maximum = Math.max(3, Math.ceil(Math.max(...values)/2)*2+1);
+    const x = (i) => left + (right-left)*i/6;
+    const y = (v) => bottom - (v/maximum)*(bottom-top);
+    let grid = "", labels = "";
+    for(let i=0; i<4; i++) {
+      const v = Math.round(maximum*i/3);
+      const gy = y(maximum*i/3);
       grid += `<line class="chart-grid" x1="${left}" y1="${gy}" x2="${right}" y2="${gy}"/>`;
       labels += `<text x="${left-16}" y="${gy+5}" text-anchor="end">${v}</text>`;
     }
-    for(let i=0;i<7;i++) labels += `<text x="${x(i)}" y="${bottom+32}" text-anchor="middle">${days[i]}</text>`;
-    const points = values.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
-    const path = `M ${x(0)} ${bottom} L ${values.map((v,i)=>`${x(i)} ${y(v)}`).join(' L ')} L ${x(6)} ${bottom} Z`;
-    const dots = values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${i===dayIndex()?7:5}" fill="${color}" stroke="#142237" stroke-width="3"/>`).join('');
-    $('chartGrid').innerHTML=grid;
-    $('chartLabels').innerHTML=labels;
-    $('chartSeries').innerHTML=`<path d="${path}" fill="url(#fillArea)"/><polyline points="${points}" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>${dots}`;
-    document.querySelector('#fillArea stop').setAttribute('stop-color',color);
-    $('legendDot').style.background=color;
-    $('legendLabel').textContent=`${names[view]} за день`;
+    for(let i=0; i<7; i++) labels += `<text x="${x(i)}" y="${bottom+32}" text-anchor="middle">${days[i]}</text>`;
+    const points = values.map((v,i) => `${x(i)},${y(v)}`).join(" ");
+    const path = `M ${x(0)} ${bottom} L ${values.map((v,i) => `${x(i)} ${y(v)}`).join(" L ")} L ${x(6)} ${bottom} Z`;
+    const currentDayIndex = (new Date().getDay()+6)%7;
+    const dots = values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${i===currentDayIndex?7:5}" fill="${color}" stroke="#142237" stroke-width="3"/>`).join("");
+    $("chartGrid").innerHTML = grid;
+    $("chartLabels").innerHTML = labels;
+    $("chartSeries").innerHTML = `<path d="${path}" fill="url(#fillArea)"/><polyline points="${points}" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>${dots}`;
+    document.querySelector("#fillArea stop").setAttribute("stop-color", color);
+    $("legendDot").style.background = color;
+    $("legendLabel").textContent = `${names[view]} за день`;
   }
+
   function render() {
-    $('demoBanner').hidden=state.mode!=='demo';
-    for(const k of kinds) {
-      const n=count(k), t=state.targets[k];
-      $(k+'Value').textContent=n;
-      $(k+'Target').textContent='/ '+t;
-      $(k+'Progress').style.width=Math.min(100,n/t*100)+'%';
+    for (const kind of kinds) {
+      const count = state.values[kind].reduce((a,b) => a+b, 0);
+      const target = state.targets[kind];
+      $(kind+"Value").textContent = count;
+      $(kind+"Target").textContent = `/ ${target}`;
+      $(kind+"Progress").style.width = Math.min(100, count/target*100)+"%";
     }
-    const progress=kinds.reduce((sum,k)=>sum+Math.min(1,count(k)/state.targets[k]),0)/3;
-    $('percentAll').textContent=Math.round(100*progress)+'%';
-    const daysDone = days.filter((_,i)=>kinds.some(k=>state.values[k][i]>0)).length;
-    $('activeDays').textContent=daysDone+'/7';
+    const progress = kinds.reduce((sum,kind)=>{
+      const count = state.values[kind].reduce((a,b) => a+b, 0);
+      return sum + Math.min(1, count/state.targets[kind]);
+    },0)/3;
+    $("percentAll").textContent = Math.round(100*progress)+"%";
+    $("activeDays").textContent = days.filter((_,index)=>kinds.some((kind)=>state.values[kind][index]>0)).length+"/7";
     chart();
   }
-  function ensureReal() {
-    if(state.mode==='demo') {
-      const ok=confirm('Сейчас показаны примерные данные. Начать личный учёт с нуля?');
-      if(!ok) return false;
-      state=blank(); save();
+
+  $("connectButton").addEventListener("click", async () => {
+    try {
+      apiRoot = normalizeProjectURL($("apiUrlInput").value);
+      localStorage.setItem(storageKey, apiRoot);
+      await connect();
+    } catch(error) { showConnect(error.message || "Проверь адрес базы."); }
+  });
+
+  document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", async () => {
+    if (busy || !connected) return;
+    setBusy(true);
+    try {
+      const kind = button.closest("[data-kind]").dataset.kind;
+      const delta = button.dataset.action === "plus" ? 1 : -1;
+      const result = await cloudRequest("adjust", {kind, delta, day: ymd(new Date())});
+      applyDays(result.days || []);
+      try { telegram?.HapticFeedback?.impactOccurred("light"); } catch (_) {}
+    } catch (error) {
+      connected = false;
+      showConnect(error.message || "Не удалось сохранить изменения.");
     }
-    return true;
-  }
-  document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{
-    if(!ensureReal()) return;
-    const kind=button.closest('[data-kind]').dataset.kind;
-    const i=dayIndex();
-    if(button.dataset.action==='plus') state.values[kind][i]++;
-    else if(state.values[kind][i]>0) state.values[kind][i]--;
-    save();render();
-    try { telegram?.HapticFeedback?.impactOccurred('light'); } catch(e) {}
+    setBusy(false);
   }));
-  document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
-    view=button.dataset.view;
-    document.querySelectorAll('[data-view]').forEach(el=>{
-      const active=el===button;
-      el.classList.toggle('active',active);
-      el.setAttribute('aria-selected',active?'true':'false');
+
+  document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => {
+    view = button.dataset.view;
+    document.querySelectorAll("[data-view]").forEach((element) => {
+      const active = element === button;
+      element.classList.toggle("active", active);
+      element.setAttribute("aria-selected", active ? "true" : "false");
     });
     chart();
   }));
-  $('startReal').addEventListener('click',()=>{state=blank();save();render();});
-  $('resetWeek').addEventListener('click',()=>{
-    if(confirm('Обнулить все результаты текущей недели?')) {state=blank();save();render();}
+
+  $("resetWeek").addEventListener("click", async () => {
+    if (!connected || busy || !confirm("Удалить все записи текущей недели из облачной базы?")) return;
+    setBusy(true);
+    try {
+      const result = await cloudRequest("reset");
+      applyDays(result.days || []);
+    } catch(error) {
+      connected = false;
+      showConnect(error.message || "Не удалось сбросить неделю.");
+    }
+    setBusy(false);
   });
+
+  $("changeDB").addEventListener("click", () => {
+    $("apiUrlInput").value = apiRoot;
+    showConnect("Здесь можно изменить адрес проекта Supabase. Старые данные в базе не удаляются.");
+  });
+
   render();
+  setBusy(false);
+  connect();
 })();
 </script>
 </body>
