@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a1020">
-  <title>Мой дашборд — Telegram Mini App</title>
+  <title>Personal OS 3.0 — история и аналитика</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root { color-scheme: dark; --bg:#0a1020; --card:#111b2d; --line:#24314b; --text:#f2f6ff; --muted:#94a3ba; --green:#91f5bd; --blue:#88b9ff; --purple:#c6a6ff; }
@@ -68,6 +68,42 @@
     .connection-help { margin-bottom:0 !important; }
     button:disabled { opacity:.45; cursor:not-allowed; }
     .text-link { border:0; color:#a0b8d6; background:none; font:inherit; text-decoration:underline; cursor:pointer; }
+  
+    /* Personal OS 3.0: navigation, history, and week-to-week comparison */
+    [hidden] { display:none !important; }
+    .week-nav { display:flex; align-items:center; gap:10px; margin:0 0 8px; }
+    .week-center { display:flex; flex:1; flex-direction:column; align-items:center; gap:3px; min-width:0; }
+    .week-center .date-pill { margin:0; justify-content:center; font-size:13px; width:100%; max-width:278px; }
+    .week-mode { font-size:11px; color:var(--muted); }
+    .week-arrow { border:1px solid #314460; background:#142039; color:var(--text); width:43px; height:43px; border-radius:15px; font-size:25px; cursor:pointer; flex:none; }
+    .week-arrow:disabled { opacity:.32; cursor:not-allowed; }
+    .back-today { display:block; margin:2px auto 20px; border:0; background:none; color:var(--green); font-size:12px; font-weight:650; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+    .week-nav-wrap { margin:0 0 20px; }
+    .archive-note { font-size:11px; color:#bfcee6; background:#17263d; border:1px solid #314460; border-radius:11px; padding:11px 12px; margin:0 0 16px; line-height:1.5; }
+    .comparison { border:1px solid #283951; background:#101a2b; border-radius:21px; padding:17px 13px; margin:20px 0 0; }
+    .comparison-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .comparison-head h2 { font-size:16px; margin:0; }
+    .compare-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+    .compare-cell { background:#17243a; border:1px solid #293d59; border-radius:13px; padding:11px 8px; text-align:center; }
+    .compare-label { color:#a9bdd7; font-size:11px; white-space:nowrap; }
+    .compare-diff { font-size:21px; font-weight:800; margin:6px 0 2px; }
+    .compare-diff.positive { color:#91f5bd; }
+    .compare-diff.negative { color:#f6a6a6; }
+    .compare-diff.neutral { color:#d0d9e7; }
+    .compare-context { font-size:10px; color:#8da2bc; }
+    .compare-help { margin:11px 0 0; font-size:11px; color:var(--muted); line-height:1.45; }
+    .daily-card { border:1px solid #273952; background:#101a2b; border-radius:21px; padding:17px 13px; margin:18px 0 23px; }
+    .daily-card h2 { margin:0 0 7px; font-size:16px; }
+    .day-table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+    .day-table th { text-align:center; color:#8da2bc; font-size:12px; padding:10px 3px; font-weight:600; }
+    .day-table th:first-child, .day-table td:first-child { text-align:left; }
+    .day-table td { padding:10px 3px; text-align:center; border-top:1px solid #26334a; color:#dce7f8; }
+    .day-table td:first-child { color:#c0d0e7; }
+    .day-table tr.today-row td:first-child { color:var(--green); font-weight:800; }
+    .day-table tr.future-row td { opacity:.38; }
+    .day-table tfoot td { font-weight:800; color:#f4f7ff; border-top:1px solid #39506e; }
+    .daily-tip { font-size:11px; color:var(--muted); line-height:1.45; margin:10px 0 0; }
+
   </style>
 </head>
 <body>
@@ -76,7 +112,15 @@
     <div><div class="eyebrow">PERSONAL OS</div><h1>Мой дашборд</h1><div class="subtitle">Результат важнее мотивации</div></div>
     <div class="avatar" aria-hidden="true">⚡</div>
   </div>
-  <div id="weekLabel" class="date-pill">📆 Загрузка...</div>
+    <div class="week-nav-wrap" aria-label="Выбор недели">
+    <div class="week-nav">
+      <button id="prevWeek" class="week-arrow" type="button" aria-label="Предыдущая неделя">‹</button>
+      <div class="week-center"><div id="weekLabel" class="date-pill">📆 Загрузка...</div><div id="weekMode" class="week-mode">Текущая неделя</div></div>
+      <button id="nextWeek" class="week-arrow" type="button" aria-label="Следующая неделя">›</button>
+    </div>
+    <button id="todayWeek" class="back-today" type="button" hidden>Вернуться к текущей неделе</button>
+  </div>
+  <div id="archiveNote" class="archive-note" hidden>📚 Просмотр истории. Изменять показатели можно только за текущую неделю — для этого вернись к ней.</div>
   <section id="connectBanner" class="demo-banner" hidden>
     <strong>⚠️ Не удалось синхронизировать</strong>
     <p id="connectionText" role="alert">Проверяем вход через Telegram…</p>
@@ -90,8 +134,8 @@
     <article class="metric" data-kind="sport"><div class="metric-top"><span>Спорт</span><span class="metric-icon">💪</span></div><div class="metric-num"><b id="sportValue">0</b> <span id="sportTarget">/ 3</span></div><div class="progress"><div id="sportProgress"></div></div><div class="metric-controls"><button class="ctrl" data-action="minus" aria-label="Уменьшить количество тренировок">−</button><button class="ctrl plus" data-action="plus" aria-label="Добавить тренировку">+</button></div></article>
   </section>
   <section class="chart-card" aria-label="График результатов">
-    <div class="card-head"><h2>Динамика за 7 дней</h2><span class="pill">WEEKLY</span></div>
-    <div class="tiny">Твои результаты с понедельника по воскресенье</div>
+    <div class="card-head"><h2>Динамика выбранной недели</h2><span class="pill">WEEKLY</span></div>
+    <div class="tiny">Твои результаты за выбранную неделю</div>
     <div class="tabs" role="tablist" aria-label="Выбрать показатель">
       <button class="tab active" data-view="task" role="tab" aria-selected="true">Задачи</button>
       <button class="tab" data-view="sale" role="tab" aria-selected="false">Продажи</button>
@@ -104,12 +148,30 @@
     <div class="legend"><span class="legend-dot" id="legendDot"></span><span id="legendLabel">Выполнено за день</span></div>
   </section>
   <section class="insights" aria-label="Итоги">
-    <div class="insight"><div class="insight-value" id="percentAll">0%</div><div class="insight-label">Общий прогресс по трём целям</div></div>
+    <div class="insight"><div class="insight-value" id="percentAll">0%</div><div class="insight-label">Прогресс по трём целям за неделю</div></div>
     <div class="insight"><div class="insight-value" id="activeDays">0/7</div><div class="insight-label">Дней с результатами на неделе</div></div>
   </section>
+  <section class="comparison" aria-label="Сравнение с прошлой неделей">
+    <div class="comparison-head"><h2>К прошлой неделе</h2><span class="tiny">Разница в результатах</span></div>
+    <div class="compare-grid">
+      <div class="compare-cell"><div class="compare-label">✅ Задачи</div><div id="taskDiff" class="compare-diff neutral">—</div><div id="taskBefore" class="compare-context">Было 0</div></div>
+      <div class="compare-cell"><div class="compare-label">💰 Продажи</div><div id="saleDiff" class="compare-diff neutral">—</div><div id="saleBefore" class="compare-context">Было 0</div></div>
+      <div class="compare-cell"><div class="compare-label">💪 Спорт</div><div id="sportDiff" class="compare-diff neutral">—</div><div id="sportBefore" class="compare-context">Было 0</div></div>
+    </div>
+    <p class="compare-help">Сравниваем выбранную неделю (пн–вс) с предыдущей. Для текущей недели сравнение предварительное.</p>
+  </section>
+  <section class="daily-card" aria-label="История показателей по дням">
+    <h2>История по дням</h2>
+    <table class="day-table">
+      <thead><tr><th scope="col">День</th><th scope="col" aria-label="Задачи">✅</th><th scope="col" aria-label="Продажи">💰</th><th scope="col" aria-label="Тренировки">💪</th></tr></thead>
+      <tbody id="dailyRows"></tbody>
+      <tfoot><tr><td>Итого</td><td id="dailyTasks">0</td><td id="dailySales">0</td><td id="dailySports">0</td></tr></tfoot>
+    </table>
+    <p class="daily-tip">Данные берутся из Supabase. Нажатия +/− записываются в сегодняшний день текущей недели.</p>
+  </section>
   <div class="footer"><span class="tiny" id="connectedLabel">Подключаем облако…</span><button id="resetWeek" type="button">Сбросить неделю</button></div>
-  <div class="hint"><strong>Как это работает:</strong> открывай через Telegram и нажимай + после завершения действия. Изменения сохраняются в Supabase и доступны на других устройствах.</div>
-  <p class="footnote">Personal OS 2.1 · Вход через Telegram автоматический. Личные данные хранятся в Supabase, а не в памяти телефона. Токен бота остаётся только на сервере.</p>
+  <div class="hint"><strong>Как это работает:</strong> отмечай действия кнопками +/−, перелистывай прошлые недели и сравнивай результаты. Всё сохраняется в Supabase и доступно на всех устройствах.</div>
+  <p class="footnote">Personal OS 3.0 · Вход через Telegram автоматический. Личные данные хранятся в Supabase, а не в памяти телефона. Токен бота остаётся только на сервере.</p>
 </main>
 <script>
 (() => {
@@ -137,26 +199,38 @@
     return d;
   };
   const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  const monday = mondayOf(new Date());
-  const week = ymd(monday);
+  const addDays = (date, number) => new Date(date.getFullYear(), date.getMonth(), date.getDate()+number);
+  const today = () => ymd(new Date());
+  const thisMonday = () => mondayOf(new Date());
+  let selectedMonday = thisMonday();
+  let week = ymd(selectedMonday);
+  const isCurrentWeek = () => week === ymd(thisMonday());
+  const zeroTotals = () => ({task:0, sale:0, sport:0});
   const blank = () => ({
     targets: {task: 15, sale: 3, sport: 3},
     values: {task: Array(7).fill(0), sale: Array(7).fill(0), sport: Array(7).fill(0)}
   });
   const formatDay = (date) => date.toLocaleDateString("ru-RU", {day: "numeric", month: "short"});
-  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate()+6);
-
   let state = blank();
+  let previousTotals = zeroTotals();
   let view = "task";
   let connected = false;
   let busy = false;
 
-  $("weekLabel").textContent = `📆 ${formatDay(monday)} — ${formatDay(sunday)}`;
+  function header() {
+    $("weekLabel").textContent = `📆 ${formatDay(selectedMonday)} — ${formatDay(addDays(selectedMonday,6))}`;
+    $("weekMode").textContent = isCurrentWeek() ? "Текущая неделя" : "Архив результатов";
+    $("archiveNote").hidden = isCurrentWeek();
+    $("todayWeek").hidden = isCurrentWeek();
+  }
 
   function setBusy(value) {
     busy = value;
-    document.querySelectorAll(".ctrl, #resetWeek, #connectButton").forEach((element) => {
-      element.disabled = busy || (!connected && element.id !== "connectButton");
+    document.querySelectorAll(".ctrl, #resetWeek, #connectButton, #prevWeek, #nextWeek, #todayWeek").forEach((element) => {
+      if (element.id === "connectButton") element.disabled = busy;
+      else if (element.id === "prevWeek") element.disabled = busy || !connected;
+      else if (element.id === "nextWeek" || element.id === "todayWeek") element.disabled = busy || !connected || isCurrentWeek();
+      else element.disabled = busy || !connected || !isCurrentWeek();
     });
   }
 
@@ -204,22 +278,39 @@
     render();
   }
 
+  function sumRows(rows) {
+    const sums = zeroTotals();
+    for (const row of rows) {
+      sums.task += Math.max(0, Number(row.tasks) || 0);
+      sums.sale += Math.max(0, Number(row.sales) || 0);
+      sums.sport += Math.max(0, Number(row.workouts) || 0);
+    }
+    return sums;
+  }
+
   async function connect() {
+    header();
     if (!telegram?.initData) {
+      connected = false;
       showConnect("Открой приложение кнопкой в своём Telegram-боте. В обычном браузере Telegram не передаёт данные для входа.");
+      setBusy(false);
       return;
     }
     setBusy(true);
-    $("connectedLabel").textContent = "Подключаемся к Supabase…";
+    $("connectedLabel").textContent = "Загружаем историю из Supabase…";
     try {
-      const result = await cloudRequest("read");
+      const previousWeek = ymd(addDays(selectedMonday,-7));
+      const [current, previous] = await Promise.all([
+        cloudRequest("read"), cloudRequest("read", {week: previousWeek})
+      ]);
+      previousTotals = sumRows(previous.days || []);
       connected = true;
-      applyDays(result.days || []);
-      hideConnect(result.user);
-      setBusy(false);
+      applyDays(current.days || []);
+      hideConnect(current.user);
     } catch (error) {
       connected = false;
-      showConnect(error.message || "Не удалось подключиться к облаку.");
+      showConnect(error.message || "Не удалось загрузить статистику.");
+    } finally {
       setBusy(false);
     }
   }
@@ -241,7 +332,7 @@
     for(let i=0; i<7; i++) labels += `<text x="${x(i)}" y="${bottom+32}" text-anchor="middle">${days[i]}</text>`;
     const points = values.map((v,i) => `${x(i)},${y(v)}`).join(" ");
     const path = `M ${x(0)} ${bottom} L ${values.map((v,i) => `${x(i)} ${y(v)}`).join(" L ")} L ${x(6)} ${bottom} Z`;
-    const currentDayIndex = (new Date().getDay()+6)%7;
+    const currentDayIndex = isCurrentWeek() ? (new Date().getDay()+6)%7 : -1;
     const dots = values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${i===currentDayIndex?7:5}" fill="${color}" stroke="#142237" stroke-width="3"/>`).join("");
     $("chartGrid").innerHTML = grid;
     $("chartLabels").innerHTML = labels;
@@ -249,6 +340,42 @@
     document.querySelector("#fillArea stop").setAttribute("stop-color", color);
     $("legendDot").style.background = color;
     $("legendLabel").textContent = `${names[view]} за день`;
+  }
+
+  function total(kind) { return state.values[kind].reduce((a,b) => a+b,0); }
+
+  function renderComparison() {
+    for (const kind of kinds) {
+      const diff = total(kind) - previousTotals[kind];
+      const target = $(kind+"Diff");
+      target.textContent = diff > 0 ? `+${diff}` : String(diff);
+      target.className = `compare-diff ${diff>0 ? "positive" : diff<0 ? "negative" : "neutral"}`;
+      $(kind+"Before").textContent = `Было ${previousTotals[kind]}`;
+    }
+  }
+
+  function renderDailyHistory() {
+    const tbody = $("dailyRows");
+    tbody.replaceChildren();
+    for (let i=0; i<7; i++) {
+      const date = addDays(selectedMonday,i);
+      const dateStr = ymd(date);
+      const row = document.createElement("tr");
+      if (dateStr === today()) row.className = "today-row";
+      else if (isCurrentWeek() && dateStr > today()) row.className = "future-row";
+      const label = document.createElement("td");
+      label.textContent = `${days[i]} · ${formatDay(date)}`;
+      row.append(label);
+      for (const kind of kinds) {
+        const cell = document.createElement("td");
+        cell.textContent = String(state.values[kind][i]);
+        row.append(cell);
+      }
+      tbody.append(row);
+    }
+    $("dailyTasks").textContent = total("task");
+    $("dailySales").textContent = total("sale");
+    $("dailySports").textContent = total("sport");
   }
 
   function render() {
@@ -265,18 +392,42 @@
     },0)/3;
     $("percentAll").textContent = Math.round(100*progress)+"%";
     $("activeDays").textContent = days.filter((_,index)=>kinds.some((kind)=>state.values[kind][index]>0)).length+"/7";
+    renderComparison();
+    renderDailyHistory();
     chart();
   }
 
+  async function navigateWeek(delta) {
+    if (!connected || busy || (delta > 0 && isCurrentWeek())) return;
+    selectedMonday = addDays(selectedMonday,7*delta);
+    week = ymd(selectedMonday);
+    state = blank();
+    previousTotals = zeroTotals();
+    header();
+    render();
+    await connect();
+  }
+  $("prevWeek").addEventListener("click", () => navigateWeek(-1));
+  $("nextWeek").addEventListener("click", () => navigateWeek(1));
+  $("todayWeek").addEventListener("click", async () => {
+    if (!connected || busy || isCurrentWeek()) return;
+    selectedMonday = thisMonday();
+    week = ymd(selectedMonday);
+    state = blank();
+    previousTotals = zeroTotals();
+    header();
+    render();
+    await connect();
+  });
   $("connectButton").addEventListener("click", connect);
 
   document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", async () => {
-    if (busy || !connected) return;
+    if (busy || !connected || !isCurrentWeek()) return;
     setBusy(true);
     try {
       const kind = button.closest("[data-kind]").dataset.kind;
       const delta = button.dataset.action === "plus" ? 1 : -1;
-      const result = await cloudRequest("adjust", {kind, delta, day: ymd(new Date())});
+      const result = await cloudRequest("adjust", {kind, delta, day: today()});
       applyDays(result.days || []);
       try { telegram?.HapticFeedback?.impactOccurred("light"); } catch (_) {}
     } catch (error) {
@@ -297,7 +448,7 @@
   }));
 
   $("resetWeek").addEventListener("click", async () => {
-    if (!connected || busy || !confirm("Удалить все записи текущей недели из облачной базы?")) return;
+    if (!connected || busy || !isCurrentWeek() || !confirm("Удалить все записи текущей недели из облачной базы?")) return;
     setBusy(true);
     try {
       const result = await cloudRequest("reset");
@@ -309,9 +460,14 @@
     setBusy(false);
   });
 
+  header();
   render();
   setBusy(false);
   connect(); // Auto-login on every launch; no localStorage needed.
+  // If the user returns from another app/device, get the latest cloud data.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && connected && !busy) connect();
+  });
 
 })();
 </script>
