@@ -174,3 +174,9 @@
 .glass-card:has(.task-popover){z-index:50}
 .task-row:has(.task-popover){z-index:51;isolation:isolate}
 .modal-backdrop{z-index:1000}
+
+/* 6.7.2: accessible workspace disclosure without remounting the page editor. */
+.mvp-pages-toggle{margin-top:25px;padding:12px 4px;min-height:44px;display:flex;align-items:center;border:0;border-top:1px solid #e5e8f3;background:transparent;color:#686d85;font:inherit;font-size:13px;font-weight:650;cursor:pointer;text-align:left}
+.mvp-pages-toggle:focus-visible{outline:2px solid #6658d9;outline-offset:2px}
+.mvp-advanced-pages[hidden]{display:none}
+.mvp-advanced-pages{margin-top:0}

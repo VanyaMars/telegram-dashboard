@@ -14,7 +14,7 @@ const currencySymbol=(c:string)=>({RUB:'₽',USD:'$',EUR:'€'} as Record<string
 type WindowSize=7|30|90;
 const keys:[WindowSize,string][]=[[7,'7 дней'],[30,'Месяц'],[90,'90 дней']];
 export function MvpAnalyticsPage(){
- const {today,goals,os6,metrics,open,demo,buffer,categories}=useApp();const {goals:regularGoals,goalStats}=useRegularGoals();
+ const {today,goals,os6,metrics,open,demo,buffer,tasks,categories}=useApp();const {goals:regularGoals,goalStats}=useRegularGoals();
  const [period,setPeriod]=useState<WindowSize>(30),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const [days,setDays]=useState<Record<string,DayMetrics>>(metrics),[income,setIncome]=useState<IncomeSummary>({totals:{},daily:{},count:0});
  const [goalLinks,setGoalLinks]=useState<Record<string,{total:number;done:number}>>({});
@@ -41,6 +41,8 @@ export function MvpAnalyticsPage(){
  const challenges=os6.challenges.map(c=>({id:c.id,title:c.title,target:c.target_days,days:os6.challengeDays.filter(d=>d.challenge_id===c.id).length}));
  const focusSessions=os6.focus.filter(f=>f.state==='finished'&&f.finished_at&&f.finished_at.slice(0,10)>=start&&f.finished_at.slice(0,10)<=today);const focusTotal=focusSessions.reduce((n,f)=>n+Math.max(0,Math.round(f.accumulated_seconds/60)),0);
  const focusByTask=Object.entries(focusSessions.reduce((a,f)=>{const k=f.task_id||'none';a[k]=(a[k]||0)+Math.max(0,Math.round(f.accumulated_seconds/60));return a},{} as Record<string,number>)).sort((a,b)=>b[1]-a[1]);
+  const focusTaskNames=new Map([...tasks,...buffer].map(task=>[task.id,task.title]));
+  const focusTitle=(taskId:string)=>taskId==='none'?'Без привязки':focusTaskNames.get(taskId)||focusSessions.find(session=>session.task_id===taskId)?.title?.trim()||'Удалённая задача';
  const earnedEntries=Object.entries(income.totals).sort(([a],[b])=>a.localeCompare(b));
  const backlog=categories.map(c=>({id:c.id,name:c.name,color:c.color,count:buffer.filter(t=>t.os61_category_id===c.id||t.sphere===c.name).length})).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
  const untagged=buffer.length-backlog.reduce((v,c)=>v+c.count,0);
@@ -68,7 +70,7 @@ export function MvpAnalyticsPage(){
   <Card><div className="card-title-row"><div><span className="eyebrow">ЛИЧНЫЕ ВЫЗОВЫ</span><h2>Прогресс вызовов</h2></div><button className="btn text" onClick={()=>open('challenges')}>Все вызовы <Icon name="right" size={16}/></button></div>
    {!challenges.length?<p className="mvp-muted">Пока нет активных вызовов. Можно начать с небольшого ежедневного действия.</p>:<div className="mvp-challenge-grid">{challenges.map(c=><div key={c.id} className="mvp-challenge"><div><strong>{c.title}</strong><span>{c.days}/{c.target} дней</span></div><ProgressBar value={progress(c.days,c.target)}/></div>)}</div>}
   </Card>
-  <Card><SectionHead title="Фокус по задачам" caption={`${focusTotal} минут завершённых сессий за выбранный период`}/><div className="mvp-focus-layout"><div className="mvp-focus-ring" style={{background:`conic-gradient(#8b84ed ${focusTotal?Math.min(100,focusByTask[0]?.[1]/focusTotal*100):0}%, #e9e9f5 0)`}}><div><strong><MotionNumber value={focusTotal}/></strong><small>мин</small></div></div><div className="mvp-focus-tasks">{focusByTask.slice(0,6).map(([taskId,mins])=><div key={taskId}><span>{taskId==='none'?'Без привязки':([ ...buffer].find(t=>t.id===taskId)?.title||'Задача')}</span><strong>{mins} мин</strong></div>)}{!focusTotal&&<p className="mvp-muted">Начни фокус-сессию на странице задачи, чтобы отслеживать время.</p>}</div></div></Card>
+  <Card><SectionHead title="Фокус по задачам" caption={`${focusTotal} минут завершённых сессий за выбранный период`}/><div className="mvp-focus-layout"><div className="mvp-focus-ring" style={{background:`conic-gradient(#8b84ed ${focusTotal?Math.min(100,focusByTask[0]?.[1]/focusTotal*100):0}%, #e9e9f5 0)`}}><div><strong><MotionNumber value={focusTotal}/></strong><small>мин</small></div></div><div className="mvp-focus-tasks">{focusByTask.slice(0,6).map(([taskId,mins])=><div key={taskId}><span>{focusTitle(taskId)}</span><strong>{mins} мин</strong></div>)}{!focusTotal&&<p className="mvp-muted">Начни фокус-сессию на странице задачи, чтобы отслеживать время.</p>}</div></div></Card>
   <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Если у обычной цели есть связанные задачи, её процент рассчитывается автоматически. Для остальных сохраняется ручной прогресс. Историю из одного значения не строим.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=><div key={g.id}><span>{g.title}{goalLinks[g.id]?.total?` · ${goalLinks[g.id].done}/${goalLinks[g.id].total} связанных задач`:''}</span><strong>{goalEvidence(g,goalStats).progress}%</strong><ProgressBar value={goalEvidence(g,goalStats).progress}/><small>{goalEvidence(g,goalStats).description}</small></div>)}</div><button className="btn text" onClick={()=>open('goals')}>Управлять целями <Icon name="right" size={16}/></button></Card>
  </div>;
 }
