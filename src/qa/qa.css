@@ -1,0 +1,18 @@
+/* Isolated QA environment: no production auth or browser storage shared with Telegram. */
+.qa-entry{min-height:100dvh;display:grid;place-items:center;padding:clamp(20px,4vw,42px);background:radial-gradient(circle at 85% 2%,#e5dfff,#f6f7fb 54%)}
+.qa-entry-card{width:min(100%,450px);padding:clamp(24px,5vw,43px);display:grid;gap:15px;background:rgba(255,255,255,.94);border:1px solid #e7e7f4;border-radius:26px;box-shadow:0 23px 60px rgba(73,75,130,.1)}
+.qa-entry-card .qa-eyebrow{font-size:10px;letter-spacing:.17em;color:#7d73d6;font-weight:800}
+.qa-entry-card h1{font-size:clamp(27px,4vw,36px);letter-spacing:-.9px;color:#293048}
+.qa-entry-card p{color:#7d8197;font-size:13px;line-height:1.65}
+.qa-entry-card label{font-weight:700;color:#494d69;font-size:13px;margin-top:9px}
+.qa-entry-card input{width:100%;padding:13px 15px;min-height:46px;border-radius:12px;border:1px solid #dadbef;background:#fafaff;font-size:15px}
+.qa-entry-card button{min-height:48px;border:0;border-radius:13px;background:linear-gradient(130deg,#9187ec,#7768d8);font-weight:750;color:white;box-shadow:0 9px 23px #8679d540}
+.qa-entry-card button:disabled{opacity:.5}
+.qa-entry-card small{color:#8f93a8;line-height:1.5;font-size:11px}
+.qa-root{min-width:0;--qa-banner-height:43px}
+.qa-banner{position:relative;z-index:90;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 12px;background:#eae7ff;color:#5447a6;padding:7px 16px;min-height:var(--qa-banner-height);font-size:12px;font-weight:700;border-bottom:1px solid #d8d3ff}
+.qa-banner-actions{display:flex;gap:8px;flex-wrap:wrap}
+.qa-banner button{min-height:28px;padding:5px 10px;border:1px solid #d2c9fa;border-radius:8px;background:#fff;color:#655acc;font-size:11px}
+.qa-root .app-sidebar{height:calc(100dvh - var(--qa-banner-height));top:0}
+.qa-root .app-shell{min-height:calc(100dvh - var(--qa-banner-height))}
+@media(max-width:700px){.qa-banner{font-size:11px;padding:7px 10px}.qa-root .app-sidebar{height:100dvh}}
