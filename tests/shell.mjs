@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+for(const file of ['src/App.tsx','src/pages/MvpAnalytics.tsx','src/lib/navigation.ts','src/types.ts']){
+ const script=ts.createSourceFile(file,read(file),ts.ScriptTarget.Latest,true,file.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);
+ assert.equal(script.parseDiagnostics.length,0,'Valid screen/route source: '+file);
+}
+const app=read('src/App.tsx'),an=read('src/pages/MvpAnalytics.tsx'),navigation=read('src/lib/navigation.ts');
+assert.match(app,/label:'Страницы'/);
+assert.match(app,/label:'Доходы'/);
+assert.match(app,/case 'income':return <MvpAnalyticsPage focusIncome\/>/);
+assert.match(app,/MoreBottomItem/);
+assert.match(app,/layoutId="os-bottom-active"/);
+assert.match(app,/mobilePrimary/);
+assert.match(navigation,/'income'/);
+assert.match(an,/getIncomeSummary/);
+assert.match(an,/focusIncome/);
+assert.match(an,/os-income-section/);
+assert.match(an,/доход учитывается по дате получения/i);
+assert.doesNotMatch(read('src/lib/api.ts'),/goals_target_v2/);
+console.log('6.8 Shell: Pages, Income, mobile More, analytics income source and legacy API separation OK');
