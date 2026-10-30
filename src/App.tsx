@@ -22,11 +22,10 @@ import './premium.css';
 import './shell.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
-const pageNav:{id:Tab;label:string;icon:string}={id:'workspace',label:'Страницы',icon:'folder'};
 const incomeNav:{id:Tab;label:string;icon:string}={id:'income',label:'Доходы',icon:'wallet'};
 const mobilePrimary=[primary[1],workspaceNav,primary[2]];
 const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Планирование',icon:'calendar-check'},{id:'focus',label:'Фокус-таймер',icon:'timer'},{id:'challenges',label:'Привычки',icon:'check-circle'},{id:'repeats',label:'Повторения',icon:'repeat'}];
-const appNames=Object.fromEntries([...primary,workspaceNav,pageNav,incomeNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
+const appNames=Object.fromEntries([...primary,workspaceNav,incomeNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
 function useRouteHash(){
  const [hash,setHash]=useState(()=>window.location.hash);
  useEffect(()=>{const onChange=()=>setHash(window.location.hash);window.addEventListener('hashchange',onChange);return()=>window.removeEventListener('hashchange',onChange)},[]);
@@ -36,7 +35,7 @@ function NavItem({id,label,icon,routeHash}:{id:Tab;label:string;icon:string;rout
  const {tab,open}=useApp();const reduced=useReducedMotion();
  const hash=routeHash??window.location.hash;
  const isPage=hash==='#/workspace'||hash.startsWith('#/page/');
- const active=id==='workspace'?isPage:id==='buffer'?tab==='buffer'&&!isPage:tab===id;
+ const active=id==='buffer'?(tab==='buffer'||isPage):tab===id;
  return <button className={'nav-link '+(active?'selected':'')} onClick={()=>open(id)}
   aria-current={active?'page':undefined}>
   {active&&<m.span layoutId="os-sidebar-selection" className="premium-nav-selection"
@@ -55,7 +54,6 @@ function Sidebar(){
     <span className="sidebar-section-label">ОСНОВНОЕ</span>
     {primary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
     <NavItem {...workspaceNav} routeHash={hash}/>
-    <NavItem {...pageNav} routeHash={hash}/>
     <NavItem {...incomeNav} routeHash={hash}/>
     <span className="sidebar-section-label">ИНСТРУМЕНТЫ</span>
     {secondary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
@@ -68,7 +66,7 @@ function Sidebar(){
  </>;
 }
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
-  const hash=useRouteHash();const mobileLabel=hash==='#/workspace'||hash.startsWith('#/page/')?'Страницы':appNames[tab]||'Personal OS';
+  const mobileLabel=appNames[tab]||'Personal OS';
   const qa=isQAMode();
   const cloud=qa?'refresh':status==='saved'?'cloud-check':status==='error'?'cloud-off':'cloud';
   return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
@@ -80,7 +78,7 @@ function BottomNav(){return <nav className="bottom-nav" aria-label="Основн
 function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){
   const{tab,open}=useApp();const reduced=useReducedMotion();const hash=useRouteHash();
   const inPages=hash==='#/workspace'||hash.startsWith('#/page/');
-  const active=id==='buffer'?tab==='buffer'&&!inPages:tab===id;
+  const active=id==='buffer'?(tab==='buffer'||inPages):tab===id;
  return <button className={active?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={active?'page':undefined}>
   {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active" aria-hidden="true"
    initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
@@ -88,8 +86,8 @@ function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){
  </button>;
 }
 function MoreBottomItem(){
-  const {tab,sidebar,setSidebar}=useApp();const reduced=useReducedMotion();const hash=useRouteHash();
-  const active=hash==='#/workspace'||hash.startsWith('#/page/')||!(['today','buffer','goals'] as Tab[]).includes(tab);
+  const {tab,sidebar,setSidebar}=useApp();const reduced=useReducedMotion();
+  const active=!(['today','buffer','goals'] as Tab[]).includes(tab);
  return <button className={active?'current':''} type="button" onClick={()=>setSidebar(true)}
   aria-label="Ещё" aria-expanded={sidebar}>
   {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active"

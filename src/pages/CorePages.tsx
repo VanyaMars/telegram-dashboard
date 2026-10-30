@@ -80,26 +80,17 @@ export function HomePage(){
 
 
 export function TodayPage(){
- const{day,setDay,today,tasks,buffer,saveTask,setEditor,open,mutate,os6}=useApp();
+ const{day,setDay,today,tasks,buffer,saveTask,setEditor,open}=useApp();
  const k=dayKpi(tasks),important=tasks.filter(t=>t.priority==='important'),extra=tasks.filter(t=>t.priority==='extra');
  const [expanded,setExpanded]=useState<Record<string,boolean>>({});
  const [bufferId,setBufferId]=useState(''),[bufferPriority,setBufferPriority]=useState<'important'|'extra'>('important');
  const [moving,setMoving]=useState(false),[pickerOpen,setPickerOpen]=useState(false),[moveError,setMoveError]=useState('');
- const [startingFocus,setStartingFocus]=useState(false);
- const pendingImportant=important.find(t=>!t.completed);
  const transfer=async()=>{
   const task=buffer.find(t=>t.id===bufferId);if(!task||moving)return;
   setMoving(true);setMoveError('');
   try{await saveTask({id:task.id,title:task.title,notes:task.notes,sphere:task.sphere,categoryId:task.os61_category_id||null,day,priority:bufferPriority});setBufferId('');setPickerOpen(false)}
   catch(e:any){setMoveError(e?.message||'Не удалось перенести задачу. Попробуй снова.')}
   finally{setMoving(false)}
- };
- const focus=async()=>{
-  if(!pendingImportant||startingFocus)return;
-  setStartingFocus(true);
-  try{await mutate('os6','focus',{command:'start',title:pendingImportant.title,task_id:pendingImportant.id});open('focus')}
-  catch{/* AppContext displays the persistent error status */}
-  finally{setStartingFocus(false)}
  };
  const group=(items:Task[],zone:'important'|'extra')=>{
   const pending=items.filter(t=>!t.completed),done=items.filter(t=>t.completed);
@@ -112,7 +103,6 @@ export function TodayPage(){
  return <div className="page-stack today-action-flow">
   <div className="page-heading"><div><p className="eyebrow">ПЛАН НА ДЕНЬ</p><h1>Сегодня</h1><p>{prettyDay(day)}</p></div><div className="date-chooser"><button onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button><input aria-label="Дата задач" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button></div></div>
   {day!==today&&<button className="pill-tab" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
-  {pendingImportant&&!os6.focus.some(f=>f.state!=='finished')&&<PremiumAction className="today-start-focus" pending={startingFocus} pendingText="Запускаем фокус…" onClick={()=>void focus()}><Icon name="play" size={18}/> Начать главное — фокус</PremiumAction>}
   {group(important,'important')}
   <div className="today-after-important">
    <Card className="today-summary today-summary--compact"><div className="today-numbers"><span className="eyebrow">РЕЗУЛЬТАТ ДНЯ</span><span className="status-pill">{k.important&&k.important===k.doneImportant?'Главное закрыто':'Фокус на главном'}</span></div>
