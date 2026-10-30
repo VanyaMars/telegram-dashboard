@@ -1,7 +1,9 @@
 import {initData} from './telegram';
+import {isQAMode,qaRequest} from '../qa/sandbox';
 export const SUPABASE_URL='https://lfhqzgmcvfebzcyvdqff.supabase.co';
 export type FunctionName='dashboard'|'os6'|'os61'|'os7'|'os8'|'os9';
 export async function request<T=any>(fn:FunctionName,action:string,fields:Record<string,unknown>={}):Promise<T>{
+  if(isQAMode())return qaRequest<T>(fn,action,fields);
   const token=initData();if(!token)throw new Error('Открой Personal OS через кнопку Telegram-бота');
   const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),22000);
   try{

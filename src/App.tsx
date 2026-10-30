@@ -3,6 +3,7 @@ import {useApp} from './AppContext';
 import {Icon} from './components/Icons';
 import {Dialog,StatusToast} from './components/UI';
 import {MotionRoute} from './components/OSMotion';
+import {isQAMode} from './qa/sandbox';
 import * as m from 'motion/react-m';
 import {TaskEditor} from './components/Tasks';
 import {HomePage,TodayPage,GoalsPage,GoalEditor,AnalyticsPage} from './pages/CorePages';
@@ -32,13 +33,13 @@ function Sidebar(){const{sidebar,setSidebar}=useApp();return <>
       <span className="sidebar-section-label">НАСТРОЙКА</span>
       <NavItem id="settings" label="Настройки" icon="settings"/><NavItem id="help" label="Помощь" icon="help"/>
     </nav>
-    <div className="sidebar-bottom"><div className="sidebar-footer-logo"><Icon name="cloud-check" size={16}/> Синхронизация с облаком</div><span className="version">Personal OS · v6.6</span></div>
+    <div className="sidebar-bottom"><div className="sidebar-footer-logo"><Icon name="cloud-check" size={16}/> Синхронизация с облаком</div><span className="version">Personal OS · v6.7</span></div>
   </aside></>;
 }
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
   const cloud=status==='saved'?'cloud-check':status==='error'?'cloud-off':'cloud';
   return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{appNames[tab]||'Personal OS'}</span></div>
-    <div className="topbar-right">{demo&&<span className="demo-tag">ДЕМО</span>}<button className={'icon-btn cloud-button '+status} onClick={()=>void refresh()} title={status==='saved'?'Синхронизировано':status==='saving'?'Сохраняем':'Обновить облако'} aria-label="Обновить облачные данные"><Icon name={cloud} size={21}/></button>
+    <div className="topbar-right">{isQAMode()?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}<button className={'icon-btn cloud-button '+status} onClick={()=>void refresh()} title={status==='saved'?'Синхронизировано':status==='saving'?'Сохраняем':'Обновить облако'} aria-label="Обновить облачные данные"><Icon name={cloud} size={21}/></button>
       <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button></div>
   </header>;
 }
