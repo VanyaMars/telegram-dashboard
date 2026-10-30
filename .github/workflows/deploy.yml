@@ -37,6 +37,8 @@ jobs:
         run: npm run test:motion
       - name: 6.7 regression
         run: npm run test:v67
+      - name: 6.8 foundations
+        run: npm run test:v68
       - name: Compile and build
         env:
           VITE_BUILD_SHA: ${{ github.sha }}
