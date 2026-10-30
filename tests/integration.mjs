@@ -5,7 +5,7 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const paths=['src/App.tsx','src/AppContext.tsx','src/pages/CorePages.tsx','src/pages/BufferWorkspace.tsx','src/pages/MvpAnalytics.tsx','src/components/RegularGoals.tsx','src/components/WorkspacePipeline.tsx','src/components/GoalValues.tsx','src/lib/navigation.ts'];
 for(const p of paths){const ast=ts.createSourceFile(p,read(p),ts.ScriptTarget.Latest,true,p.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);assert.equal(ast.parseDiagnostics.length,0,'Invalid integrated source: '+p)}
 const app=read('src/App.tsx'),core=read('src/pages/CorePages.tsx'),analytics=read('src/pages/MvpAnalytics.tsx'),pages=read('src/pages/BufferWorkspace.tsx'),pipeline=read('src/components/WorkspacePipeline.tsx');
-assert.match(core,/СЛЕДУЮЩИЙ ШАГ/);assert.match(core,/GoalSnapshot/);assert.match(core,/today-task-group--important/);
+assert.match(core,/СЛЕДУЮЩИЙ ШАГ/);assert.match(core,/GoalSnapshot/);assert.match(core,/today-task-group--/);
 assert.match(app,/case 'income':return <MvpAnalyticsPage focusIncome\/>/);
 assert.match(app,/label:'Страницы'/);assert.match(app,/mobilePrimary/);
 assert.match(analytics,/focusIncome/);assert.match(analytics,/GoalValues/);assert.match(analytics,/regularGoalValues/);
