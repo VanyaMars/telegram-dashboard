@@ -6,7 +6,7 @@ import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
-import {RegularGoals,useRegularGoals} from '../components/RegularGoals';
+import {RegularGoals} from '../components/RegularGoals';
 import {PlanScore} from '../components/PlanScore';
 import {QuickCategory} from '../components/QuickCategory';
 
@@ -19,10 +19,8 @@ export function HomePage(){
   const {today,day,setDay,tasks,goals,goalHistory,os6,metrics,open,setEditor,openTaskPage}=useApp();
   useEffect(()=>{if(day!==today)setDay(today)},[today]);
   const k=dayKpi(tasks);const dates=weekDates(mondayOf(today));const totals=sums(metrics,dates);
-  const {goals:regularGoals}=useRegularGoals();
   const important=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
-  const goalAverage=goals.length?Math.round(goals.reduce((n,g)=>n+goalProgress(g),0)/goals.length):0;
-  return <div className="page-stack">
+  return <div className="page-stack home-dashboard">
     <div className="hello-block"><div><p className="eyebrow">ТВОЯ ЛИЧНАЯ СИСТЕМА</p><h1>Добро пожаловать<span className="hello-dot">.</span></h1><p>Всё важное — на одном экране</p></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
     <div className="home-bento">
       <Card className="hero-result">
@@ -46,7 +44,7 @@ export function HomePage(){
         <button className="link-action" onClick={()=>open('today')}>Весь список <Icon name="arrow-right" size={16}/></button>
       </Card>
     </div>
-    <div className="home-goals"><SectionHead title="Амбициозные цели" action={<button className="btn text" onClick={()=>open('goals')}>Все цели <Icon name="right" size={16}/></button>}/>
+    <div className="home-goals"><SectionHead title="Мои ориентиры" action={<button className="btn text" onClick={()=>open('goals')}>Все цели <Icon name="right" size={16}/></button>}/>
       <div className="goals-grid">{goals.slice(0,2).map(g=><GoalMini key={g.id} title={g.title} current={Number(g.current_value)} target={Number(g.target_value)} start={Number(g.start_value)} unit={g.unit} history={goalHistory.filter(x=>x.goal_id===g.id)} open={()=>open('goals')}/>)}
         {!goals.length&&<Card><Empty icon="target" title="Добавь первую цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}
       </div>
@@ -101,12 +99,12 @@ export function BufferPage(){
   })}
  </div>;
 }
-export function GoalsPage(){const{goals,goalHistory,setEditor}=useApp();
+export function GoalsPage(){const{goals,goalHistory,setEditor,tasks,buffer,os6,openTaskPage}=useApp();
   return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ТВОИ ОРИЕНТИРЫ</p><h1>Цели</h1><p>Обычные и амбициозные цели в одном месте</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Амбициозная</button></div>
     <Card><RegularGoals/></Card><SectionHead title="Амбициозные цели"/><div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
       return <Card key={g.id} className="goal-full"><div className="goal-full-head"><div><span className="eyebrow">{g.sphere||'ЦЕЛЬ'}</span><h2>{g.title}</h2></div><div className="goal-value">{percent}<small>%</small></div></div>
         <div className="goal-current"><strong>{Number(g.current_value).toLocaleString('ru-RU')} {g.unit}</strong><span>из {Number(g.target_value).toLocaleString('ru-RU')} {g.unit}</span></div>
-        <ProgressBar value={percent}/><Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
+        <ProgressBar value={percent}/>{(()=>{const ids=new Set(os6.links.filter(l=>l.goal_id===g.id).map(l=>l.task_id));const candidate=[...tasks,...buffer].find(t=>ids.has(t.id)&&!t.completed);return candidate?<button className="goal-next-action" onClick={()=>void openTaskPage(candidate)}><Icon name="arrow-right" size={15}/><span>Следующий шаг: <strong>{candidate.title}</strong></span></button>:null})()}<Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
         <div className="goal-full-footer"><span>Прогресс от старта · {history.length} обновлений</span><button className="btn small outline" onClick={()=>setEditor({type:'goal',item:g})}>Обновить <Icon name="right" size={15}/></button></div>
       </Card>})}
       {!goals.length&&<Card><Empty title="Добавь амбициозную цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}

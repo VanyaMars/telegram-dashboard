@@ -32,3 +32,51 @@
 .os-autosave-status{font-size:10px;padding:2px 9px;color:#9698a9}
 .os-autosave-status.error{color:#ba475e;display:flex;gap:12px;align-items:center}
 .os-autosave-status.error button{border:0;background:none;text-decoration:underline;color:#7a68d4;padding:2px}
+
+
+/* Personal OS 6.7: calm, aligned task properties and Pipeline. */
+.os-properties-v67{background:#fff;border-color:#e9eaf2;padding:clamp(14px,2vw,22px);gap:14px}
+.os-property-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.os-property-head h3{margin:0;font-size:15px;color:#343b53}
+.os-property-head span{font-size:11px;color:#9a9eaf}
+.os-property-rows{display:flex;flex-direction:column;border-top:1px solid #edeef5}
+.os-property-row{display:grid;grid-template-columns:minmax(116px,176px) minmax(0,1fr);min-height:52px;align-items:center;gap:clamp(8px,2vw,18px);padding:7px 0;border-bottom:1px solid #edeef5}
+.os-properties-v67 .os-property-row>label{display:flex;flex-direction:row;align-items:center;gap:10px;font-size:12px;font-weight:600;color:#8a90a4}
+.os-property-row>label svg{color:#9197b0}
+.os-property-row>.os-property-value{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.os-properties-v67 .os-property-row :is(select,input[type=date],textarea){min-height:36px;padding:7px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#40475e;width:100%;max-width:100%;font-size:13px}
+.os-properties-v67 .os-property-row :is(select,input[type=date],textarea):hover{background:#f8f8fd;border-color:#e9e9f4}
+.os-property-row .os-property-value :is(select,input[type=date]){flex:1 1 125px;width:auto;min-width:0}
+.os-property-clear{border:0;background:#f3f1ff;color:#756bd5;border-radius:8px;padding:7px 11px;min-height:34px;font-size:11px;white-space:nowrap}
+.os-property-row-long{align-items:start}.os-property-row-long>label{padding-top:10px}
+.os-properties-v67 .os-property-row textarea{resize:vertical;min-height:65px}
+.os-properties-v67 .quick-category{display:flex;gap:6px}
+.os-properties-v67 .quick-category button{white-space:nowrap}
+.os-properties-v67 .os-property-actions{justify-content:space-between;gap:12px;flex-wrap:wrap}
+.os-property-submit{min-height:42px}
+.os-pipeline{background:transparent;border:1px solid #e9eaf3;padding:clamp(10px,1.5vw,18px)}
+.os-pipe-summary strong{font-size:15px;letter-spacing:-.25px;color:#333a54}
+.os-pipe-summary>b{font-size:15px}
+.os-pipe-columns{gap:12px}
+.os-split-card{border-color:#edf0f6;box-shadow:0 3px 14px #42476c08;padding:14px;gap:8px;min-height:150px}
+.os-split-top .os-kicker{letter-spacing:.6px;font-weight:650}
+.os-split-menu{position:relative}
+.os-split-menu summary{list-style:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:#888ba2;cursor:pointer}
+.os-split-menu summary::-webkit-details-marker{display:none}
+.os-split-menu summary:hover,.os-split-menu[open] summary{background:#f4f2ff;color:#756ce5}
+.os-split-menu .os-split-actions{position:absolute;right:0;top:38px;display:flex;padding:7px;gap:4px;border:1px solid #e9eaf4;border-radius:12px;background:white;box-shadow:0 12px 26px #33384a1b;z-index:5}
+.os-split-menu .os-split-actions .os-icon{width:38px;height:38px}
+.os-split-metrics{font-size:11px}
+.os-workflow-row{padding:7px 0}
+.os-workflow-row .os-task-mini-controls{opacity:0;transition:opacity .15s}
+.os-workflow-row:hover .os-task-mini-controls,.os-workflow-row:focus-within .os-task-mini-controls{opacity:1}
+.os-check-block{min-width:0}.os-check-saving{font-size:12px;color:#8c8caa}
+.os-check-retry{border:0;background:none;color:#735fe1;font-size:12px;text-decoration:underline}
+@media(hover:none){.os-workflow-row .os-task-mini-controls{opacity:1}}
+@media(max-width:600px){
+ .os-property-row{grid-template-columns:minmax(92px,36%) minmax(0,1fr);gap:7px}
+ .os-properties-v67 .os-property-row>label{font-size:11px;gap:6px}
+ .os-properties-v67 .os-property-row :is(select,input[type=date],textarea){font-size:12px}
+ .os-split-menu .os-split-actions{z-index:6}
+}
+@media(prefers-reduced-motion:reduce){.os-workflow-row .os-task-mini-controls{transition:none}}

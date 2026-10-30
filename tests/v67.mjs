@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const jsx=['src/pages/Workspace.tsx','src/components/WorkspacePipeline.tsx','src/pages/CorePages.tsx','src/components/RegularGoals.tsx','src/pages/MvpAnalytics.tsx'];
+for(const p of jsx){const a=ts.createSourceFile(p,read(p),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);assert.equal(a.parseDiagnostics.length,0,'TSX parse: '+p);}
+const workspace=read('src/pages/Workspace.tsx');
+assert.match(workspace,/appendChecklist/);
+assert.match(workspace,/e\.key!=='Enter'/);
+assert.match(workspace,/e\.nativeEvent\.isComposing/);
+assert.match(workspace,/appendingRef\.current/);
+assert.match(workspace,/block_reorder/);
+assert.match(workspace,/data-checklist-id/);
+assert.match(workspace,/os-properties-v67/);
+assert.match(workspace,/Свойства задачи/);
+const pipe=read('src/components/WorkspacePipeline.tsx');
+assert.match(pipe,/>Pipeline<\/strong>/);
+assert.match(pipe,/os-split-menu/);
+assert.doesNotMatch(pipe,/<strong>Split Pipeline<\/strong>/);
+const home=read('src/pages/CorePages.tsx');
+assert.match(home,/page-stack home-dashboard/);
+assert.match(read('src/styles.css'),/\.home-dashboard\{display:grid;grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
+assert.match(read('src/styles.css'),/@media\(max-width:360px\)\{\.home-dashboard/);
+assert.match(read('src/pages/workspace.css'),/\.os-property-row\{display:grid/);
+const goals=read('src/components/RegularGoals.tsx');
+assert.match(goals,/goalEvidence/);
+assert.match(goals,/linked\.done\/linked\.total/);
+assert.match(goals,/goalStats/);
+assert.match(read('src/pages/MvpAnalytics.tsx'),/goalEvidence/);
+assert.ok(!read('src/lib/api.ts').includes('goalEvidence'));
+console.log('6.7 static checks: checklist, Bento grid, task properties, Pipeline, linked-task progress OK');

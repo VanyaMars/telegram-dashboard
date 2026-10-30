@@ -1,4 +1,4 @@
-name: Publish Personal OS 6.6
+name: Publish Personal OS 6.7
 on:
   push:
     branches: [main]
@@ -35,6 +35,8 @@ jobs:
         run: npm run test:mvp
       - name: Motion regression
         run: npm run test:motion
+      - name: 6.7 regression
+        run: npm run test:v67
       - name: Compile and build
         run: npm run build
       - name: Configure Pages
