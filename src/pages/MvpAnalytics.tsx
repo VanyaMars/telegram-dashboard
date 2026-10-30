@@ -1,9 +1,10 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {useApp} from '../AppContext';
-import {useRegularGoals,goalEvidence} from '../components/RegularGoals';
+import {useRegularGoals,goalEvidence,regularGoalValues} from '../components/RegularGoals';
 import {Icon} from '../components/Icons';
 import {Card,ProgressBar,SectionHead} from '../components/UI';
 import {MotionNumber} from '../components/MotionNumber';
+import {GoalValues} from '../components/GoalValues';
 import {getIncomeSummary,IncomeSummary} from '../lib/earnings';
 import {dateAdd,monthStart,goalProgress,prettyDay,progress,shortDay} from '../lib/date';
 import {request} from '../lib/api';
@@ -71,6 +72,11 @@ export function MvpAnalyticsPage(){
    {!challenges.length?<p className="mvp-muted">Пока нет активных вызовов. Можно начать с небольшого ежедневного действия.</p>:<div className="mvp-challenge-grid">{challenges.map(c=><div key={c.id} className="mvp-challenge"><div><strong>{c.title}</strong><span>{c.days}/{c.target} дней</span></div><ProgressBar value={progress(c.days,c.target)}/></div>)}</div>}
   </Card>
   <Card><SectionHead title="Фокус по задачам" caption={`${focusTotal} минут завершённых сессий за выбранный период`}/><div className="mvp-focus-layout"><div className="mvp-focus-ring" style={{background:`conic-gradient(#8b84ed ${focusTotal?Math.min(100,focusByTask[0]?.[1]/focusTotal*100):0}%, #e9e9f5 0)`}}><div><strong><MotionNumber value={focusTotal}/></strong><small>мин</small></div></div><div className="mvp-focus-tasks">{focusByTask.slice(0,6).map(([taskId,mins])=><div key={taskId}><span>{focusTitle(taskId)}</span><strong>{mins} мин</strong></div>)}{!focusTotal&&<p className="mvp-muted">Начни фокус-сессию на странице задачи, чтобы отслеживать время.</p>}</div></div></Card>
-  <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Если у обычной цели есть связанные задачи, её процент рассчитывается автоматически. Для остальных сохраняется ручной прогресс. Историю из одного значения не строим.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=><div key={g.id}><span>{g.title}{goalLinks[g.id]?.total?` · ${goalLinks[g.id].done}/${goalLinks[g.id].total} связанных задач`:''}</span><strong>{goalEvidence(g,goalStats).progress}%</strong><ProgressBar value={goalEvidence(g,goalStats).progress}/><small>{goalEvidence(g,goalStats).description}</small></div>)}</div><button className="btn text" onClick={()=>open('goals')}>Управлять целями <Icon name="right" size={16}/></button></Card>
+  <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Если у обычной цели есть связанные задачи, её процент рассчитывается автоматически. Для остальных сохраняется ручной прогресс. Историю из одного значения не строим.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=>{const measure=regularGoalValues(g,goalStats);return <div key={g.id}>
+ <span>{g.title}{goalLinks[g.id]?.total?` · ${goalLinks[g.id].done}/${goalLinks[g.id].total} связанных задач`:''}</span>
+ <strong>{goalEvidence(g,goalStats).progress}%</strong>
+ <GoalValues current={measure.current} target={measure.target} unit={measure.unit} compact/>
+ <ProgressBar value={goalEvidence(g,goalStats).progress}/><small>{measure.source}</small>
+ </div>})}</div><button className="btn text" onClick={()=>open('goals')}>Управлять целями <Icon name="right" size={16}/></button></Card>
  </div>;
 }

@@ -210,3 +210,52 @@ test('6.8 foundations: reduced motion keeps fast navigation and focus action cli
  const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
  expect(transform).toBe('none');
 });
+
+test('6.8 Goals: regular linked goal has truthful dynamic task target',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ const linked=page.locator('.regular-goal-card').filter({hasText:'Собрать работающий MVP'});
+ await expect(linked).toBeVisible();
+ await expect(linked).toContainText('Сейчас');
+ await expect(linked).toContainText('Целевое значение');
+ await expect(linked).toContainText('задач');
+ await expect(linked).toContainText('Автоматически: связанные задачи');
+});
+
+test('6.8 Goals: decreasing ambitious goal uses current/target with accurate progress',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ const weight=page.locator('.goal-full').filter({hasText:'Вес 90 кг'});
+ await expect(weight).toBeVisible();
+ await expect(weight).toContainText('Сейчас');
+ await expect(weight).toContainText('100 кг');
+ await expect(weight).toContainText('Целевое значение');
+ await expect(weight).toContainText('90 кг');
+ await expect(weight).toContainText('41%');
+ await weight.getByRole('button',{name:'Обновить'}).click();
+ const dialog=page.getByRole('dialog',{name:'Изменить цель'});
+ await expect(dialog).toContainText('Снижение');
+ await expect(dialog).toContainText('41% пути от старта');
+ await dialog.getByRole('spinbutton',{name:'Целевое значение'}).fill('');
+ await expect(dialog.getByRole('button',{name:'Сохранить'})).toBeDisabled();
+ await dialog.getByRole('spinbutton',{name:'Целевое значение'}).fill('90');
+ await dialog.getByRole('button',{name:'Сохранить'}).click();
+ await expect(dialog).toHaveCount(0);
+ await page.reload();
+ await expect(page.locator('.goal-full').filter({hasText:'Вес 90 кг'})).toContainText('Целевое значение');
+});
+
+test('6.8 Goals: manual ordinary goal clearly shows 100-percent target',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ await page.getByRole('button',{name:'Цель',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Новая обычная цель'});
+ await dialog.getByRole('textbox',{name:'Название'}).fill('Цель без связей 68');
+ await expect(dialog).toContainText('Целевое значение: 100%');
+ await dialog.getByRole('button',{name:'Сохранить'}).click();
+ await expect(dialog).toHaveCount(0);
+ const card=page.locator('.regular-goal-card').filter({hasText:'Цель без связей 68'});
+ await expect(card).toContainText('Целевое значение');
+ await expect(card).toContainText('100 %');
+ await expect(card).toContainText('Ручной процент');
+});

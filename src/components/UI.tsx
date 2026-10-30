@@ -6,6 +6,7 @@ import type {GoalPoint} from '../types';
 import {goalProgress} from '../lib/date';
 import {AnimatePresence,useReducedMotion} from 'motion/react';
 import {motionTokens} from './motionTokens';
+import {GoalValues} from './GoalValues';
 import * as m from 'motion/react-m';
 
 export function Card({children,className='',onClick}:{children:React.ReactNode;className?:string;onClick?:()=>void}){
@@ -60,7 +61,7 @@ export function GoalMini({title,current,target,start,unit,history,open}:{title:s
   const p=goalProgress({start_value:start,target_value:target,current_value:current});
   return <Card className="goal-mini" onClick={open}>
     <div className="item-title-row"><div><span className="tiny-label">АМБИЦИОЗНАЯ ЦЕЛЬ</span><h3>{title}</h3></div><Icon name="arrow-up-right" size={17}/></div>
-    <div className="goal-num"><strong>{current.toLocaleString('ru-RU')} {unit}</strong><span>из {target.toLocaleString('ru-RU')} {unit}</span></div>
+    <GoalValues current={current} target={target} unit={unit} compact/>
     <ProgressBar value={p}/><div className="goal-mini-bottom"><span>{p}% пути от старта</span><span>{history.length} изм.</span></div>
   </Card>;
 }

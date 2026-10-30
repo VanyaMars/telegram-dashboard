@@ -133,3 +133,27 @@ input,select,textarea{accent-color:var(--purple)}
  .premium-progress-track>.progress-fill{transition:none!important;animation:none!important}
  .plan-score--pro .plan-score-track>span{animation:none!important}
 }
+
+/* 6.8 Goals compatibility: truthful current/target values, including decreasing goals. */
+.goal-values{min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 0}
+.goal-values>div{display:flex;flex-direction:column;gap:5px;min-width:0;overflow-wrap:anywhere}
+.goal-values>div>span{font-size:11px;font-weight:650;color:#686D7C}
+.goal-values>div>strong{font-size:clamp(15px,2.4vw,20px);font-weight:760;letter-spacing:-.4px;color:#242835;overflow-wrap:anywhere}
+.goal-values-origin{grid-column:1/-1;color:#686D7C;font-size:11px}
+.goal-values--compact{gap:7px}
+.goal-values--compact>div>span{font-size:10px}
+.goal-values--compact>div>strong{font-size:clamp(13px,1.5vw,17px)}
+.goal-mini .goal-values{margin-top:14px}
+.goal-mini .goal-values>div:last-of-type>strong{color:#5A4ACC}
+.goal-full .goal-values>div:last-of-type>strong{color:#5A4ACC}
+.regular-goal-card .goal-values{padding:0}
+.regular-goal-card .goal-values>div>strong{font-size:15px}
+.goal-snapshot{padding:14px 16px;border-radius:13px;background:#F7F5FF;border:1px solid #E3DEFA;display:grid;gap:5px}
+.goal-snapshot-progress{font-weight:750;font-size:13px;color:#5C4CC5}
+.goal-snapshot-validation{padding:10px 12px;color:#A33C4C;background:#FFF4F5;border:1px solid #F1DDE1;border-radius:9px;font-size:12px}
+.goal-manual-values{padding:10px 12px;background:#F8F7FC;border:1px solid #E9E6F3;border-radius:12px;display:grid;gap:6px}
+.goal-manual-values strong{font-size:13px;color:#34394B}
+.goal-manual-values p{font-size:12px;color:#464E61}
+.goal-manual-values small{font-size:11px;color:#747C8F;line-height:1.4}
+.mvp-goals-list .goal-values{width:100%}
+@media(max-width:360px){.goal-values{gap:8px}.goal-values>div>strong{font-size:14px}}
