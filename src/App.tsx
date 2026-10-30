@@ -78,7 +78,9 @@ function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{mobilePrimary.map(n=><BottomItem key={n.id} {...n}/>) }<MoreBottomItem/></nav>}
 function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){
- const{tab,open}=useApp();const reduced=useReducedMotion();const active=tab===id;
+  const{tab,open}=useApp();const reduced=useReducedMotion();const hash=useRouteHash();
+  const inPages=hash==='#/workspace'||hash.startsWith('#/page/');
+  const active=id==='buffer'?tab==='buffer'&&!inPages:tab===id;
  return <button className={active?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={active?'page':undefined}>
   {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active" aria-hidden="true"
    initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
@@ -86,8 +88,8 @@ function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){
  </button>;
 }
 function MoreBottomItem(){
- const {tab,sidebar,setSidebar}=useApp();const reduced=useReducedMotion();
- const active=!(['today','buffer','goals'] as Tab[]).includes(tab);
+  const {tab,sidebar,setSidebar}=useApp();const reduced=useReducedMotion();const hash=useRouteHash();
+  const active=hash==='#/workspace'||hash.startsWith('#/page/')||!(['today','buffer','goals'] as Tab[]).includes(tab);
  return <button className={active?'current':''} type="button" onClick={()=>setSidebar(true)}
   aria-label="Ещё" aria-expanded={sidebar}>
   {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active"

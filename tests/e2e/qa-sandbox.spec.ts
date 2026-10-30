@@ -463,3 +463,17 @@ for(const width of [320,390,430,1440]){
   }
  });
 }
+
+test('6.8 integration: mobile More remains selected on direct Pages',async({page})=>{
+ await page.setViewportSize({width:390,height:780});
+ await enter(page);
+ const nav=page.getByRole('navigation',{name:'Основная навигация'});
+ await nav.getByRole('button',{name:'Ещё'}).click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(nav.getByRole('button',{name:'Ещё'})).toHaveClass(/current/);
+ await expect(nav.getByRole('button',{name:'Буфер задач'})).not.toHaveClass(/current/);
+ await nav.getByRole('button',{name:'Буфер задач'}).click();
+ await expect(nav.getByRole('button',{name:'Буфер задач'})).toHaveClass(/current/);
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+});
