@@ -142,12 +142,12 @@ test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save'
  await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
  const row=page.locator('.os-workflow-row').filter({hasText:'Подготовить макеты'});
  await row.getByRole('button',{name:'Изменить действие: Подготовить макеты'}).click();
- await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Не сохранять отмену');
- await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).press('Escape');
+ await page.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Не сохранять отмену');
+ await page.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).press('Escape');
  await expect(row.getByRole('button',{name:'Изменить действие: Подготовить макеты'})).toBeVisible();
  await row.getByRole('button',{name:'Изменить действие: Подготовить макеты'}).click();
- await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Проверить дизайн 6.7.2');
- await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).press('Enter');
+ await page.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Проверить дизайн 6.7.2');
+ await page.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).press('Enter');
  await expect(page.getByRole('button',{name:'Изменить действие: Проверить дизайн 6.7.2'})).toBeVisible();
  await page.reload();
  await expect(page.getByRole('button',{name:'Изменить действие: Проверить дизайн 6.7.2'})).toBeVisible();
