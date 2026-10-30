@@ -6,7 +6,7 @@ import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
-import {RegularGoals,useRegularGoals} from '../components/RegularGoals';
+import {RegularGoals} from '../components/RegularGoals';
 import {PlanScore} from '../components/PlanScore';
 import {QuickCategory} from '../components/QuickCategory';
 
@@ -19,9 +19,7 @@ export function HomePage(){
   const {today,day,setDay,tasks,goals,goalHistory,os6,metrics,open,setEditor,openTaskPage}=useApp();
   useEffect(()=>{if(day!==today)setDay(today)},[today]);
   const k=dayKpi(tasks);const dates=weekDates(mondayOf(today));const totals=sums(metrics,dates);
-  const {goals:regularGoals}=useRegularGoals();
   const important=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
-  const goalAverage=goals.length?Math.round(goals.reduce((n,g)=>n+goalProgress(g),0)/goals.length):0;
   return <div className="page-stack home-dashboard">
     <div className="hello-block"><div><p className="eyebrow">ТВОЯ ЛИЧНАЯ СИСТЕМА</p><h1>Добро пожаловать<span className="hello-dot">.</span></h1><p>Всё важное — на одном экране</p></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
     <div className="home-bento">
