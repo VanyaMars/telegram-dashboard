@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {useApp} from '../AppContext';
-import {useRegularGoals} from '../components/RegularGoals';
+import {useRegularGoals,goalEvidence} from '../components/RegularGoals';
 import {Icon} from '../components/Icons';
 import {Card,ProgressBar,SectionHead} from '../components/UI';
 import {MotionNumber} from '../components/MotionNumber';
@@ -14,7 +14,7 @@ const currencySymbol=(c:string)=>({RUB:'₽',USD:'$',EUR:'€'} as Record<string
 type WindowSize=7|30|90;
 const keys:[WindowSize,string][]=[[7,'7 дней'],[30,'Месяц'],[90,'90 дней']];
 export function MvpAnalyticsPage(){
- const {today,goals,os6,metrics,open,demo,buffer,categories}=useApp();const {goals:regularGoals}=useRegularGoals();
+ const {today,goals,os6,metrics,open,demo,buffer,categories}=useApp();const {goals:regularGoals,goalStats}=useRegularGoals();
  const [period,setPeriod]=useState<WindowSize>(30),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const [days,setDays]=useState<Record<string,DayMetrics>>(metrics),[income,setIncome]=useState<IncomeSummary>({totals:{},daily:{},count:0});
  const [goalLinks,setGoalLinks]=useState<Record<string,{total:number;done:number}>>({});
@@ -34,7 +34,7 @@ export function MvpAnalyticsPage(){
   return()=>{active=false;window.removeEventListener('os9:income-changed',refresh)};
  },[start,today,demo]);
  const completed=dates.reduce((sum,d)=>sum+(days[d]?.tasks||0),0);
- const goalAvg=regularGoals.length?Math.round(regularGoals.reduce((v,g)=>v+Number(g.progress||0),0)/regularGoals.length):0;
+ const goalAvg=regularGoals.length?Math.round(regularGoals.reduce((v,g)=>v+goalEvidence(g,goalStats).progress,0)/regularGoals.length):0;
  const ambitiousAvg=goals.length?Math.round(goals.reduce((v,g)=>v+goalProgress(g),0)/goals.length):0;
  const daysPlanned=dates.filter(d=>Number(days[d]?.important||0)>0);
  const mainDone=daysPlanned.filter(d=>Number(days[d]?.done_important||0)>=Number(days[d]?.important||0)).length;
@@ -69,6 +69,6 @@ export function MvpAnalyticsPage(){
    {!challenges.length?<p className="mvp-muted">Пока нет активных вызовов. Можно начать с небольшого ежедневного действия.</p>:<div className="mvp-challenge-grid">{challenges.map(c=><div key={c.id} className="mvp-challenge"><div><strong>{c.title}</strong><span>{c.days}/{c.target} дней</span></div><ProgressBar value={progress(c.days,c.target)}/></div>)}</div>}
   </Card>
   <Card><SectionHead title="Фокус по задачам" caption={`${focusTotal} минут завершённых сессий за выбранный период`}/><div className="mvp-focus-layout"><div className="mvp-focus-ring" style={{background:`conic-gradient(#8b84ed ${focusTotal?Math.min(100,focusByTask[0]?.[1]/focusTotal*100):0}%, #e9e9f5 0)`}}><div><strong><MotionNumber value={focusTotal}/></strong><small>мин</small></div></div><div className="mvp-focus-tasks">{focusByTask.slice(0,6).map(([taskId,mins])=><div key={taskId}><span>{taskId==='none'?'Без привязки':([ ...buffer].find(t=>t.id===taskId)?.title||'Задача')}</span><strong>{mins} мин</strong></div>)}{!focusTotal&&<p className="mvp-muted">Начни фокус-сессию на странице задачи, чтобы отслеживать время.</p>}</div></div></Card>
-  <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Текущий прогресс обычных целей редактируется вручную; исторический график не создаём из одного значения.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=><div key={g.id}><span>{g.title}{goalLinks[g.id]?.total?` · ${goalLinks[g.id].done}/${goalLinks[g.id].total} связанных задач`:''}</span><strong>{g.progress}%</strong><ProgressBar value={g.progress}/></div>)}</div><button className="btn text" onClick={()=>open('goals')}>Управлять целями <Icon name="right" size={16}/></button></Card>
+  <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Если у обычной цели есть связанные задачи, её процент рассчитывается автоматически. Для остальных сохраняется ручной прогресс. Историю из одного значения не строим.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=><div key={g.id}><span>{g.title}{goalLinks[g.id]?.total?` · ${goalLinks[g.id].done}/${goalLinks[g.id].total} связанных задач`:''}</span><strong>{goalEvidence(g,goalStats).progress}%</strong><ProgressBar value={goalEvidence(g,goalStats).progress}/><small>{goalEvidence(g,goalStats).description}</small></div>)}</div><button className="btn text" onClick={()=>open('goals')}>Управлять целями <Icon name="right" size={16}/></button></Card>
  </div>;
 }
