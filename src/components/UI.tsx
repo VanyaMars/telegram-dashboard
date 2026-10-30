@@ -1,4 +1,5 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Icon} from './Icons';
 import {useApp} from '../AppContext';
 import type {GoalPoint} from '../types';
@@ -53,11 +54,41 @@ export function SectionHead({title,caption,action}:{title:string;caption?:string
 }
 export function Dialog({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:React.ReactNode}){
   const reduced=useReducedMotion();
-  useEffect(()=>{if(!open)return;const cb=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};document.addEventListener('keydown',cb);return()=>document.removeEventListener('keydown',cb)},[open,onClose]);
+  const sheetRef=useRef<HTMLDivElement>(null);
+  const onCloseRef=useRef(onClose);
+  onCloseRef.current=onClose;
+
+  useEffect(()=>{
+    if(!open)return;
+    const before=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const overflow=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    const sheet=sheetRef.current;
+    const focusable=()=>Array.from(sheet?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')||[]).filter(el=>el.getClientRects().length>0);
+    const initial=sheet?.querySelector<HTMLElement>('[autofocus]')||sheet?.querySelector<HTMLElement>('input:not([disabled]),textarea:not([disabled]),select:not([disabled])')||focusable()[0]||sheet;
+    initial?.focus();
+    const onKeyDown=(e:KeyboardEvent)=>{
+      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onCloseRef.current();return}
+      if(e.key!=='Tab'||!sheet)return;
+      const elements=focusable();
+      if(!elements.length){e.preventDefault();sheet.focus();return}
+      const first=elements[0],last=elements[elements.length-1];
+      if(e.shiftKey&&(document.activeElement===first||!sheet.contains(document.activeElement))){e.preventDefault();last.focus()}
+      else if(!e.shiftKey&&(document.activeElement===last||!sheet.contains(document.activeElement))){e.preventDefault();first.focus()}
+    };
+    document.addEventListener('keydown',onKeyDown,true);
+    return ()=>{
+      document.removeEventListener('keydown',onKeyDown,true);
+      document.body.style.overflow=overflow;
+      if(before?.isConnected)before.focus();
+    };
+  },[open]);
+
   if(!open)return null;
-  return <div className="modal-backdrop" role="presentation" onPointerDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-    <m.div className="modal-sheet" role="dialog" aria-modal="true" aria-label={title} initial={reduced?false:{opacity:0,y:12,scale:0.985}} animate={{opacity:1,y:0,scale:1}} transition={{duration:reduced?0:0.22,ease:'easeOut'}}><div className="modal-top"><h3>{title}</h3><button className="icon-btn" onClick={onClose} aria-label="Закрыть"><Icon name="x"/></button></div>{children}</m.div>
-  </div>;
+  // Portaling to body avoids stacking contexts from animated cards and routes.
+  return createPortal(<div className="modal-backdrop" role="presentation" onPointerDown={e=>{if(e.target===e.currentTarget)onCloseRef.current()}}>
+    <m.div ref={sheetRef} tabIndex={-1} className="modal-sheet" role="dialog" aria-modal="true" aria-label={title} initial={reduced?false:{opacity:0,y:12,scale:0.985}} animate={{opacity:1,y:0,scale:1}} transition={{duration:reduced?0:0.22,ease:'easeOut'}}><div className="modal-top"><h3>{title}</h3><button type="button" className="icon-btn" onClick={()=>onCloseRef.current()} aria-label="Закрыть"><Icon name="x"/></button></div>{children}</m.div>
+  </div>,document.body);
 }
 export function StatusToast(){const{message,recentDeleted,undoDelete}=useApp();return message?<div className="toast" role="status"><Icon name="check-circle" size={16}/>{message}{recentDeleted&&message==='Задача удалена'&&<button className="toast-undo" onClick={()=>void undoDelete()}>Отменить</button>}</div>:null;}
 export function WeekBars({days,current}:{days:string[];current:Record<string,number>}){
