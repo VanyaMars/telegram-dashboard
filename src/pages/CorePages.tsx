@@ -8,6 +8,7 @@ import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDate
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
 import {PlanScore} from '../components/PlanScore';
+import {PremiumAction} from '../components/PremiumControls';
 import {QuickCategory} from '../components/QuickCategory';
 
 const sums=(days:Record<string,DayMetrics>,dates:string[])=>dates.reduce((a,d)=>{const m=days[d];return {tasks:a.tasks+(m?.tasks||0),sales:a.sales+(m?.sales||0),sport:a.sport+(m?.sport||0)};},{tasks:0,sales:0,sport:0});
@@ -40,7 +41,7 @@ export function HomePage(){
       <Card className="priority-card"><div className="card-title-row"><div><span className="eyebrow">ФОКУС</span><h2>Главное сегодня</h2></div><button className="icon-btn" onClick={()=>setEditor({type:'task',day:today,priority:'important'})} aria-label="Добавить важную задачу"><Icon name="plus"/></button></div>
         {important.length?important.map(t=><button className="mini-task" key={t.id} onClick={()=>void openTaskPage(t)}><span className="mini-checkbox"/><span>{t.title}</span><Icon name="right" size={17}/></button>):
           <div className="success-spot"><Icon name="check-circle" size={26}/><strong>Важные дела закрыты</strong><span>Можно заняться дополнительными задачами</span></div>}
-        <button className="btn subtle" onClick={()=>open('focus')}><Icon name="timer" size={16}/> Начать с 5 минут</button>
+        <PremiumAction tone="secondary" onClick={()=>open('focus')}><Icon name="timer" size={16}/> Начать с 5 минут</PremiumAction>
         <button className="link-action" onClick={()=>open('today')}>Весь список <Icon name="arrow-right" size={16}/></button>
       </Card>
     </div>
@@ -74,7 +75,7 @@ export function TodayPage(){const{day,setDay,today,tasks,buffer,saveTask,setEdit
       <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select>
       <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={async()=>{const task=buffer.find(t=>t.id===bufferId);if(!task)return;setMoving(true);try{await saveTask({id:task.id,title:task.title,notes:task.notes,sphere:task.sphere,categoryId:task.os61_category_id||null,day,priority:bufferPriority});setBufferId('')}finally{setMoving(false)}}}>В день <Icon name="right" size={16}/></button></div>
     </Card>
-    {important.some(t=>!t.completed)&&!os6.focus.some(f=>f.state!=='finished')&&<button className="btn accent today-start-focus" onClick={()=>{const t=important.find(x=>!x.completed);if(t)void mutate('os6','focus',{command:'start',title:t.title,task_id:t.id}).then(()=>open('focus')).catch(()=>{})}}><Icon name="play" size={18}/> Начать главное — фокус</button>}
+    {important.some(t=>!t.completed)&&!os6.focus.some(f=>f.state!=='finished')&&<PremiumAction className="today-start-focus" onClick={()=>{const t=important.find(x=>!x.completed);if(t)void mutate('os6','focus',{command:'start',title:t.title,task_id:t.id}).then(()=>open('focus')).catch(()=>{})}}><Icon name="play" size={18}/> Начать главное — фокус</PremiumAction>}
     {group(important,'important')}{group(extra,'extra')}
     <button className="btn add-inline" onClick={()=>setEditor({type:'task',day,priority:'important'})}><Icon name="plus" size={20}/> Добавить задачу</button>
     <button className="link-action center" onClick={()=>open('buffer')}><Icon name="inbox" size={17}/> Открыть буфер задач <Icon name="right" size={15}/></button>
