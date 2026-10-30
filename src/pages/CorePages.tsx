@@ -22,7 +22,7 @@ export function HomePage(){
   const {goals:regularGoals}=useRegularGoals();
   const important=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
   const goalAverage=goals.length?Math.round(goals.reduce((n,g)=>n+goalProgress(g),0)/goals.length):0;
-  return <div className="page-stack">
+  return <div className="page-stack home-dashboard">
     <div className="hello-block"><div><p className="eyebrow">ТВОЯ ЛИЧНАЯ СИСТЕМА</p><h1>Добро пожаловать<span className="hello-dot">.</span></h1><p>Всё важное — на одном экране</p></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
     <div className="home-bento">
       <Card className="hero-result">
@@ -46,7 +46,7 @@ export function HomePage(){
         <button className="link-action" onClick={()=>open('today')}>Весь список <Icon name="arrow-right" size={16}/></button>
       </Card>
     </div>
-    <div className="home-goals"><SectionHead title="Амбициозные цели" action={<button className="btn text" onClick={()=>open('goals')}>Все цели <Icon name="right" size={16}/></button>}/>
+    <div className="home-goals"><SectionHead title="Мои ориентиры" action={<button className="btn text" onClick={()=>open('goals')}>Все цели <Icon name="right" size={16}/></button>}/>
       <div className="goals-grid">{goals.slice(0,2).map(g=><GoalMini key={g.id} title={g.title} current={Number(g.current_value)} target={Number(g.target_value)} start={Number(g.start_value)} unit={g.unit} history={goalHistory.filter(x=>x.goal_id===g.id)} open={()=>open('goals')}/>)}
         {!goals.length&&<Card><Empty icon="target" title="Добавь первую цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}
       </div>
