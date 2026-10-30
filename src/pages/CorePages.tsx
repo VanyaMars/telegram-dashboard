@@ -8,6 +8,7 @@ import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDate
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
 import {PlanScore} from '../components/PlanScore';
+import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
 import {QuickCategory} from '../components/QuickCategory';
 
@@ -165,7 +166,7 @@ export function GoalsPage(){const{goals,goalHistory,setEditor,tasks,buffer,os6,o
   return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ТВОИ ОРИЕНТИРЫ</p><h1>Цели</h1><p>Обычные и амбициозные цели в одном месте</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Амбициозная</button></div>
     <Card><RegularGoals/></Card><SectionHead title="Амбициозные цели"/><div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
       return <Card key={g.id} className="goal-full"><div className="goal-full-head"><div><span className="eyebrow">{g.sphere||'ЦЕЛЬ'}</span><h2>{g.title}</h2></div><div className="goal-value">{percent}<small>%</small></div></div>
-        <div className="goal-current"><strong>{Number(g.current_value).toLocaleString('ru-RU')} {g.unit}</strong><span>из {Number(g.target_value).toLocaleString('ru-RU')} {g.unit}</span></div>
+        <GoalValues current={Number(g.current_value)} target={Number(g.target_value)} start={Number(g.start_value)} unit={g.unit}/>
         <ProgressBar value={percent}/>{(()=>{const ids=new Set(os6.links.filter(l=>l.goal_id===g.id).map(l=>l.task_id));const candidate=[...tasks,...buffer].find(t=>ids.has(t.id)&&!t.completed);return candidate?<button className="goal-next-action" onClick={()=>void openTaskPage(candidate)}><Icon name="arrow-right" size={15}/><span>Следующий шаг: <strong>{candidate.title}</strong></span></button>:null})()}<Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
         <div className="goal-full-footer"><span>Прогресс от старта · {history.length} обновлений</span><button className="btn small outline" onClick={()=>setEditor({type:'goal',item:g})}>Обновить <Icon name="right" size={15}/></button></div>
       </Card>})}
@@ -173,18 +174,41 @@ export function GoalsPage(){const{goals,goalHistory,setEditor,tasks,buffer,os6,o
     </div>
   </div>;
 }
-export function GoalEditor(){const{editor,setEditor,saveGoal,deleteGoal}=useApp();const goal=editor?.type==='goal'?editor.item as Goal|undefined:undefined;
-  const [title,setTitle]=useState(goal?.title||'');const [sphere,setSphere]=useState(goal?.sphere||'Личное');const [start,setStart]=useState(String(goal?.start_value??0));
-  const [target,setTarget]=useState(String(goal?.target_value??100));const [current,setCurrent]=useState(String(goal?.current_value??0));const [unit,setUnit]=useState(goal?.unit||'');
-  const [deadline,setDeadline]=useState(goal?.deadline||'');const[notes,setNotes]=useState(goal?.notes||'');const[busy,setBusy]=useState(false);
-  return <form className="editor-form" onSubmit={async e=>{e.preventDefault();setBusy(true);try{await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes});}finally{setBusy(false)}}}>
-    <label>Название цели<input autoFocus required maxLength={180} value={title} onChange={e=>setTitle(e.target.value)}/></label>
-    <div className="form-grid"><label>Старт<input required type="number" step="any" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Цель<input required type="number" step="any" value={target} onChange={e=>setTarget(e.target.value)}/></label></div>
-    <div className="form-grid"><label>Сейчас<input required type="number" step="any" value={current} onChange={e=>setCurrent(e.target.value)}/></label><label>Единицы<input value={unit} maxLength={20} onChange={e=>setUnit(e.target.value)} placeholder="$ / кг / раз"/></label></div>
-    <label>Сфера<input value={sphere} maxLength={60} onChange={e=>setSphere(e.target.value)}/></label>
-    <details className="advanced-details"><summary>Дополнительно <Icon name="down" size={16}/></summary><label>Срок<input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)}/></label><label>Описание<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></details>
-    <div className="form-actions">{goal&&<button type="button" className="btn danger-btn" onClick={()=>{void deleteGoal(goal);setEditor(null)}}>Удалить</button>}<button className="btn accent" type="submit" disabled={!title.trim()||Number(start)===Number(target)||busy}>Сохранить</button></div>
-  </form>;
+export function GoalEditor(){
+ const{editor,setEditor,saveGoal,deleteGoal}=useApp();
+ const goal=editor?.type==='goal'?editor.item as Goal|undefined:undefined;
+ const [title,setTitle]=useState(goal?.title||'');
+ const [sphere,setSphere]=useState(goal?.sphere||'Личное');
+ const [start,setStart]=useState(String(goal?.start_value??0));
+ const [target,setTarget]=useState(String(goal?.target_value??100));
+ const [current,setCurrent]=useState(String(goal?.current_value??0));
+ const [unit,setUnit]=useState(goal?.unit||'');
+ const [deadline,setDeadline]=useState(goal?.deadline||'');
+ const [notes,setNotes]=useState(goal?.notes||'');
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ const finite=(raw:string)=>raw.trim()!==''&&Number.isFinite(Number(raw));
+ const valid=finite(start)&&finite(target)&&finite(current)&&Number(start)!==Number(target);
+ const save=async(e:React.FormEvent)=>{
+  e.preventDefault();if(!valid||busy)return;
+  setError('');setBusy(true);
+  try{await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes})}
+  catch(err:any){setError(err?.message||'Не удалось сохранить цель. Данные остались в форме.')}
+  finally{setBusy(false)}
+ };
+ return <form className="editor-form goal-measure-editor" onSubmit={e=>void save(e)}>
+  <label>Название цели<input autoFocus required maxLength={180} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Например, Вес или Месячный доход"/></label>
+  <div className="form-grid"><label>Стартовое значение<input required type="number" step="any" value={start} onChange={e=>setStart(e.target.value)}/></label>
+   <label>Целевое значение<input required type="number" step="any" value={target} onChange={e=>setTarget(e.target.value)}/></label></div>
+  <div className="form-grid"><label>Текущее значение<input required type="number" step="any" value={current} onChange={e=>setCurrent(e.target.value)}/></label>
+   <label>Единицы измерения<input value={unit} maxLength={20} onChange={e=>setUnit(e.target.value)} placeholder="USD, кг, раз"/></label></div>
+  {!valid?<p className="goal-snapshot-validation" role="alert">Введи числа для всех значений. Старт и цель должны различаться.</p>
+    :<GoalSnapshot start={Number(start)} current={Number(current)} target={Number(target)} unit={unit}/>}
+  <label>Сфера<input value={sphere} maxLength={60} onChange={e=>setSphere(e.target.value)}/></label>
+  <details className="advanced-details"><summary>Дополнительно <Icon name="down" size={16}/></summary><label>Срок<input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)}/></label><label>Описание<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></details>
+  {error&&<div className="os-error-banner" role="alert">{error}</div>}
+  <div className="form-actions">{goal&&<button type="button" className="btn danger-btn" disabled={busy} onClick={()=>{void deleteGoal(goal);setEditor(null)}}>Удалить</button>}
+   <button className="btn accent" type="submit" disabled={!title.trim()||!valid||busy}>{busy?'Сохраняем…':'Сохранить'}</button></div>
+ </form>;
 }
 export function AnalyticsPage(){const{today,os6,metrics,legacyRows}=useApp();const[week,setWeek]=useState(mondayOf(today));const[rows,setRows]=useState<Record<string,DayMetrics>>(metrics);const[busy,setBusy]=useState(false);
   useEffect(()=>{let active=true;const load=async()=>{setBusy(true);try{const end=dateAdd(week,6),start=dateAdd(week,-7);const result=await request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end});if(active)setRows(result.days||{});}catch{/* existing data retained */}finally{if(active)setBusy(false)}};
