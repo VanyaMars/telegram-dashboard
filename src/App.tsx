@@ -8,6 +8,7 @@ import {CalendarPage,TomorrowPage,FinancePage,SportPage,FocusPage,ChallengesPage
 import type {Tab} from './types';
 import {telegram} from './lib/telegram';
 import {BufferWorkspacePage} from './pages/BufferWorkspace';
+import {MvpAnalyticsPage} from './pages/MvpAnalytics';
 import './styles.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
@@ -27,7 +28,7 @@ function Sidebar(){const{sidebar,setSidebar}=useApp();return <>
       <span className="sidebar-section-label">НАСТРОЙКА</span>
       <NavItem id="settings" label="Настройки" icon="settings"/><NavItem id="help" label="Помощь" icon="help"/>
     </nav>
-    <div className="sidebar-bottom"><div className="sidebar-footer-logo"><Icon name="cloud-check" size={16}/> Синхронизация с облаком</div><span className="version">Personal OS · v6.3</span></div>
+    <div className="sidebar-bottom"><div className="sidebar-footer-logo"><Icon name="cloud-check" size={16}/> Синхронизация с облаком</div><span className="version">Personal OS · v6.4</span></div>
   </aside></>;
 }
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
@@ -39,7 +40,7 @@ function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{primary.map(n=><BottomItem key={n.id} {...n}/>)}</nav>}
 function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){const{tab,open}=useApp();return <button className={tab===id?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={tab===id?'page':undefined}><Icon name={icon} size={22}/><span>{label}</span></button>}
-function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <AnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <TomorrowPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <ChallengesPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <DisciplinePage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
+function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <TomorrowPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <ChallengesPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <DisciplinePage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
 function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   const labels={task:editor.item?'Изменить задачу':'Новая задача',goal:editor.item?'Изменить цель':'Новая цель',finance:'Финансовая запись',workout:'Тренировка',weight:'Замер веса',exercise:'Упражнение',repeat:'Повторение',challenge:'Личный вызов'};
   return <Dialog open onClose={()=>setEditor(null)} title={labels[editor.type]}>
@@ -60,6 +61,6 @@ export default function App(){const{ready,error,refresh}=useApp();
     {!ready?<div className="full-loading"><div className="loading-orb"><Icon name="sparkles" size={29}/></div><strong>Personal OS</strong><span>Загружаем твой прогресс…</span></div>
       :error?<div className="full-loading error-view"><div className="loading-orb"><Icon name="cloud-off" size={28}/></div><strong>Не удалось подключиться</strong><p>{error}</p><button className="btn accent" onClick={()=>void refresh()}><Icon name="refresh"/> Повторить</button></div>
       :<main className="app-content"><Route/></main>}
-    <footer className="mobile-footer-version">Personal OS · v6.3</footer><BottomNav/>
+    <footer className="mobile-footer-version">Personal OS · v6.4</footer><BottomNav/>
   </div><ActiveModal/><HelpSheet/><StatusToast/></div>;
 }

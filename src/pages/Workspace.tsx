@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useApp} from '../AppContext';
 import {Icon} from '../components/Icons';
 import {WorkspaceDatabase} from '../components/WorkspaceDatabase';
@@ -6,6 +6,8 @@ import {SplitPipeline} from '../components/WorkspacePipeline';
 import {WPage,WBlock,WSource,WPageResponse,BlockType,workspaceRequest,pageLink} from '../lib/workspace';
 import {request} from '../lib/api';
 import type {Task} from '../types';
+import {TaskIncomeEditor} from '../components/TaskIncome';
+import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 
 const icons=['📄','📁','🎯','💼','🧠','📝','🚀','🏡','💰','📚','⚡'];
@@ -17,7 +19,7 @@ export function WorkspacePage({embedded=false}:{embedded?:boolean}){
  const [error,setError]=useState(''),[recordPageIds,setRecordPageIds]=useState<string[]>([]),[newTitle,setNewTitle]=useState(''),[working,setWorking]=useState(false),[taskData,setTaskData]=useState<Task|null>(null);
  const openPage=useCallback((id:string)=>{setDetails(null);window.location.hash=pageLink(id);setSelectedId(id);window.scrollTo({top:0,behavior:'smooth'})},[]);
  const home=()=>{window.location.hash='#/workspace';setSelectedId(null)};
- const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const [data,taskPages]=await Promise.all([workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap'),request<{pageIds:string[]}>('os8','task_page_links')]);setPages(data.pages||[]);setSources(data.sources||[]);setRecordPageIds([...new Set([...(data.recordPageIds||[]),...(taskPages.pageIds||[])])]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
+ const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const [data,taskPages,archives]=await Promise.all([workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap'),request<{pageIds:string[]}>('os8','task_page_links'),request<{pageIds:string[]}>('os9','archived_pages').catch(()=>({pageIds:[]}))]);setPages((data.pages||[]).filter(page=>!archives.pageIds.includes(page.id)));setSources(data.sources||[]);setRecordPageIds([...new Set([...(data.recordPageIds||[]),...(taskPages.pageIds||[])])]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
  const loadPage=useCallback(async(id:string)=>{if(demo)return;setWorking(true);try{const [data,linked]=await Promise.all([workspaceRequest<WPageResponse>('page_get',{id}),request<{task:Task|null}>('os8','task_page_find',{pageId:id})]);setDetails(data);setTaskData(linked.task||null);setError('')}catch(e:any){setError(e.message||'Страница не загрузилась');setDetails(null);setTaskData(null)}finally{setWorking(false)}},[demo]);
  const refresh=useCallback(async()=>{await loadList();if(selectedId)await loadPage(selectedId)},[loadList,loadPage,selectedId]);
  useEffect(()=>{const change=()=>{setDetails(null);setSelectedId(uuidRoute())};window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
@@ -35,14 +37,14 @@ export function WorkspacePage({embedded=false}:{embedded?:boolean}){
   <div className="os-workspace-top" style={selectedId?{display:"none"}:undefined}><div><span className="os-kicker">{embedded?'ПРОЕКТЫ И СТРАНИЦЫ':'PERSONAL OS · ПРОСТРАНСТВО'}</span><h1>{embedded?'Пространство':'Страницы'}</h1><p>Документы, базы и Split Pipeline внутри задач или отдельных страниц.</p></div><button className="os-btn os-btn-primary" onClick={()=>void createPage('Новая страница')} disabled={working||demo}><Icon name="plus" size={17}/> Страница</button></div>
   {error&&<div role="alert" className="os-error-banner">{error}<button onClick={()=>void refresh()}>Повторить</button></div>}
   {demo&&<div className="os-info">В демо-режиме создание и облачное сохранение страниц недоступны. Открой Mini App через Telegram, чтобы работать с настоящими данными.</div>}
-  <div className="os-workspace-layout"><aside className="os-page-rail" aria-label="Дерево страниц"><button className={!selectedId?'active':''} onClick={home}><Icon name="folder" size={17}/> Все страницы</button>{pages.filter(p=>!p.parent_id&&!recordPageIds.includes(p.id)).map(p=><PageTree key={p.id} page={p}all={pages}selected={selectedId}onOpen={openPage}level={0}/>)}</aside>
+  <div className={"os-workspace-layout "+(selectedId?"os-page-focused":"")}><aside className="os-page-rail" aria-label="Дерево страниц"><button className={!selectedId?'active':''} onClick={home}><Icon name="folder" size={17}/> Все страницы</button>{pages.filter(p=>!p.parent_id&&!recordPageIds.includes(p.id)).map(p=><PageTree key={p.id} page={p}all={pages}selected={selectedId}onOpen={openPage}level={0}/>)}</aside>
    <div className="os-workspace-main">
    {!selectedId?<div className="os-page-directory"><div className="os-surface"><h2>Мои страницы</h2><p className="os-muted">Создай страницу для проекта, направления или цели. Внутри можно собирать блоки, чеклисты и Split Pipeline.</p>
       <form className="os-add-form" onSubmit={e=>{e.preventDefault();void createPage(newTitle)}}><input value={newTitle} onChange={e=>setNewTitle(e.target.value)} maxLength={180} placeholder="Название новой страницы"/><button className="os-btn os-btn-primary" type="submit" disabled={!newTitle.trim()||working||demo}>Создать</button></form>
       {loading?<p className="os-muted">Загружаем…</p>:pages.length===0?<div className="os-empty">Здесь пока нет страниц. Создай первую.</div>:<div className="os-page-gallery">{pages.filter(p=>!p.parent_id&&!recordPageIds.includes(p.id)).map(p=><button key={p.id} onClick={()=>openPage(p.id)}><span className="os-page-emoji">{p.icon}</span><strong>{p.title}</strong><small>Открыть страницу</small></button>)}</div>}
      </div><div className="os-surface"><h3>Как устроено</h3><p>Страница содержит блоки. Блок «База данных» показывает одну коллекцию в таблице, доске, списке или календаре. Split Pipeline показывает этапы и чеклисты выполнения.</p></div></div>
    :working&&!details?<p className="os-muted">Открываем страницу…</p>
-   :details&&<div className="os-page-editor" key={details.page.id}><div className="os-breadcrumbs"><button onClick={home}>Страницы</button>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>
+   :details&&<div className="os-page-editor" key={details.page.id}><button className="os-back-to-buffer" onClick={home}><Icon name="left" size={18}/> Назад в буфер задач</button><div className="os-breadcrumbs"><button onClick={home}>Страницы</button>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>
       <PageContents data={details}taskData={taskData}pages={pages}sources={sources}onOpen={openPage}onAddPage={createPage}onDeletePage={deletePage}write={run}refresh={refresh}/>
     </div>}
    </div></div>
@@ -73,7 +75,7 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
    <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
    <input className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
    {data.record&&<div className="os-info">Это запись базы данных. Редактируй её поля в представлении базы; здесь можно добавлять любые блоки.</div>}
-   {taskData&&<TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh}/>}
+   {taskData&&<><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<TaskIncomeEditor taskId={taskData.id}/>}</>}
    <div className="os-blocks">{blocks.map((block,index)=><div className="os-block-shell" key={block.id}><div className="os-block-handles"><button title="Поднять блок" disabled={!index} onClick={()=>void blockOrder(block.id,-1)}>↑</button><button title="Опустить блок" disabled={index===blocks.length-1} onClick={()=>void blockOrder(block.id,1)}>↓</button><button title="Удалить блок" onClick={()=>{if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>×</button></div><PageBlock block={block}pages={pages}sources={sources}data={data}openPage={onOpen}write={write}refresh={refresh}/></div>)}</div>
    <div className="os-new-block"><button className="os-btn" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/> Добавить блок</button>{adding&&<div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
      {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{!sourceId&&<input placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
@@ -85,27 +87,45 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
 }
 function PageBlock({block,pages,sources,data,openPage,write,refresh}:{block:WBlock;pages:WPage[];sources:WSource[];data:WPageResponse;openPage:(id:string)=>void;write:(a:string,b:Record<string,unknown>)=>Promise<any>;refresh:()=>Promise<void>}){
  const [value,setValue]=useState(String(block.content.text||'')),[url,setUrl]=useState(String(block.content.url||''));
+ const [saveStatus,setSaveStatus]=useState<'saved'|'typing'|'saving'|'error'>('saved');
+ const lastSaved=useRef(String(block.content.text||''));const serial=useRef<Promise<void>>(Promise.resolve());
  const save=(content:Record<string,unknown>)=>write('block_save',{id:block.id,pageId:block.page_id,type:block.type,content});
+ const commit=()=>{const next=value;if(next===lastSaved.current)return;setSaveStatus('saving');
+   serial.current=serial.current.then(()=>save({...block.content,text:next}).then(()=>{lastSaved.current=next;setSaveStatus('saved')})).catch(()=>setSaveStatus('error'));
+ };
+ useEffect(()=>{if(block.type==='divider'||block.type==='database'||block.type==='pipeline'||block.type==='page_link'||block.type==='image')return;
+  if(value===lastSaved.current)return;
+  setSaveStatus('typing');const timer=window.setTimeout(()=>commit(),900);return()=>window.clearTimeout(timer);
+ // The draft is saved 900ms after typing pauses. Explicit blur saves immediately.
+ },[value]);
  if(block.type==='divider')return <hr className="os-divider"/>;
  if(block.type==='pipeline')return <SplitPipeline blockId={block.id}initialSplits={data.splits}initialItems={data.items}write={write}reload={refresh}/>;
  if(block.type==='database')return <WorkspaceDatabase sourceId={block.content.sourceId}sources={sources}openPage={openPage}/>;
  if(block.type==='page_link'){const p=pages.find(x=>x.id===block.content.pageId);return <button className="os-page-link" onClick={()=>openPage(block.content.pageId)}>{p?.icon||'📄'} {p?.title||'Страница'} <Icon name="right" size={15}/></button>}
  if(block.type==='image')return <div className="os-image-block"><input className="os-input" placeholder="HTTPS-ссылка на изображение" aria-label="URL изображения" value={url} onChange={e=>setUrl(e.target.value)} onBlur={()=>{if(url!==block.content.url)void save({url,alt:block.content.alt||''})}}/>{/^https:\/\//i.test(url)&&<img loading="lazy" src={url} alt={block.content.alt||'Изображение страницы'}/>}</div>;
  if(block.type==='checklist')return <div className="os-check-block"><input type="checkbox" checked={block.content.checked===true} onChange={e=>void save({...block.content,text:value,checked:e.target.checked}).then(refresh)} aria-label="Выполнено"/><input className={block.content.checked?'done':''} placeholder="Пункт чеклиста" aria-label="Пункт чеклиста" value={value} onChange={e=>setValue(e.target.value)} onBlur={()=>{if(value!==block.content.text)void save({...block.content,text:value})}}/></div>;
- return <textarea rows={block.type==='heading'?1:Math.max(2,Math.min(8,value.split('\n').length))} className={'os-block-text '+(block.type==='heading'?'os-block-h':'')} aria-label={block.type==='heading'?'Заголовок':'Текстовый блок'} placeholder={block.type==='heading'?'Заголовок':'Напиши что-нибудь…'} value={value} onChange={e=>setValue(e.target.value)} onBlur={()=>{if(value!==block.content.text)void save({...block.content,text:value})}}/>;
+ return <div className="os-autosave-block"><textarea rows={block.type==='heading'?1:Math.max(2,Math.min(8,value.split('\n').length))} className={'os-block-text '+(block.type==='heading'?'os-block-h':'')} aria-label={block.type==='heading'?'Заголовок':'Текстовый блок'} placeholder={block.type==='heading'?'Заголовок':'Напиши что-нибудь…'} value={value} onChange={e=>setValue(e.target.value)} onBlur={()=>commit()} onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();commit()}}}/>
+  {saveStatus!=='saved'&&<div className={'os-autosave-status '+saveStatus} role={saveStatus==='error'?'alert':'status'}>{saveStatus==='typing'?'Есть изменения…':saveStatus==='saving'?'Сохраняется…':<><span>Не сохранилось</span><button onClick={()=>commit()} type="button">Повторить</button></>}</div>}
+ </div>;
 }
 function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>}){
- const {categories,saveTask,goals,os6}=useApp();
+ const {categories,saveTask,goals,os6}=useApp();const {goals:regularGoals}=useRegularGoals();
  const [day,setDay]=useState(task.day||''),[priority,setPriority]=useState<'important'|'extra'>(task.priority),[categoryId,setCategory]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||''),[notes,setNotes]=useState(task.notes||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';const [goalId,setGoalId]=useState(link);
- const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await saveTask({id:task.id,title:pageTitle.trim()||task.title,notes,day:day||null,priority,categoryId,sphere:categories.find(c=>c.id===categoryId)?.name||task.sphere,goalId});await onSaved();}catch(err:any){setError(err.message||'Не удалось сохранить свойства')}finally{setBusy(false)}};
- return <form className="os-task-properties" onSubmit={save}><div className="os-section-title"><h3>Свойства задачи</h3><span className="tiny-note">Одна запись для Буфера и Сегодня</span></div>
+ const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';
+ const [goalId,setGoalId]=useState(link?'amb:'+link:'');
+ useEffect(()=>{let active=true;void request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id}).then(r=>{
+   if(active&&r.goalId)setGoalId('reg:'+r.goalId);
+ }).catch(()=>{});return()=>{active=false}},[task.id]);
+
+ const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await saveTask({id:task.id,title:pageTitle.trim()||task.title,notes,day:day||null,priority,categoryId,sphere:categories.find(c=>c.id===categoryId)?.name||task.sphere,goalId:goalId.startsWith('amb:')?goalId.slice(4):''});
+ await request('os9','regular_goal_set',{taskId:task.id,goalId:goalId.startsWith('reg:')?goalId.slice(4):null});await onSaved();}catch(err:any){setError(err.message||'Не удалось сохранить свойства')}finally{setBusy(false)}};
+ return <form className="os-task-properties" onSubmit={save} onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();e.currentTarget.requestSubmit()}}}><div className="os-section-title"><h3>Свойства задачи</h3><span className="tiny-note">Одна запись для Буфера и Сегодня</span></div>
   <div className="os-task-properties-grid"><label>Категория<select value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
   <label>Тип<select value={priority} onChange={e=>setPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select></label>
   <label>Дата<input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label>
   <label>Срок/расположение<button className="os-btn" type="button" onClick={()=>setDay('')}>{day?'Убрать из плана':'В буфере'}</button></label>
-  <label>Связь с целью<select value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">Без цели</option>{goals.map(g=><option key={g.id} value={g.id}>{g.title}</option>)}</select></label></div>
+  <label>Связь с целью<select value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></label></div>
   <label>Дополнительно<textarea value={notes} rows={3} maxLength={6000} onChange={e=>setNotes(e.target.value)} placeholder="Контекст, ссылки, подробности задачи…"/></label>
   {error&&<p className="os-error-banner" role="alert">{error}</p>}
-  <button disabled={busy} className="os-btn os-btn-primary" type="submit">{busy?'Сохраняем…':'Сохранить свойства'}</button></form>;
+  <div className="os-property-actions"><span>⌘/Ctrl + Enter — сохранить</span><button disabled={busy} className="os-icon os-save-icon" type="submit" title="Сохранить свойства" aria-label="Сохранить свойства"><Icon name={busy?'refresh':'check'} size={19}/></button></div></form>;
 }

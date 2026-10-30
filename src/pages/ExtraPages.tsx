@@ -97,13 +97,13 @@ export function CategoriesPage(){const{categories,saveCategory,deleteCategory,mu
     </form></Card>}
   </div>;
 }
-export function SettingsPage(){const{os6,mutate,tz}=useApp();const s=os6.settings;const[timezone,setTimezone]=useState(tz);const[task,setTask]=useState(s.target_task),[sale,setSale]=useState(s.target_sale),[sport,setSport]=useState(s.target_sport);
+export function SettingsPage(){const{os6,mutate,tz}=useApp();const s=os6.settings;const[timezone,setTimezone]=useState(tz);
   const [enabled,setEnabled]=useState(s.reminders_enabled);const[morning,setMorning]=useState(s.morning_time?.slice(0,5)||'09:00');const[evening,setEvening]=useState(s.evening_time?.slice(0,5)||'21:30');const[weekly,setWeekly]=useState(s.weekly_time?.slice(0,5)||'20:00');
-  const save=async(e:React.FormEvent)=>{e.preventDefault();try{await mutate('os6','settings_save',{record:{tz:timezone,target_task:Number(task),target_sale:Number(sale),target_sport:Number(sport),morning_time:morning,evening_time:evening,weekly_time:weekly,reminders_enabled:enabled}});
+  const save=async(e:React.FormEvent)=>{e.preventDefault();try{await mutate('os6','settings_save',{record:{tz:timezone,target_task:s.target_task,target_sale:s.target_sale,target_sport:s.target_sport,morning_time:morning,evening_time:evening,weekly_time:weekly,reminders_enabled:enabled}});
       await mutate('os61','timezone_save',{tz:timezone});}catch{/* reported */}};
   return <div className="page-stack"><PageTitle label="ЛИЧНЫЕ НАСТРОЙКИ" title="Настройки"/><Card><form className="editor-form" onSubmit={save}>
     <SectionHead title="Часовой пояс"/><label>Время и дата<input required value={timezone} onChange={e=>setTimezone(e.target.value)} placeholder="Europe/Moscow"/><span className="tiny-note">Определяется автоматически при первом входе. Можно изменить вручную.</span></label>
-    <SectionHead title="Цели на неделю"/><div className="form-grid"><label>Задачи<input type="number" min={1} max={100000} value={task} onChange={e=>setTask(+e.target.value)}/></label><label>Продажи<input type="number" min={1} max={100000} value={sale} onChange={e=>setSale(+e.target.value)}/></label></div><label>Тренировки<input type="number" min={1} max={100000} value={sport} onChange={e=>setSport(+e.target.value)}/></label>
+    <p className="settings-goals-note">Планирование целей теперь находится в разделе «Цели»: обычные, амбициозные и с любым сроком.</p>
     <SectionHead title="Напоминания"/><label className="checkbox-inline"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Включить Telegram-напоминания</label>
     <p className="tiny-note">Автоматическая отправка требует отдельно настроенного Cron. Без него приложение продолжает работать.</p>
     <div className="form-grid"><label>Утро<input type="time" value={morning} onChange={e=>setMorning(e.target.value)}/></label><label>Вечер<input type="time" value={evening} onChange={e=>setEvening(e.target.value)}/></label></div><label>Обзор недели<input type="time" value={weekly} onChange={e=>setWeekly(e.target.value)}/></label>

@@ -7,3 +7,28 @@
 
 /* 6.3: mobile pipeline is a vertical sequence, not horizontal tabs */
 @media(max-width:600px){.os-pipe-tabs{display:none!important}.os-pipe-columns{display:flex!important;flex-direction:column;gap:12px;overflow:visible!important;scroll-snap-type:none}.os-split,.os-split.active{display:block!important;min-width:0!important;width:100%!important;flex:0 0 auto!important}}
+
+/* 6.4: Task pages use all available horizontal space. */
+.os-workspace-layout.os-page-focused{display:block;width:100%;min-width:0}
+.os-workspace-layout.os-page-focused>.os-page-rail{display:none!important}
+.os-workspace-layout.os-page-focused>.os-workspace-main{width:100%;min-width:0}
+.os-page-focused .os-page-editor{width:100%;max-width:none;padding:clamp(14px,3vw,32px)}
+.os-back-to-buffer{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;background:transparent;border:0;color:#7169c9;padding:5px 2px;min-height:36px;font-size:13px;font-weight:700}
+.os-back-to-buffer:hover{color:#4941a8}
+.os-add-split .os-save-icon,.os-property-actions .os-save-icon{width:42px;height:42px;min-width:42px;border-radius:13px;background:#8177e7;color:white;border-color:transparent}
+.os-add-split .os-save-icon:disabled{opacity:.55}
+.os-inline-error{font-size:12px!important;color:#bd435b!important;margin:6px 2px 2px!important}
+.os-inline-hint{font-size:11px!important;color:#9fa3b4!important;margin:4px 2px 0!important}
+.os-property-actions{display:flex;gap:14px;justify-content:flex-end;align-items:center}
+.os-property-actions span{font-size:11px;color:#989eaf}
+.os-workspace .os-add-split input[aria-invalid=true]{border-color:#c94b69;background:#fff8fa}
+@media(max-width:600px){.os-page-focused .os-page-editor{padding:15px 11px}.os-back-to-buffer{min-height:44px}.os-property-actions span{font-size:10px}}
+
+
+.os-income-section{padding:16px;background:#f5f4ff;border:1px solid #e6e3fc;border-radius:16px;display:grid;gap:12px}.os-income-section h3{font-size:14px;color:#33354e;margin:0 0 3px}.os-income-section p{font-size:11px;color:#8589a4;margin:0}.os-income-form{display:flex;align-items:end;flex-wrap:wrap;gap:10px}.os-income-form label{display:grid;gap:5px;font-size:11px;color:#6d7188;min-width:130px}.os-income-form label.os-income-confirm{display:flex;align-items:center;min-height:44px;gap:7px}.os-income-form input[type=checkbox]{margin:0}.os-income-saved{color:#3a956c!important;font-size:11px}.os-income-form .os-save-icon{flex:0 0 42px}
+
+.os-autosave-block{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.os-autosave-block textarea{width:100%}
+.os-autosave-status{font-size:10px;padding:2px 9px;color:#9698a9}
+.os-autosave-status.error{color:#ba475e;display:flex;gap:12px;align-items:center}
+.os-autosave-status.error button{border:0;background:none;text-decoration:underline;color:#7a68d4;padding:2px}

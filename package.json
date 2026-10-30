@@ -1,7 +1,7 @@
 {
   "name": "personal-os-premium",
   "private": true,
-  "version": "6.3.0",
+  "version": "6.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -10,7 +10,8 @@
     "check": "tsc --noEmit",
     "test:smoke": "node tests/smoke.mjs",
     "test:workspace": "node tests/workspace.mjs",
-    "test:unified": "node tests/unified.mjs"
+    "test:unified": "node tests/unified.mjs",
+    "test:mvp": "node tests/mvp.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",
