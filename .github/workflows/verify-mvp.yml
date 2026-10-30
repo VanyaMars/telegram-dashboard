@@ -29,5 +29,7 @@ jobs:
         run: npm run test:v67
       - name: 6.8 foundations
         run: npm run test:v68
+      - name: 6.8 action flow
+        run: npm run test:action-flow
       - name: Typecheck and build
         run: npm run build

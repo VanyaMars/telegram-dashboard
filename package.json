@@ -15,7 +15,8 @@
     "test:motion": "node tests/motion.mjs",
     "test:v67": "node tests/v67.mjs",
     "test:qa": "playwright test",
-    "test:v68": "node tests/v68.mjs"
+    "test:v68": "node tests/v68.mjs",
+    "test:action-flow": "node tests/action-flow.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",

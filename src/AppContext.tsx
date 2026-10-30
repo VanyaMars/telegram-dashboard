@@ -132,14 +132,15 @@ export function AppProvider({children}:{children:React.ReactNode}){
     togglesInFlight.current.add(task.id);
     const next={...task,completed:!task.completed};
     setTasks(x=>x.map(t=>t.id===task.id?next:t));
+    let committed=false;
     try{
       if(demo){haptic();return;}
       await request('dashboard','task_toggle',{id:task.id,completed:next.completed});
-      haptic();await reload(dayRef.current,tz);
+      committed=true;haptic();
+      await reload(dayRef.current,tz);
     }catch(e:any){
-      // A confirmed toggle is not undone merely because a subsequent refresh had a problem.
-      setTasks(x=>x.map(t=>t.id===task.id?task:t));
-      notify('Не удалось обновить задачу: '+(e?.message||'Ошибка связи'));
+      if(!committed)setTasks(x=>x.map(t=>t.id===task.id?task:t));
+      notify((committed?'Задача сохранена, но не удалось обновить список: ':'Не удалось обновить задачу: ')+(e?.message||'Ошибка связи'));
     }finally{togglesInFlight.current.delete(task.id);}
   };
   const deleteTask=async(task:Task)=>{

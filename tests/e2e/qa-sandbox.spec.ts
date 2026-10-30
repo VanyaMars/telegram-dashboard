@@ -210,3 +210,73 @@ test('6.8 foundations: reduced motion keeps fast navigation and focus action cli
  const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
  expect(transform).toBe('none');
 });
+
+test('6.8 Action Flow: Home puts next step first and shows real daily score',async({page})=>{
+ await enter(page);
+ await expect(page.locator('.next-step-title')).toBeVisible();
+ await expect(page.locator('.next-step-card .plan-score-value')).toBeVisible();
+ await expect(page.locator('.next-step-card .next-step-score-heading')).toContainText('РЕЗУЛЬТАТ ДНЯ');
+ await expect(page.locator('.next-step-card').getByRole('button',{name:'Открыть план на сегодня'})).toBeVisible();
+});
+
+test('6.8 Action Flow: fast Buffer capture prevents duplicate Enter and clears search',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ const input=page.getByRole('textbox',{name:'Быстро добавить задачу'});
+ await input.fill('QA быстрый захват 6.8');
+ await input.press('Enter');
+ await input.press('Enter');
+ await expect(page.getByRole('button',{name:'QA быстрый захват 6.8',exact:true})).toHaveCount(1);
+ await expect(input).toBeFocused();
+ await expect(input).toHaveValue('');
+ await page.getByRole('searchbox',{name:'Поиск задач'}).fill('НЕСУЩЕСТВУЮЩИЙ_ЗАПРОС_68');
+ await expect(page.getByText('Ничего не найдено')).toBeVisible();
+ await page.getByRole('button',{name:'Сбросить фильтры'}).click();
+ await expect(page.getByRole('button',{name:'QA быстрый захват 6.8',exact:true})).toBeVisible();
+});
+
+test('6.8 Action Flow: Today important tasks before score and optional Buffer picker',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
+ await expect(page.locator('.today-task-group--important')).toBeVisible();
+ await expect(page.locator('.today-summary--compact')).toBeVisible();
+ const above=await page.evaluate(()=>{
+  const imp=document.querySelector('.today-task-group--important');
+  const score=document.querySelector('.today-summary--compact');
+  return !!(imp&&score&&(imp.compareDocumentPosition(score)&Node.DOCUMENT_POSITION_FOLLOWING));
+ });
+ expect(above).toBe(true);
+ const toggle=page.getByRole('button',{name:/Из буфера/});
+ await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await toggle.click();
+ await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await expect(page.locator('#today-buffer-picker')).toBeVisible();
+});
+
+test('6.8 Action Flow: planning keeps the linked goal and task ID',async({page})=>{
+ await enter(page);
+ const reference=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const key='personal-os:qa:data:v1:'+session.id;
+  const data=JSON.parse(localStorage.getItem(key)||'{}');
+  const link=data.os6.links[0];const task=data.tasks.find((t:any)=>t.id===link.task_id);
+  task.day=null;task.completed=false;
+  localStorage.setItem(key,JSON.stringify(data));
+  return {taskId:task.id,goalId:link.goal_id,title:task.title,key,categoryId:task.os61_category_id};
+ });
+ await page.reload();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Планирование'}).click();
+ const item=page.locator('.planning-task').filter({hasText:reference.title});
+ await item.getByRole('checkbox').check();
+ await page.getByRole('button',{name:'Запланировать 1'}).click();
+ await expect(page.getByText('Запланировано: 1')).toBeVisible();
+ const after=await page.evaluate(key=>{
+  const data=JSON.parse(localStorage.getItem(key)||'{}');
+  return {task:data.tasks.find((t:any)=>t.id===data.os6.links[0]?.task_id),link:data.os6.links[0],all:data.tasks.filter((t:any)=>t.title==='Отправить три предложения клиентам').length};
+ },reference.key);
+ expect(after.link.task_id).toBe(reference.taskId);
+ expect(after.link.goal_id).toBe(reference.goalId);
+ expect(after.task.os61_category_id).toBe(reference.categoryId);
+ expect(after.task.day).toBeTruthy();
+ expect(after.all).toBe(1);
+});
