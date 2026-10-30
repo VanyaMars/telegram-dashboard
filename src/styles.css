@@ -163,3 +163,9 @@
  .home-dashboard .home-goals .goals-grid{grid-template-columns:1fr}
 }
 @media(max-width:360px){.home-dashboard .actual-goals{grid-template-columns:1fr}}
+
+/* Real next step on ambitious goals */
+.goal-next-action{display:flex;align-items:center;gap:7px;text-align:left;width:100%;min-width:0;border:1px solid #ebe8fa;border-radius:12px;background:#f8f6ff;color:#6a62c9;padding:10px 12px;font-size:12px}
+.goal-next-action span{min-width:0;overflow-wrap:anywhere}
+.goal-next-action:hover{background:#efedff}
+.goal-evidence{font-size:11px;color:#868aa0}
