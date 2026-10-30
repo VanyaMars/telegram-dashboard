@@ -25,5 +25,7 @@ jobs:
         run: npm run test:mvp
       - name: Motion regression
         run: npm run test:motion
+      - name: 6.7 regression
+        run: npm run test:v67
       - name: Typecheck and build
         run: npm run build
