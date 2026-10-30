@@ -1,4 +1,4 @@
-export type Tab='home'|'today'|'goals'|'analytics'|'buffer'|'calendar'|'tomorrow'|'finance'|'sport'|'focus'|'challenges'|'repeats'|'review'|'discipline'|'settings'|'categories'|'help'|'workspace';
+export type Tab='home'|'today'|'goals'|'analytics'|'income'|'buffer'|'calendar'|'tomorrow'|'finance'|'sport'|'focus'|'challenges'|'repeats'|'review'|'discipline'|'settings'|'categories'|'help'|'workspace';
 export type TaskPriority='important'|'extra';
 export type Task={id:string;title:string;notes:string;sphere:string;day:string|null;priority:TaskPriority;completed:boolean;created_at?:string;updated_at?:string;os61_position?:number|null;os61_category_id?:string|null;os6_repeat_id?:string|null};
 export type Category={id:string;name:string;color:string;icon:string;sort_order:number};
