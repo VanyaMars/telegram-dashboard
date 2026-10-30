@@ -80,3 +80,17 @@
  .os-split-menu .os-split-actions{z-index:6}
 }
 @media(prefers-reduced-motion:reduce){.os-workflow-row .os-task-mini-controls{transition:none}}
+
+/* 6.7.2 accessible inline Workflow editor */
+.os-workflow-name{flex:1;min-width:0;border:0;background:none;padding:7px 5px;text-align:left;color:inherit;cursor:text;font:inherit;overflow-wrap:anywhere}
+.os-workflow-name.completed{text-decoration:line-through;opacity:.65}
+.os-workflow-name:focus-visible,.os-workflow-edit :focus-visible{outline:2px solid #6658d9;outline-offset:2px}
+.os-workflow-edit{display:flex;flex:1;min-width:0;flex-wrap:wrap;align-items:center;gap:6px}
+.os-workflow-edit .os-inline-input{flex:1 1 140px;min-width:100px}
+.os-workflow-edit button{min-height:38px;border:1px solid #dedbea;border-radius:9px;background:#f6f4ff;color:#574bad;padding:7px 9px;cursor:pointer}
+.os-workflow-edit button:nth-of-type(2){background:#fff;color:#646879}
+.os-workflow-edit .os-inline-error{flex-basis:100%}
+.os-calendar-undated{margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;background:#f9f9fc;border:1px solid #ebeaf2;border-radius:12px}
+.os-calendar-undated h4{flex-basis:100%;font-size:13px;margin:0}
+.os-calendar-undated button{border:1px solid #dedbea;border-radius:10px;background:#fff;color:#555b76;padding:8px 11px;font-size:12px}
+.os-calendar-undated p{font-size:12px;color:#7d8292}

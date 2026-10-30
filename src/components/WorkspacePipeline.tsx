@@ -24,11 +24,22 @@ export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:
  </section>
 }
 function SplitColumn({split,index,items,move,action,allSplits}:{split:WSplit;index:number;items:WItem[];move:(id:string,step:number)=>Promise<void>;action:(action:string,body:Record<string,unknown>)=>Promise<void>;allSplits:WSplit[]}){
- const [title,setTitle]=useState(split.title),[adding,setAdding]=useState(''),[editError,setEditError]=useState(''),[editing,setEditing]=useState<string|null>(null),[editText,setEditText]=useState('');
+ const [title,setTitle]=useState(split.title),[adding,setAdding]=useState(''),[editError,setEditError]=useState(''),[editing,setEditing]=useState<string|null>(null),[editText,setEditText]=useState(''),[editBusy,setEditBusy]=useState(false),[workflowEditError,setWorkflowEditError]=useState('');
  useEffect(()=>setTitle(split.title),[split.id,split.title]);
  const done=items.filter(t=>t.completed).length,progress=splitProgress(items);
 
  const reorder=async(id:string,delta:number)=>{const ids=items.map(t=>t.id),a=ids.indexOf(id),b=a+delta;if(b<0||b>=ids.length)return;[ids[a],ids[b]]=[ids[b],ids[a]];await action('workflow_reorder',{splitId:split.id,ids})};
+ const startEdit=(item:WItem)=>{setWorkflowEditError('');setEditText(item.title);setEditing(item.id)};
+ const cancelEdit=()=>{if(editBusy)return;setWorkflowEditError('');setEditing(null)};
+ const saveEdit=async(item:WItem)=>{
+  const next=editText.trim();
+  if(!next){setWorkflowEditError('Название не может быть пустым');return;}
+  if(next===item.title){setEditing(null);setWorkflowEditError('');return;}
+  setEditBusy(true);setWorkflowEditError('');
+  try{await action('workflow_save',{id:item.id,splitId:split.id,title:next});setEditing(null);}
+  catch{setWorkflowEditError('Не удалось сохранить действие. Повтори попытку.');}
+  finally{setEditBusy(false);}
+ };
  return <div className="os-split-card">
   <div className="os-split-top"><span className="os-kicker">ЭТАП {index+1}</span><details className="os-split-menu"><summary aria-label={`Действия с этапом ${split.title}`} title="Действия с этапом"><Icon name="more" size={17}/></summary><div className="os-split-actions">
     <button className="os-icon" disabled={index===0} title="Этап левее" onClick={()=>void move(split.id,-1)}><Icon name="left" size={16}/></button>
@@ -39,7 +50,13 @@ function SplitColumn({split,index,items,move,action,allSplits}:{split:WSplit;ind
   <div className="os-progress"><span style={{width:`${progress}%`}}/></div>
   <div className="os-workflow-list">{items.map(item=><div className="os-workflow-row" key={item.id}>
    <input type="checkbox" checked={item.completed} aria-label={`Выполнено: ${item.title}`} onChange={e=>void action('workflow_save',{id:item.id,splitId:split.id,completed:e.target.checked})}/>
-   {editing===item.id?<input className="os-inline-input" autoFocus value={editText} onChange={e=>setEditText(e.target.value)} maxLength={240} onBlur={()=>{if(editText.trim()&&editText!==item.title)void action('workflow_save',{id:item.id,splitId:split.id,title:editText.trim()});setEditing(null)}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>:<span className={item.completed?'completed':''} onClick={()=>{setEditing(item.id);setEditText(item.title)}}>{item.title}</span>}
+   {editing===item.id?<div className="os-workflow-edit">
+    <input className="os-inline-input" autoFocus aria-label={`Редактировать действие: ${item.title}`} value={editText} onChange={e=>setEditText(e.target.value)} maxLength={240}
+     onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cancelEdit()}else if(e.key==='Enter'){e.preventDefault();void saveEdit(item)}}}/>
+    <button type="button" disabled={editBusy} onClick={()=>void saveEdit(item)}>Сохранить</button>
+    <button type="button" disabled={editBusy} onClick={cancelEdit}>Отмена</button>
+    {workflowEditError&&<small role="alert" className="os-inline-error">{workflowEditError}</small>}
+   </div>:<button type="button" className={'os-workflow-name '+(item.completed?'completed':'')} aria-label={`Изменить действие: ${item.title}`} onClick={()=>startEdit(item)}>{item.title}</button>}
    <div className="os-task-mini-controls"><button title="Выше" disabled={items[0].id===item.id} onClick={()=>void reorder(item.id,-1)}>↑</button><button title="Ниже" disabled={items[items.length-1].id===item.id} onClick={()=>void reorder(item.id,1)}>↓</button><button title="Удалить" onClick={()=>void action('workflow_delete',{id:item.id})}>×</button></div>
   </div>)}</div>
   <form className="os-workflow-add" onSubmit={async e=>{e.preventDefault();if(!adding.trim()){setEditError('Напиши действие перед добавлением');return;}setEditError('');try{await action('workflow_save',{splitId:split.id,title:adding.trim()});setAdding('')}catch{setEditError('Не удалось сохранить действие')}}}>

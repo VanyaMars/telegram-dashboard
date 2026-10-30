@@ -2,22 +2,21 @@ import React,{useEffect,useState} from 'react';
 import {BufferPage} from './CorePages';
 import {WorkspacePage} from './Workspace';
 
-/** Keep a single WorkspacePage instance mounted while its hash route changes.
- * The former conditional rendering remounted the editor on every parent/child
- * transition, dropping its in-flight selected-page state.
- */
+/** Keep one mounted WorkspacePage while switching between directory and page route. */
 export function BufferWorkspacePage(){
-  const [editingPage,setEditingPage]=useState(()=>window.location.hash.startsWith('#/page/'));
-  useEffect(()=>{
-    const sync=()=>setEditingPage(window.location.hash.startsWith('#/page/'));
-    window.addEventListener('hashchange',sync);
-    return()=>window.removeEventListener('hashchange',sync);
-  },[]);
-  return <div className="unified-buffer">
-    {!editingPage&&<BufferPage/>}
-    <details className="mvp-advanced-pages" open={editingPage ? true : undefined}>
-      {!editingPage&&<summary>Дополнительные страницы и базы</summary>}
-      <WorkspacePage embedded/>
-    </details>
-  </div>;
+ const [editingPage,setEditingPage]=useState(()=>window.location.hash.startsWith('#/page/'));
+ const [showPages,setShowPages]=useState(()=>window.location.hash.startsWith('#/page/')||window.location.hash==='#/workspace');
+ useEffect(()=>{
+  const sync=()=>{const hash=window.location.hash;setEditingPage(hash.startsWith('#/page/'));if(hash.startsWith('#/page/')||hash==='#/workspace')setShowPages(true)};
+  window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync);
+ },[]);
+ return <div className="unified-buffer">
+  {!editingPage&&<BufferPage/>}
+  {!editingPage&&<button type="button" className="mvp-pages-toggle" aria-controls="os-workspace-panel" aria-expanded={showPages} onClick={()=>setShowPages(value=>!value)}>
+   {showPages?'Скрыть дополнительные страницы и базы':'Дополнительные страницы и базы'}
+  </button>}
+  <section id="os-workspace-panel" className="mvp-advanced-pages" hidden={!editingPage&&!showPages}>
+   <WorkspacePage embedded/>
+  </section>
+ </div>;
 }

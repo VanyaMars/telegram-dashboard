@@ -60,7 +60,26 @@ function Board({rows,field,onOpen,onEdit}:{rows:WRecord[];field:WField|undefined
 }
 function Calendar({rows,field,month,setMonth,onOpen}:{rows:WRecord[];field:WField|undefined;month:Date;setMonth:(m:Date)=>void;onOpen:(id:string)=>void}){
  if(!field)return <div className="os-db-hint">Для календаря добавь поле типа «Дата».</div>;
- const days=calendarDays(month.getFullYear(),month.getMonth());return <div className="os-calendar"><div className="os-calendar-bar"><button onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))}><Icon name="left"/></button><strong>{month.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})}</strong><button onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))}><Icon name="right"/></button></div><div className="os-calendar-grid">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=><div className="os-calendar-weekday" key={d}>{d}</div>)}{days.map((day,i)=><div key={i} className={'os-calendar-cell '+(!day?'empty':'')}><time>{day?Number(day.slice(8)):''}</time>{day&&rows.filter(r=>read(r,field)===day).map(r=><button key={r.id} title={r.title} onClick={()=>onOpen(r.page_id)}>{r.title}</button>)}</div>)}</div></div>;
+ const days=calendarDays(month.getFullYear(),month.getMonth());
+ const undated=rows.filter(record=>!String(read(record,field)??'').trim());
+ return <div className="os-calendar">
+  <div className="os-calendar-bar">
+   <button onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} aria-label="Предыдущий месяц"><Icon name="left"/></button>
+   <strong>{month.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})}</strong>
+   <button onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} aria-label="Следующий месяц"><Icon name="right"/></button>
+  </div>
+  <div className="os-calendar-grid">
+   {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day=><div className="os-calendar-weekday" key={day}>{day}</div>)}
+   {days.map((day,index)=><div key={index} className={'os-calendar-cell '+(!day?'empty':'')}>
+    <time>{day?Number(day.slice(8)):''}</time>
+    {day&&rows.filter(record=>read(record,field)===day).map(record=><button key={record.id} title={record.title} onClick={()=>onOpen(record.page_id)}>{record.title}</button>)}
+   </div>)}
+  </div>
+  <section className="os-calendar-undated" aria-label="Записи без даты">
+   <h4>Без даты ({undated.length})</h4>
+   {undated.length?undated.map(record=><button key={record.id} onClick={()=>onOpen(record.page_id)}>{record.title}</button>):<p>Все записи имеют дату</p>}
+  </section>
+ </div>;
 }
 function RecordEditor({sourceId,record,fields,sources,onClose,onSave,onDelete}:{sourceId:string;record:WRecord|null;fields:WField[];sources:Array<{id:string;name:string}>;onClose:()=>void;onSave:(v:any)=>Promise<void>;onDelete:(id:string)=>Promise<void>}){
  const [title,setTitle]=useState(record?.title||''),[properties,setProperties]=useState<Record<string,any>>(record?.properties||{}),[busy,setBusy]=useState(false),[error,setError]=useState('');
