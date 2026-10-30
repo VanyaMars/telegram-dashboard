@@ -1,7 +1,7 @@
 {
   "name": "personal-os-premium",
   "private": true,
-  "version": "6.6.0",
+  "version": "6.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -12,7 +12,8 @@
     "test:workspace": "node tests/workspace.mjs",
     "test:unified": "node tests/unified.mjs",
     "test:mvp": "node tests/mvp.mjs",
-    "test:motion": "node tests/motion.mjs"
+    "test:motion": "node tests/motion.mjs",
+    "test:v67": "node tests/v67.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",
