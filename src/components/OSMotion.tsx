@@ -1,31 +1,26 @@
 import React from 'react';
 import {AnimatePresence,LazyMotion,MotionConfig,domMax,useReducedMotion} from 'motion/react';
 import * as m from 'motion/react-m';
+import {motionTokens} from './motionTokens';
 
-/**
- * Shared animation policy for Personal OS.
- * - One lightweight motion system for all screens
- * - Respects the device's reduced-motion accessibility preference
- * - domMax enables shared-layout animation for navigation indicators
- */
+/** One Motion provider, respecting the device's reduced-motion setting. */
 export function OSMotionProvider({children}:{children:React.ReactNode}){
  return <MotionConfig reducedMotion="user"><LazyMotion features={domMax} strict>{children}</LazyMotion></MotionConfig>;
 }
 
 /**
- * The selected screen is keyed independently from app data.
- * Re-rendering tasks/analytics never restarts the page transition.
+ * Never block navigation on an outgoing route; no transformed ancestor
+ * around sticky editors, overlays or fixed Telegram WebView controls.
  */
 export function MotionRoute({screen,children}:{screen:string;children:React.ReactNode}){
- const reduce=useReducedMotion();
- return <AnimatePresence initial={false} mode="wait">
+ const reduced=useReducedMotion();
+ return <AnimatePresence initial={false} mode="sync">
   <m.div key={screen} className="motion-route"
-   initial={reduce?false:{opacity:0}}
+   initial={reduced?false:{opacity:0.9}}
    animate={{opacity:1}}
-   exit={reduce?{opacity:1}:{opacity:0}}
-   transition={{duration:reduce?0:0.22,ease:'easeOut'}}>
+   exit={{opacity:0,transition:{duration:0}}}
+   transition={reduced?{duration:0}:motionTokens.route}>
    {children}
   </m.div>
  </AnimatePresence>;
 }
-

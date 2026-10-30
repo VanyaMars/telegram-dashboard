@@ -168,3 +168,45 @@ test('6.7.2 F06: a record without date stays accessible in Calendar',async({page
  await expect(db.locator('.os-calendar-undated')).toContainText('Без даты (1)');
  await expect(db.locator('.os-calendar-undated')).toContainText('QA запись без даты');
 });
+
+for(const width of [320,390,430,1440]){
+ test('6.8 foundations: Calm Precision and 4 core screens fit '+width+'px',async({page})=>{
+  await page.setViewportSize({width,height:830});
+  await enter(page);
+  const palette=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--purple').trim());
+  expect(palette).toBe('#6658D9');
+  await expect(page.getByRole('button',{name:'Начать с 5 минут'})).toBeVisible();
+  for(const route of ['home','today','goals','buffer']){
+   await page.goto(entry+'#/tab/'+route);
+   await expect(page.locator('main.app-content .motion-route')).toBeVisible();
+   const dimensions=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,viewport:document.documentElement.clientWidth}));
+   expect(dimensions.doc,'Global overflow at '+route+' '+width+'px: '+JSON.stringify(dimensions)).toBeLessThanOrEqual(dimensions.viewport+2);
+  }
+ });
+}
+
+test('6.8 foundations: keyboard activation on a goal card and shared selection',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ await enter(page);
+ const goal=page.locator('.goal-mini[role="button"]').first();
+ await expect(goal).toBeVisible();
+ await goal.focus();
+ await page.keyboard.press('Enter');
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('.premium-nav-selection')).toHaveCount(1);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('.premium-nav-selection')).toHaveCount(1);
+});
+
+test('6.8 foundations: reduced motion keeps fast navigation and focus action clickable',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await enter(page);
+ const action=page.getByRole('button',{name:'Начать с 5 минут'});
+ await expect(action).toBeVisible();
+ await action.click();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Фокус-таймер'})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('main.app-content .motion-route')).toBeVisible();
+ const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
+ expect(transform).toBe('none');
+});

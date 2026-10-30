@@ -6,6 +6,8 @@ import {MotionRoute} from './components/OSMotion';
 import {isQAMode} from './qa/sandbox';
 import {APP_BUILD_LABEL} from './lib/version';
 import * as m from 'motion/react-m';
+import {useReducedMotion} from 'motion/react';
+import {motionTokens} from './components/motionTokens';
 import {TaskEditor} from './components/Tasks';
 import {HomePage,TodayPage,GoalsPage,GoalEditor,AnalyticsPage} from './pages/CorePages';
 import {CalendarPage,TomorrowPage,FinancePage,SportPage,FocusPage,ChallengesPage,RepeatsPage,ReviewPage,DisciplinePage,CategoriesPage,SettingsPage,HelpPage,EntityEditor} from './pages/ExtraPages';
@@ -16,14 +18,20 @@ import {MvpAnalyticsPage} from './pages/MvpAnalytics';
 import {PlanningPage} from './pages/PlanningPage';
 import {HabitsPage} from './pages/HabitsPage';
 import './styles.css';
+import './premium.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
 const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Планирование',icon:'calendar-check'},{id:'focus',label:'Фокус-таймер',icon:'timer'},{id:'challenges',label:'Привычки',icon:'check-circle'},{id:'repeats',label:'Повторения',icon:'repeat'}];
 const appNames=Object.fromEntries([...primary,workspaceNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
 function NavItem({id,label,icon}:{id:Tab;label:string;icon:string}){
-  const {tab,open}=useApp();return <button className={'nav-link '+(tab===id?'selected':'')} onClick={()=>open(id)} aria-current={tab===id?'page':undefined}>
-    <Icon name={icon} size={19}/><span>{label}</span>{tab===id&&<m.span layoutId="os-sidebar-active" className="active-nav-dot" transition={{type:'spring',stiffness:440,damping:35}}/>}
-  </button>;
+ const {tab,open}=useApp();const reduced=useReducedMotion();const active=tab===id;
+ return <button className={'nav-link '+(active?'selected':'')} onClick={()=>open(id)}
+  aria-current={active?'page':undefined}>
+  {active&&<m.span layoutId="os-sidebar-selection" className="premium-nav-selection"
+   aria-hidden="true" initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
+  <Icon name={icon} size={19}/><span>{label}</span>
+  {active&&<span className="active-nav-dot" aria-hidden="true"/>}
+ </button>;
 }
 function Sidebar(){const{sidebar,setSidebar}=useApp();return <>
   <div className={'sidebar-scrim '+(sidebar?'visible':'')} onClick={()=>setSidebar(false)} aria-hidden="true"/>
@@ -46,7 +54,14 @@ function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
   </header>;
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{primary.map(n=><BottomItem key={n.id} {...n}/>)}</nav>}
-function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){const{tab,open}=useApp();return <button className={tab===id?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={tab===id?'page':undefined}>{tab===id&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active" transition={{type:'spring',stiffness:430,damping:36}}/>}<Icon name={icon} size={22}/><span>{label}</span></button>}
+function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){
+ const{tab,open}=useApp();const reduced=useReducedMotion();const active=tab===id;
+ return <button className={active?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={active?'page':undefined}>
+  {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active" aria-hidden="true"
+   initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
+  <Icon name={icon} size={22}/><span>{label}</span>
+ </button>;
+}
 function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <HabitsPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
 function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   const labels={task:editor.item?'Изменить задачу':'Новая задача',goal:editor.item?'Изменить цель':'Новая цель',finance:'Финансовая запись',workout:'Тренировка',weight:'Замер веса',exercise:'Упражнение',repeat:'Повторение',challenge:'Личный вызов'};
