@@ -17,11 +17,17 @@ export function MvpAnalyticsPage(){
  const [period,setPeriod]=useState<WindowSize>(30),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const [days,setDays]=useState<Record<string,DayMetrics>>(metrics),[income,setIncome]=useState<IncomeSummary>({totals:{},daily:{},count:0});
  const [goalLinks,setGoalLinks]=useState<Record<string,{total:number;done:number}>>({});
- const [focusMinutes,setFocusMinutes]=useState<Record<string,number>>({});
+
  const start=period===30?monthStart(today):dateAdd(today,-period+1);const dates=useMemo(()=>{const count=period===30?Math.round((Date.parse(today+'T12:00:00Z')-Date.parse(start+'T12:00:00Z'))/86400000)+1:period;return Array.from({length:count},(_,i)=>dateAdd(start,i))},[start,period,today]);
  useEffect(()=>{let active=true;const read=async()=>{if(demo){setDays(metrics);return}setLoading(true);setError('');
-   try{const [result,earned,linked]=await Promise.all([request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end:today}),getIncomeSummary(start,today),request<{stats:Record<string,{total:number;done:number}>}>('os9','regular_goal_stats')]);
-    if(active){setDays(result.days||{});setIncome(earned);setGoalLinks(linked.stats||{})}}catch(e:any){if(active)setError(e.message||'Не удалось загрузить статистику')}
+   try{const results=await Promise.allSettled([request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end:today}),getIncomeSummary(start,today),request<{stats:Record<string,{total:number;done:number}>}>('os9','regular_goal_stats')]);
+    if(!active)return;
+    if(results[0].status==='fulfilled')setDays(results[0].value.days||{});
+    if(results[1].status==='fulfilled')setIncome(results[1].value);
+    if(results[2].status==='fulfilled')setGoalLinks(results[2].value.stats||{});
+    const failed=results.map((r,i)=>r.status==='rejected'?(i===0?'os6.metrics':i===1?'os9.income_summary':'os9.regular_goal_stats'):null).filter(Boolean);
+    if(failed.length)setError('Не удалось загрузить: '+failed.join(', ')+'. Проверь Logs этих функций в Supabase.');
+   }catch(e:any){if(active)setError(e.message||'Не удалось загрузить статистику')}
    finally{if(active)setLoading(false)}};
   void read();const refresh=()=>{void read()};window.addEventListener('os9:income-changed',refresh);
   return()=>{active=false;window.removeEventListener('os9:income-changed',refresh)};
