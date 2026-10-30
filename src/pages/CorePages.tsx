@@ -8,6 +8,7 @@ import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDate
 import {request} from '../lib/api';
 import {RegularGoals,useRegularGoals} from '../components/RegularGoals';
 import {PlanScore} from '../components/PlanScore';
+import {QuickCategory} from '../components/QuickCategory';
 
 const sums=(days:Record<string,DayMetrics>,dates:string[])=>dates.reduce((a,d)=>{const m=days[d];return {tasks:a.tasks+(m?.tasks||0),sales:a.sales+(m?.sales||0),sport:a.sport+(m?.sport||0)};},{tasks:0,sales:0,sport:0});
 function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important');const extra=tasks.filter(t=>t.priority==='extra');
@@ -18,7 +19,7 @@ export function HomePage(){
   const {today,day,setDay,tasks,goals,goalHistory,os6,metrics,open,setEditor,openTaskPage}=useApp();
   useEffect(()=>{if(day!==today)setDay(today)},[today]);
   const k=dayKpi(tasks);const dates=weekDates(mondayOf(today));const totals=sums(metrics,dates);
-  const {goals:regularGoals}=useRegularGoals();const regularAverage=regularGoals.length?Math.round(regularGoals.reduce((sum,g)=>sum+g.progress,0)/regularGoals.length):0;
+  const {goals:regularGoals}=useRegularGoals();
   const important=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
   const goalAverage=goals.length?Math.round(goals.reduce((n,g)=>n+goalProgress(g),0)/goals.length):0;
   return <div className="page-stack">
@@ -31,11 +32,7 @@ export function HomePage(){
         <div className="hero-sub"><span>Важные <b>{k.doneImportant}/{k.important}</b></span><span>Дополнительные <b>{k.doneExtra}/{k.extra}</b></span></div>
         <button className="link-action" onClick={()=>open('today')}>Открыть задачи <Icon name="arrow-right" size={16}/></button>
       </Card>
-      <div className="home-stat-grid">
-        <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap purple"><Icon name="target"/></span><button className="icon-btn" onClick={()=>open('goals')} aria-label="Перейти к целям"><Icon name="arrow-up-right" size={18}/></button></div><span className="muted-label">Обычные цели</span><strong>{regularAverage}<small>% · {regularGoals.length} целей</small></strong><ProgressBar value={regularAverage}/></Card>
-        <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap peach"><Icon name="target"/></span><Icon name="arrow-up-right" size={18}/></div><span className="muted-label">Амбициозные цели</span><strong>{goalAverage}<small>%</small></strong><ProgressBar value={goalAverage}/></Card>
-
-      </div>
+      <div className="home-stat-grid actual-goals"><RegularGoals compact/></div>
     </div>
     <div className="home-second">
       <Card className="week-overview"><div className="card-title-row"><div><span className="eyebrow">АКТИВНОСТЬ</span><h2>Неделя в цифрах</h2></div><button className="icon-btn" onClick={()=>open('analytics')} aria-label="Открыть аналитику"><Icon name="arrow-up-right"/></button></div>
@@ -56,9 +53,10 @@ export function HomePage(){
     </div>
   </div>;
 }
-export function TodayPage(){const{day,setDay,today,tasks,setEditor,open}=useApp();
+export function TodayPage(){const{day,setDay,today,tasks,buffer,saveTask,setEditor,open,mutate,os6}=useApp();
   const k=dayKpi(tasks),important=tasks.filter(t=>t.priority==='important'),extra=tasks.filter(t=>t.priority==='extra');
   const [expanded,setExpanded]=useState<Record<string,boolean>>({});
+  const [bufferId,setBufferId]=useState('');const [bufferPriority,setBufferPriority]=useState<'important'|'extra'>('important');const [moving,setMoving]=useState(false);
   const group=(items:Task[],zone:'important'|'extra')=>{
     const pending=items.filter(t=>!t.completed),done=items.filter(t=>t.completed);
     return <Card className="task-group"><div className="task-group-heading"><div className="task-group-icon"><Icon name={zone==='important'?'target':'zap'} size={20}/></div><div><h3>{zone==='important'?'Самые важные':'Дополнительные'}</h3><span>{done.length} из {items.length} выполнено</span></div><button className="btn small outline" onClick={()=>setEditor({type:'task',day,priority:zone})}><Icon name="plus" size={16}/> Задача</button></div>
@@ -70,9 +68,15 @@ export function TodayPage(){const{day,setDay,today,tasks,setEditor,open}=useApp(
   return <div className="page-stack">
     <div className="page-heading"><div><p className="eyebrow">ПЛАН НА ДЕНЬ</p><h1>Сегодня</h1><p>{prettyDay(day)}</p></div><div className="date-chooser"><button onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button><input aria-label="Дата задач" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button></div></div>
     {day!==today&&<button className="pill-tab" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
-    <Card className="today-summary"><div className="today-numbers"><div><span className="eyebrow">ВЫПОЛНЕНИЕ ПЛАНА</span><div className="today-percent"><PlanScore important={k.important} doneImportant={k.doneImportant} extra={k.extra} doneExtra={k.doneExtra}/></div></div><span className="status-pill">{k.important&&k.important===k.doneImportant?'Главное закрыто':'Фокус на главном'}</span></div>
-
+    <Card className="today-summary"><div className="today-numbers"><span className="eyebrow">ВЫПОЛНЕНИЕ ПЛАНА</span><span className="status-pill">{k.important&&k.important===k.doneImportant?'Главное закрыто':'Фокус на главном'}</span></div>
+      <PlanScore important={k.important} doneImportant={k.doneImportant} extra={k.extra} doneExtra={k.doneExtra}/>
       <div className="summary-grid"><div><span>Важные</span><b>{progress(k.doneImportant,k.important)}%</b></div><div><span>Дополнительные</span><b>{progress(k.doneExtra,k.extra)}%</b></div></div></Card>
+    <Card className="quick-plan-card"><div className="card-title-row"><div><h2>Из буфера — в план</h2><p className="tiny-note">Выбери задачу и нажми «В день»</p></div></div>
+      <div className="quick-plan-form"><select aria-label="Задача из буфера" value={bufferId} onChange={e=>setBufferId(e.target.value)}><option value="">Выбрать задачу…</option>{buffer.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select>
+      <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select>
+      <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={async()=>{const task=buffer.find(t=>t.id===bufferId);if(!task)return;setMoving(true);try{await saveTask({id:task.id,title:task.title,notes:task.notes,sphere:task.sphere,categoryId:task.os61_category_id||null,day,priority:bufferPriority});setBufferId('')}finally{setMoving(false)}}}>В день <Icon name="right" size={16}/></button></div>
+    </Card>
+    {important.some(t=>!t.completed)&&!os6.focus.some(f=>f.state!=='finished')&&<button className="btn accent today-start-focus" onClick={()=>{const t=important.find(x=>!x.completed);if(t)void mutate('os6','focus',{command:'start',title:t.title,task_id:t.id}).then(()=>open('focus')).catch(()=>{})}}><Icon name="play" size={18}/> Начать главное — фокус</button>}
     {group(important,'important')}{group(extra,'extra')}
     <button className="btn add-inline" onClick={()=>setEditor({type:'task',day,priority:'important'})}><Icon name="plus" size={20}/> Добавить задачу</button>
     <button className="link-action center" onClick={()=>open('buffer')}><Icon name="inbox" size={17}/> Открыть буфер задач <Icon name="right" size={15}/></button>
@@ -89,7 +93,7 @@ export function BufferPage(){
  };
  return <div className="page-stack buffer-mvp"><div className="page-heading"><div><p className="eyebrow">ТВОИ ИДЕИ И ПРОЕКТЫ</p><h1>Буфер задач</h1><p>Создай запись сейчас, планируй подробно потом</p></div><button className="btn accent" onClick={()=>setEditor({type:'task',day:null})}><Icon name="plus"/> Задача</button></div>
   <Card className="buffer-quick"><form onSubmit={quick}><Icon name="plus" size={20}/><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Новая задача или идея…" maxLength={180} aria-label="Быстро добавить задачу"/><button type="submit" disabled={!title.trim()||adding}>{adding?'…':'Добавить'}</button></form></Card>
-  <div className="buffer-categories" aria-label="Категории задач"><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Все <span>{buffer.length}</span></button>{categories.map(c=><button key={c.id} className={filter===c.id?'active':''} onClick={()=>setFilter(c.id)}><i style={{background:c.color}}/>{c.name}<span>{buffer.filter(t=>matchCategory(t)?.id===c.id).length}</span></button>)}</div>
+  <div className="buffer-categories" aria-label="Категории задач"><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Все <span>{buffer.length}</span></button>{categories.map(c=><button key={c.id} className={filter===c.id?'active':''} onClick={()=>setFilter(c.id)}><i style={{background:c.color}}/>{c.name}<span>{buffer.filter(t=>matchCategory(t)?.id===c.id).length}</span></button>)}<QuickCategory/></div>
   <label className="buffer-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по задачам и заметкам" aria-label="Поиск задач"/></label>
   {!matching.length?<Card><Empty title={buffer.length?'Ничего не найдено':'Буфер пока пуст'} description="Запиши задачу в одну строку — детали добавишь в её странице"/></Card>:groupKeys.map(id=>{
    const group=matching.filter(t=>(matchCategory(t)?.id||'uncategorized')===id);const cat=categories.find(c=>c.id===id);

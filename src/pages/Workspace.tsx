@@ -7,6 +7,7 @@ import {WPage,WBlock,WSource,WPageResponse,BlockType,workspaceRequest,pageLink} 
 import {request} from '../lib/api';
 import type {Task} from '../types';
 import {TaskIncomeEditor} from '../components/TaskIncome';
+import {QuickCategory} from '../components/QuickCategory';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 
@@ -109,7 +110,7 @@ function PageBlock({block,pages,sources,data,openPage,write,refresh}:{block:WBlo
  </div>;
 }
 function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>}){
- const {categories,saveTask,goals,os6}=useApp();const {goals:regularGoals}=useRegularGoals();
+ const {categories,saveTask,goals,os6,mutate,open}=useApp();const {goals:regularGoals}=useRegularGoals();
  const [day,setDay]=useState(task.day||''),[priority,setPriority]=useState<'important'|'extra'>(task.priority),[categoryId,setCategory]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||''),[notes,setNotes]=useState(task.notes||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';
  const [goalId,setGoalId]=useState(link?'amb:'+link:'');
@@ -120,12 +121,12 @@ function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string
  const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await saveTask({id:task.id,title:pageTitle.trim()||task.title,notes,day:day||null,priority,categoryId,sphere:categories.find(c=>c.id===categoryId)?.name||task.sphere,goalId:goalId.startsWith('amb:')?goalId.slice(4):''});
  await request('os9','regular_goal_set',{taskId:task.id,goalId:goalId.startsWith('reg:')?goalId.slice(4):null});await onSaved();}catch(err:any){setError(err.message||'Не удалось сохранить свойства')}finally{setBusy(false)}};
  return <form className="os-task-properties" onSubmit={save} onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();e.currentTarget.requestSubmit()}}}><div className="os-section-title"><h3>Свойства задачи</h3><span className="tiny-note">Одна запись для Буфера и Сегодня</span></div>
-  <div className="os-task-properties-grid"><label>Категория<select value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+  <div className="os-task-properties-grid"><label>Категория<select value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><QuickCategory/></label>
   <label>Тип<select value={priority} onChange={e=>setPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select></label>
   <label>Дата<input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label>
   <label>Срок/расположение<button className="os-btn" type="button" onClick={()=>setDay('')}>{day?'Убрать из плана':'В буфере'}</button></label>
   <label>Связь с целью<select value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></label></div>
   <label>Дополнительно<textarea value={notes} rows={3} maxLength={6000} onChange={e=>setNotes(e.target.value)} placeholder="Контекст, ссылки, подробности задачи…"/></label>
   {error&&<p className="os-error-banner" role="alert">{error}</p>}
-  <div className="os-property-actions"><span>⌘/Ctrl + Enter — сохранить</span><button disabled={busy} className="os-icon os-save-icon" type="submit" title="Сохранить свойства" aria-label="Сохранить свойства"><Icon name={busy?'refresh':'check'} size={19}/></button></div></form>;
+  <div className="os-property-actions"><button type="button" className="os-btn" onClick={()=>void mutate("os6","focus",{command:"start",title:task.title,task_id:task.id}).then(()=>open("focus")).catch(()=>{})}><Icon name="play" size={16}/> Начать фокус</button><span>⌘/Ctrl + Enter — сохранить</span><button disabled={busy} className="os-icon os-save-icon" type="submit" title="Сохранить свойства" aria-label="Сохранить свойства"><Icon name={busy?'refresh':'check'} size={19}/></button></div></form>;
 }
