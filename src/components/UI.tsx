@@ -4,29 +4,47 @@ import {Icon} from './Icons';
 import {useApp} from '../AppContext';
 import type {GoalPoint} from '../types';
 import {goalProgress} from '../lib/date';
-import {useReducedMotion} from 'motion/react';
+import {AnimatePresence,useReducedMotion} from 'motion/react';
+import {motionTokens} from './motionTokens';
 import * as m from 'motion/react-m';
 
 export function Card({children,className='',onClick}:{children:React.ReactNode;className?:string;onClick?:()=>void}){
-  const reduced=useReducedMotion();
-  const featured=/(hero-result|week-overview|priority-card|today-summary|quick-plan-card|mvp-kpi|goal-mini|goal-full|focus-card)/.test(className);
-  if(!featured)return <div className={'glass-card '+className} onClick={onClick}>{children}</div>;
-  const lift=/(hero-result|goal-mini|mvp-kpi)/.test(className);
-  return <m.div className={'glass-card motion-card '+className} onClick={onClick}
-    initial={reduced?false:{opacity:0,y:14}}
-    animate={{opacity:1,y:0}}
-    whileHover={!reduced&&lift?{y:-3}:undefined}
-    transition={{duration:reduced?0:0.34,ease:'easeOut'}}>{children}</m.div>;
+ const reduced=useReducedMotion();
+ const featured=/(hero-result|week-overview|priority-card|today-summary|quick-plan-card|mvp-kpi|goal-mini|goal-full|focus-card)/.test(className);
+ const interactive=typeof onClick==='function';
+ const keyboard=interactive?(event:React.KeyboardEvent<HTMLDivElement>)=>{
+  if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){
+   event.preventDefault();onClick?.();
+  }
+ }:undefined;
+ const classNames='glass-card '+className;
+ if(!featured)return <div className={classNames} onClick={onClick}
+  role={interactive?'button':undefined} tabIndex={interactive?0:undefined} onKeyDown={keyboard}>{children}</div>;
+ return <m.div className={classNames+' motion-card'} onClick={onClick}
+  role={interactive?'button':undefined} tabIndex={interactive?0:undefined} onKeyDown={keyboard}
+  initial={reduced?false:{opacity:0.94,y:8}}
+  animate={{opacity:1,y:0}}
+  whileHover={!reduced&&interactive?{y:-2}:undefined}
+  whileTap={!reduced&&interactive?{scale:0.99}:undefined}
+  transition={reduced?{duration:0}:motionTokens.card}>{children}</m.div>;
 }
 export function Pill({children,accent='lavender'}:{children:React.ReactNode;accent?:string}){
   return <span className={'pill pill-'+accent}>{children}</span>;
 }
 export function ProgressBar({value,max=100,secondary=0}:{value:number;max?:number;secondary?:number}){
-  const reduced=useReducedMotion();
-  const a=max>0?Math.max(0,Math.min(max,value))/max*100:0;
-  const b=max>0?Math.max(0,Math.min(max-value,secondary))/max*100:0;
-  return <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.max(0,Math.min(max,value+secondary))}>
-    <m.span className="progress-fill primary motion-progress-fill" initial={reduced?false:{width:'0%'}} animate={{width:`${a}%`}} transition={{duration:reduced?0:0.64,ease:'easeOut'}}/>{secondary>0&&<m.span className="progress-fill secondary motion-progress-fill" initial={reduced?false:{width:'0%'}} animate={{width:`${b}%`}} transition={{duration:reduced?0:0.64,ease:'easeOut'}}/>}</div>;
+ const reduced=useReducedMotion();
+ const first=max>0?Math.min(max,Math.max(0,value)):0;
+ const extra=max>0?Math.min(max-first,Math.max(0,secondary)):0;
+ const ratio=max>0?first/max:0,total=max>0?(first+extra)/max:0;
+ return <div className="progress-track premium-progress-track" role="progressbar"
+  aria-valuemin={0} aria-valuemax={max} aria-valuenow={first+extra}>
+  {extra>0&&<m.span className="progress-fill secondary motion-progress-fill"
+   initial={false} animate={{scaleX:total}} style={{transformOrigin:'0% 50%'}}
+   transition={reduced?{duration:0}:motionTokens.progress}/>}
+  <m.span className="progress-fill primary motion-progress-fill"
+   initial={false} animate={{scaleX:ratio}} style={{transformOrigin:'0% 50%'}}
+   transition={reduced?{duration:0}:motionTokens.progress}/>
+ </div>;
 }
 export function Sparkline({values=[],color='#8B84ED',height=72}:{values?:number[];color?:string;height?:number}){
   const rows=(values.length?values:[0,0]);const w=300,h=height;const max=Math.max(...rows),min=Math.min(...rows),range=max-min||1;
@@ -90,9 +108,31 @@ export function Dialog({open,onClose,title,children}:{open:boolean;onClose:()=>v
     <m.div ref={sheetRef} tabIndex={-1} className="modal-sheet" role="dialog" aria-modal="true" aria-label={title} initial={reduced?false:{opacity:0,y:12,scale:0.985}} animate={{opacity:1,y:0,scale:1}} transition={{duration:reduced?0:0.22,ease:'easeOut'}}><div className="modal-top"><h3>{title}</h3><button type="button" className="icon-btn" onClick={()=>onCloseRef.current()} aria-label="Закрыть"><Icon name="x"/></button></div>{children}</m.div>
   </div>,document.body);
 }
-export function StatusToast(){const{message,recentDeleted,undoDelete}=useApp();return message?<div className="toast" role="status"><Icon name="check-circle" size={16}/>{message}{recentDeleted&&message==='Задача удалена'&&<button className="toast-undo" onClick={()=>void undoDelete()}>Отменить</button>}</div>:null;}
+export function StatusToast(){
+ const{message,recentDeleted,undoDelete}=useApp();
+ const reduced=useReducedMotion();
+ return <AnimatePresence initial={false}>
+  {message&&<m.div key={message} className="toast" role="status"
+   initial={reduced?false:{opacity:0,y:8,scale:0.985}}
+   animate={{opacity:1,y:0,scale:1}}
+   exit={reduced?{opacity:0}:{opacity:0,y:5}}
+   transition={reduced?{duration:0}:motionTokens.feedback}>
+   <Icon name="check-circle" size={16}/>{message}
+   {recentDeleted&&message==='Задача удалена'&&<button className="toast-undo" onClick={()=>void undoDelete()}>Отменить</button>}
+  </m.div>}
+ </AnimatePresence>;
+}
 export function WeekBars({days,current}:{days:string[];current:Record<string,number>}){
-  const reduced=useReducedMotion();
-  const vals=days.map(d=>current[d]||0);const max=Math.max(1,...vals);
-  return <div className="week-bars" role="img" aria-label="Выполненные задачи за неделю">{days.map((d,i)=><div className="bar-col" key={d} title={`${d}: ${vals[i]} задач`}><span className="bar-num">{vals[i]||''}</span><div className="bar-slot"><m.div className="bar" initial={reduced?false:{height:'2%'}} animate={{height:`${Math.max(vals[i]?6:2,vals[i]/max*100)}%`}} transition={{duration:reduced?0:0.6,delay:reduced?0:i*.045,ease:'easeOut'}}/></div><small>{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}</small></div>)}</div>;
+ const reduced=useReducedMotion();
+ const vals=days.map(day=>current[day]||0),max=Math.max(1,...vals);
+ return <div className="week-bars" role="img" aria-label="Выполненные задачи за неделю">
+  {days.map((day,i)=>{const ratio=vals[i]?Math.min(1,Math.max(0.06,vals[i]/max)):0;
+   return <div className="bar-col" key={day} title={`${day}: ${vals[i]} задач`}>
+    <span className="bar-num">{vals[i]||''}</span>
+    <div className="bar-slot"><m.div className="bar" style={{height:'100%',transformOrigin:'bottom center'}}
+     initial={false} animate={{scaleY:ratio}}
+     transition={reduced?{duration:0}:{...motionTokens.progress,delay:Math.min(i,3)*0.035}}/></div>
+    <small>{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}</small>
+   </div>})}
+ </div>;
 }
