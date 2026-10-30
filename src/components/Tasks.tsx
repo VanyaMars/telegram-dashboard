@@ -3,6 +3,8 @@ import {useApp} from '../AppContext';
 import type {Task} from '../types';
 import {Icon} from './Icons';
 import {Empty} from './UI';
+import {useReducedMotion} from 'motion/react';
+import * as m from 'motion/react-m';
 
 type Zone='important'|'extra'|'buffer';
 export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone;label?:string;emptyMessage?:string}){
@@ -50,12 +52,13 @@ export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone
 }
 function TaskRow({task,zone,dragging,targeted,dragProps}:{task:Task;zone:Zone;dragging:boolean;targeted:boolean;dragProps:any}){
   const {categories,toggleTask,setEditor,reorder,deleteTask,os6,goals,openTaskPage}=useApp();const [menu,setMenu]=useState(false);
+  const reduced=useReducedMotion();
   const category=categories.find(c=>c.id===task.os61_category_id)||categories.find(c=>c.name===task.sphere);
   const goalID=os6.links.find(x=>x.task_id===task.id)?.goal_id;
   const goal=goals.find(g=>g.id===goalID);
   return <article className={'task-row '+(task.completed?'is-done ':'')+(dragging?'task-moving ':'')+(targeted?'task-drop-target':'')} data-task-id={task.id}>
-    {zone!=='buffer'?<button className={'task-checkbox '+(task.completed?'checked':'')} onClick={()=>void toggleTask(task)} aria-label={`${task.completed?'Снять выполнение':'Выполнить'}: ${task.title}`}>
-      {task.completed&&<Icon name="check" size={15}/>}</button>:<div className="task-dot"/>}
+    {zone!=='buffer'?<m.button whileTap={!reduced?{scale:0.78}:undefined} transition={{type:'spring',stiffness:520,damping:28}} className={'task-checkbox '+(task.completed?'checked':'')} onClick={()=>void toggleTask(task)} aria-label={`${task.completed?'Снять выполнение':'Выполнить'}: ${task.title}`}>
+      {task.completed&&<m.span initial={reduced?false:{scale:0.45,opacity:0}} animate={{scale:1,opacity:1}} transition={{type:'spring',stiffness:500,damping:25}}><Icon name="check" size={15}/></m.span>}</m.button>:<div className="task-dot"/>}
     <button className="task-copy" onClick={()=>void openTaskPage(task)} title="Открыть страницу задачи"><span className="task-text">{task.title}</span><span className="task-labels">
       {category&&<span className="task-category"><i style={{background:category.color}}/>{category.name}</span>}{goal&&<span className="linked-goal"><Icon name="target" size={11}/>{goal.title}</span>}
       {zone==='buffer'&&task.notes&&<span className="task-notes">{task.notes.slice(0,64)}</span>}
