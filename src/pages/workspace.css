@@ -94,3 +94,46 @@
 .os-calendar-undated h4{flex-basis:100%;font-size:13px;margin:0}
 .os-calendar-undated button{border:1px solid #dedbea;border-radius:10px;background:#fff;color:#555b76;padding:8px 11px;font-size:12px}
 .os-calendar-undated p{font-size:12px;color:#7d8292}
+
+/* Personal OS 6.8 — Spatial Flow only inside the Pipeline.
+ * Mobile: vertical stages with tap-to-expand; no page-wide horizontal scroll.
+ */
+.os-pipeline-premium{border-color:#e4e2f0;background:#FCFBFF;border-radius:18px}
+.os-pipeline-premium .os-pipe-summary strong{color:#242835}
+.os-pipeline-premium .os-progress{background:#EAE7F4;overflow:hidden}
+.os-pipeline-premium .os-progress>span{display:block;height:100%;background:linear-gradient(90deg,#6658D9,#9387E9);transition:none!important;max-width:none}
+.os-pipeline-premium .os-pipe-columns{min-width:0}
+.os-pipeline-premium .os-split-card{background:#fff;border:1px solid #E9E7F2;border-radius:16px;box-shadow:0 5px 18px rgba(36,40,53,.05)}
+.os-pipeline-premium .os-split:focus-within{z-index:2}
+.os-pipeline-premium .os-split-mobile-toggle{display:none;border:0;background:transparent;color:#242835;flex:1;min-width:0;gap:8px;padding:8px;text-align:left;align-items:center;justify-content:space-between;cursor:pointer}
+.os-pipeline-premium .os-split-mobile-toggle strong{overflow-wrap:anywhere;min-width:0;font-size:14px}
+.os-pipeline-premium .os-split-body{display:flex;flex-direction:column;gap:10px}
+.os-pipeline-premium .os-workflow-list{display:flex;flex-direction:column;gap:5px}
+.os-pipeline-premium .os-workflow-row{min-height:52px;padding:7px 4px;border-bottom:1px solid #F0EFF5;gap:6px}
+.os-pipeline-premium .os-workflow-row>input[type="checkbox"]{width:22px;height:22px;flex:0 0 22px;accent-color:#277561}
+.os-pipeline-premium .os-workflow-name{font-size:13px;min-height:42px;color:#33384B}
+.os-pipeline-premium .os-workflow-name.completed{color:#777D8D}
+.os-pipeline-premium .os-task-mini-controls button{min-width:36px;min-height:40px;border:0;background:transparent;color:#5C6276;border-radius:8px}
+.os-pipeline-premium .os-task-mini-controls button:hover{background:#F1EFFB;color:#6658D9}
+.os-pipeline-premium .os-workflow-pending{font-size:10px;color:#6A5CCB;white-space:nowrap}
+.os-pipeline-premium .os-pipe-feedback{padding:10px 12px;background:#FFF4F5;border:1px solid #F3DADF;border-radius:10px;color:#9D3346;font-size:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.os-pipeline-premium .os-pipe-feedback button,.os-pipe-retry{border:0;background:#F1EAFD;color:#5A4ABE;border-radius:8px;padding:9px 12px;min-height:38px;cursor:pointer}
+.os-pipeline-premium .os-workflow-add input{font-size:14px}
+.os-pipeline-premium .os-split-menu summary{width:44px;height:44px;display:grid;place-items:center}
+.os-pipeline-premium .os-split-menu .os-split-actions .os-icon{width:44px;height:44px}
+.os-pipeline-premium :is(button,input,summary):focus-visible{outline:2px solid #6658D9;outline-offset:2px}
+@media(max-width:600px){
+ .os-pipeline-premium .os-pipe-columns{display:flex!important;flex-direction:column;gap:10px}
+ .os-pipeline-premium .os-split,.os-pipeline-premium .os-split.active{display:block!important;min-width:0;width:100%}
+ .os-pipeline-premium .os-split-card{padding:10px 12px}
+ .os-pipeline-premium .os-split-mobile-toggle{display:flex;min-height:44px}
+ .os-pipeline-premium .os-split.is-collapsed .os-split-body{display:none}
+ .os-pipeline-premium .os-split.is-collapsed .os-split-card{opacity:.91}
+ .os-pipeline-premium .os-workflow-row .os-task-mini-controls{opacity:1}
+ .os-pipeline-premium .os-task-mini-controls button{min-width:40px;min-height:44px}
+ .os-pipeline-premium .os-workflow-name{min-height:44px}
+ .os-pipeline-premium .os-split-title,.os-pipeline-premium .os-workflow-add input{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){
+ .os-pipeline-premium .os-split,.os-pipeline-premium .os-workflow-row,.os-pipeline-premium .os-progress>span{transition:none!important;animation:none!important}
+}
