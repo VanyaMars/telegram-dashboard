@@ -9,10 +9,12 @@ import type {Tab} from './types';
 import {telegram} from './lib/telegram';
 import {BufferWorkspacePage} from './pages/BufferWorkspace';
 import {MvpAnalyticsPage} from './pages/MvpAnalytics';
+import {PlanningPage} from './pages/PlanningPage';
+import {HabitsPage} from './pages/HabitsPage';
 import './styles.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
-const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Завтра',icon:'calendar-check'},{id:'focus',label:'Фокус-таймер',icon:'timer'},{id:'challenges',label:'Вызовы',icon:'trophy'},{id:'repeats',label:'Повторения',icon:'repeat'},{id:'discipline',label:'Дисциплина',icon:'trend'},{id:'review',label:'Обзор недели',icon:'book-open'}];
+const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Планирование',icon:'calendar-check'},{id:'focus',label:'Фокус-таймер',icon:'timer'},{id:'challenges',label:'Привычки',icon:'check-circle'},{id:'repeats',label:'Повторения',icon:'repeat'}];
 const appNames=Object.fromEntries([...primary,workspaceNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
 function NavItem({id,label,icon}:{id:Tab;label:string;icon:string}){
   const {tab,open}=useApp();return <button className={'nav-link '+(tab===id?'selected':'')} onClick={()=>open(id)} aria-current={tab===id?'page':undefined}>
@@ -40,7 +42,7 @@ function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{primary.map(n=><BottomItem key={n.id} {...n}/>)}</nav>}
 function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){const{tab,open}=useApp();return <button className={tab===id?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={tab===id?'page':undefined}><Icon name={icon} size={22}/><span>{label}</span></button>}
-function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <TomorrowPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <ChallengesPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <DisciplinePage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
+function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <HabitsPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
 function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   const labels={task:editor.item?'Изменить задачу':'Новая задача',goal:editor.item?'Изменить цель':'Новая цель',finance:'Финансовая запись',workout:'Тренировка',weight:'Замер веса',exercise:'Упражнение',repeat:'Повторение',challenge:'Личный вызов'};
   return <Dialog open onClose={()=>setEditor(null)} title={labels[editor.type]}>
