@@ -7,10 +7,10 @@ export function tabFromHash(hash:string):Tab{
  return match&&allowed.includes(match[1] as Tab)?match[1] as Tab:'home';
 }
 export function hashForTab(tab:Tab){return tab==='workspace'?'#/workspace':`#/tab/${tab}`;}
-const key='personal-os:selected-day:v1';
+const selectedDayKey=()=>new URLSearchParams(location.search).get('qa')==='1'?'personal-os:qa:selected-day:v1':'personal-os:selected-day:v1';
 const pattern=/^\d{4}-\d{2}-\d{2}$/;
 export function loadSelectedDay(today:string){
- try{const stored=sessionStorage.getItem(key);if(stored&&pattern.test(stored)&&!Number.isNaN(Date.parse(stored+'T12:00:00Z')))return stored}catch{/* storage unavailable */}
+ try{const stored=sessionStorage.getItem(selectedDayKey());if(stored&&pattern.test(stored)&&!Number.isNaN(Date.parse(stored+'T12:00:00Z')))return stored}catch{/* storage unavailable */}
  return today;
 }
-export function rememberSelectedDay(day:string){try{if(pattern.test(day))sessionStorage.setItem(key,day)}catch{/* storage unavailable */}}
+export function rememberSelectedDay(day:string){try{if(pattern.test(day))sessionStorage.setItem(selectedDayKey(),day)}catch{/* storage unavailable */}}
