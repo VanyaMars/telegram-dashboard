@@ -169,3 +169,8 @@
 .goal-next-action span{min-width:0;overflow-wrap:anywhere}
 .goal-next-action:hover{background:#efedff}
 .goal-evidence{font-size:11px;color:#868aa0}
+
+/* 6.7.1: popovers and dialogs must not sit below adjacent glass cards. */
+.glass-card:has(.task-popover){z-index:50}
+.task-row:has(.task-popover){z-index:51;isolation:isolate}
+.modal-backdrop{z-index:1000}
