@@ -7,6 +7,7 @@ import {WPage,WBlock,WSource,WPageResponse,BlockType,workspaceRequest,pageLink} 
 import {request} from '../lib/api';
 import type {Task} from '../types';
 import {TaskIncomeEditor} from '../components/TaskIncome';
+import {QuickCategory} from '../components/QuickCategory';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 
@@ -120,7 +121,7 @@ function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string
  const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await saveTask({id:task.id,title:pageTitle.trim()||task.title,notes,day:day||null,priority,categoryId,sphere:categories.find(c=>c.id===categoryId)?.name||task.sphere,goalId:goalId.startsWith('amb:')?goalId.slice(4):''});
  await request('os9','regular_goal_set',{taskId:task.id,goalId:goalId.startsWith('reg:')?goalId.slice(4):null});await onSaved();}catch(err:any){setError(err.message||'Не удалось сохранить свойства')}finally{setBusy(false)}};
  return <form className="os-task-properties" onSubmit={save} onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();e.currentTarget.requestSubmit()}}}><div className="os-section-title"><h3>Свойства задачи</h3><span className="tiny-note">Одна запись для Буфера и Сегодня</span></div>
-  <div className="os-task-properties-grid"><label>Категория<select value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+  <div className="os-task-properties-grid"><label>Категория<select value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><QuickCategory/></label>
   <label>Тип<select value={priority} onChange={e=>setPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select></label>
   <label>Дата<input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label>
   <label>Срок/расположение<button className="os-btn" type="button" onClick={()=>setDay('')}>{day?'Убрать из плана':'В буфере'}</button></label>
