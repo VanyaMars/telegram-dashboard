@@ -7,7 +7,9 @@ for(const file of ['src/App.tsx','src/pages/MvpAnalytics.tsx','src/lib/navigatio
  assert.equal(script.parseDiagnostics.length,0,'Valid screen/route source: '+file);
 }
 const app=read('src/App.tsx'),an=read('src/pages/MvpAnalytics.tsx'),navigation=read('src/lib/navigation.ts');
-assert.match(app,/label:'Страницы'/);
+assert.doesNotMatch(app,/label:'Страницы'/,'Pages must not be a separate sidebar item');
+assert.match(app,/label:'Буфер задач'/);
+assert.match(read('src/pages/BufferWorkspace.tsx'),/Дополнительные страницы и базы/);
 assert.match(app,/label:'Доходы'/);
 assert.match(app,/case 'income':return <MvpAnalyticsPage focusIncome\/>/);
 assert.match(app,/MoreBottomItem/);

@@ -125,7 +125,7 @@ test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details'
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.8.0');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.8.1');
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('#os-workspace-panel')).toBeVisible();
@@ -331,14 +331,22 @@ test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({pag
 });
 
 
-test('6.8 Shell: direct Pages navigation opens Workspace directory and survives reload',async({page})=>{
+test('6.8.1 Shell: Pages inside Buffer only, nested editor and old URLs remain available',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
- await expect.poll(()=>new URL(page.url()).hash).toBe('#/workspace');
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toMatch(/^#\/page\//);
  await page.reload();
+ await expect(page.locator('.os-workspace')).toBeVisible();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await page.goto(entry+'#/workspace');
  await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
 });
 
 test('6.8 Shell: confirmed task Income has a direct route, never manual Finance data',async({page})=>{
@@ -353,22 +361,23 @@ test('6.8 Shell: confirmed task Income has a direct route, never manual Finance 
  await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
 });
 
-test('6.8 Shell: 390px bottom navigation Today/Buffer/Goals/More is complete',async({page})=>{
+test('6.8.1 Shell: mobile Pages accessible from Buffer, not a sidebar tab',async({page})=>{
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  const bottom=page.getByRole('navigation',{name:'Основная навигация'});
  for(const label of ['Сегодня','Буфер задач','Цели','Ещё'])await expect(bottom.getByRole('button',{name:label})).toBeVisible();
  await bottom.getByRole('button',{name:'Ещё'}).click();
  await expect(page.locator('.app-sidebar')).toHaveClass(/is-open/);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
- await expect.poll(()=>new URL(page.url()).hash).toBe('#/workspace');
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(bottom.getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
  await bottom.getByRole('button',{name:'Сегодня'}).click();
  await expect(bottom.getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
  const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
  expect(size.doc).toBeLessThanOrEqual(size.client+2);
 });
-
 
 test('6.8 Goals: regular linked goal has truthful dynamic task target',async({page})=>{
  await enter(page);
@@ -437,9 +446,10 @@ test('6.8 integration: Home to Buffer capture, Today transfer and direct Pages/I
  await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await expect(page.locator('.goal-values').first()).toBeVisible();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.buffer-mvp')).toHaveCount(0);
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Доходы'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
  await page.reload();
@@ -464,16 +474,27 @@ for(const width of [320,390,430,1440]){
  });
 }
 
-test('6.8 integration: mobile More remains selected on direct Pages',async({page})=>{
+test('6.8.1 integration: mobile Buffer stays active when a nested page is opened',async({page})=>{
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  const nav=page.getByRole('navigation',{name:'Основная навигация'});
- await nav.getByRole('button',{name:'Ещё'}).click();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(nav.getByRole('button',{name:'Ещё'})).toHaveClass(/current/);
- await expect(nav.getByRole('button',{name:'Буфер задач'})).not.toHaveClass(/current/);
  await nav.getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
  await expect(nav.getByRole('button',{name:'Буфер задач'})).toHaveClass(/current/);
+ await expect(nav.getByRole('button',{name:'Ещё'})).not.toHaveClass(/current/);
+ await nav.getByRole('button',{name:'Буфер задач'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
 });
+
+test('6.8.1 Today: no Focus CTA while Home and Focus timer remain accessible',async({page})=>{
+ await enter(page);
+ await expect(page.getByRole('button',{name:'Начать с 5 минут'})).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
+ await expect(page.locator('.today-task-group--important')).toBeVisible();
+ await expect(page.locator('.today-start-focus')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Начать главное — фокус'})).toHaveCount(0);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Фокус-таймер'}).click();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Фокус-таймер'})).toHaveAttribute('aria-current','page');
+});
+
