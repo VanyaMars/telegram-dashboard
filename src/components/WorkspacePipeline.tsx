@@ -30,7 +30,7 @@ function SplitColumn({split,index,items,move,action,allSplits}:{split:WSplit;ind
 
  const reorder=async(id:string,delta:number)=>{const ids=items.map(t=>t.id),a=ids.indexOf(id),b=a+delta;if(b<0||b>=ids.length)return;[ids[a],ids[b]]=[ids[b],ids[a]];await action('workflow_reorder',{splitId:split.id,ids})};
  return <div className="os-split-card">
-  <div className="os-split-top"><span className="os-kicker">ЭТАП {index+1}</span><details className="os-split-menu"><summary aria-label={`Действия с этапом ${split.title}`} title="Действия с этапом"><Icon name="more-horizontal" size={17}/></summary><div className="os-split-actions">
+  <div className="os-split-top"><span className="os-kicker">ЭТАП {index+1}</span><details className="os-split-menu"><summary aria-label={`Действия с этапом ${split.title}`} title="Действия с этапом"><Icon name="more" size={17}/></summary><div className="os-split-actions">
     <button className="os-icon" disabled={index===0} title="Этап левее" onClick={()=>void move(split.id,-1)}><Icon name="left" size={16}/></button>
     <button className="os-icon" disabled={index===allSplits.length-1} title="Этап правее" onClick={()=>void move(split.id,1)}><Icon name="right" size={16}/></button>
     <button className="os-icon os-danger" title="Удалить этап" onClick={()=>{if(window.confirm('Удалить этап и все его пункты?'))void action('split_delete',{id:split.id})}}><Icon name="trash" size={15}/></button></div></details></div>
