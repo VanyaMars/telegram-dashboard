@@ -102,3 +102,69 @@ for(const width of [320,390,430,1440]){
   expect(dimensions.doc).toBeLessThanOrEqual(dimensions.viewport+2);
  });
 }
+
+test('6.7.2 F03: selected section, date and Back/Forward survive reload',async({page})=>{
+ await enter(page);
+ const todayNav=page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'});
+ await todayNav.click();
+ await expect(todayNav).toHaveAttribute('aria-current','page');
+ await page.getByRole('button',{name:'Следующий день'}).click();
+ const selected=await page.getByRole('textbox',{name:'Дата задач'}).inputValue();
+ await expect(page).toHaveURL(/#\\/tab\\/today$/);
+ await page.reload();
+ await expect(todayNav).toHaveAttribute('aria-current','page');
+ await expect(page.getByRole('textbox',{name:'Дата задач'})).toHaveValue(selected);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ await page.goBack();
+ await expect(todayNav).toHaveAttribute('aria-current','page');
+ await page.goForward();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'})).toHaveAttribute('aria-current','page');
+});
+
+test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details',async({page})=>{
+ await enter(page);
+ await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.7.2');
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await expect(page.locator('#os-workspace-panel')).toBeVisible();
+ await expect(page.locator('#os-workspace-panel > summary')).toHaveCount(0);
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await expect(page.locator('.os-page-editor')).toBeVisible();
+ await expect(page.locator('#os-workspace-panel > summary')).toHaveCount(0);
+});
+
+test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const row=page.locator('.os-workflow-row').filter({hasText:'Подготовить макеты'});
+ await row.getByRole('button',{name:'Изменить действие: Подготовить макеты'}).click();
+ await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Не сохранять отмену');
+ await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).press('Escape');
+ await expect(row.getByRole('button',{name:'Изменить действие: Подготовить макеты'})).toBeVisible();
+ await row.getByRole('button',{name:'Изменить действие: Подготовить макеты'}).click();
+ await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Проверить дизайн 6.7.2');
+ await row.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).press('Enter');
+ await expect(page.getByRole('button',{name:'Изменить действие: Проверить дизайн 6.7.2'})).toBeVisible();
+ await page.reload();
+ await expect(page.getByRole('button',{name:'Изменить действие: Проверить дизайн 6.7.2'})).toBeVisible();
+});
+
+test('6.7.2 F06: a record without date stays accessible in Calendar',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const db=page.locator('.os-database');
+ await db.getByRole('button',{name:'Запись',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Запись базы'});
+ await dialog.getByRole('textbox',{name:'Название'}).fill('QA запись без даты');
+ await dialog.getByRole('button',{name:'Сохранить',exact:true}).click();
+ await expect(dialog).toHaveCount(0);
+ await db.getByRole('tab',{name:/Календарь/}).click();
+ await expect(db.locator('.os-calendar-undated')).toContainText('Без даты (1)');
+ await expect(db.locator('.os-calendar-undated')).toContainText('QA запись без даты');
+});
