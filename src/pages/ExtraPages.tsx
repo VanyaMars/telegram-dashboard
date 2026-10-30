@@ -46,7 +46,8 @@ export function SportPage(){const{os6,setEditor}=useApp();const workouts=os6.wor
   </div>;
 }
 export function FocusPage(){const {os6,mutate,tasks,buffer}=useApp();const active=os6.focus.find(f=>f.state!=='finished');const [seconds,setSeconds]=useState(0);
- const [taskId,setTaskId]=useState(''),[presets,setPresets]=useState<number[]>([5,15,25,45]),[minutes,setMinutes]=useState(25),[custom,setCustom]=useState(''),[error,setError]=useState('');
+ const [taskId,setTaskId]=useState(''),[presets,setPresets]=useState<number[]>(()=>{try{const saved=JSON.parse(localStorage.getItem('personal-os-focus-presets')||'null');return Array.isArray(saved)&&saved.every(x=>Number.isInteger(x)&&x>=1&&x<=360)?saved:[5,15,25,45]}catch{return [5,15,25,45]}}),[minutes,setMinutes]=useState(25),[custom,setCustom]=useState(''),[error,setError]=useState('');
+ useEffect(()=>{try{localStorage.setItem('personal-os-focus-presets',JSON.stringify(presets))}catch{}},[presets]);
  useEffect(()=>{function tick(){if(!active){setSeconds(0);return;}setSeconds(Number(active.accumulated_seconds)+(active.state==='running'&&active.started_at?Math.max(0,Math.floor((Date.now()-Date.parse(active.started_at))/1000)):0));}tick();const timer=setInterval(tick,1000);return()=>clearInterval(timer)},[active?.id,active?.state,active?.started_at,active?.accumulated_seconds]);
  const time=[Math.floor(seconds/3600),Math.floor(seconds%3600/60),seconds%60].map(v=>String(v).padStart(2,'0')).join(':');
  const remaining=Math.max(0,minutes*60-seconds);const remain=[Math.floor(remaining/60),remaining%60].map(v=>String(v).padStart(2,'0')).join(':');
