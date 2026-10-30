@@ -11,7 +11,8 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:workspace": "node tests/workspace.mjs",
     "test:unified": "node tests/unified.mjs",
-    "test:mvp": "node tests/mvp.mjs"
+    "test:mvp": "node tests/mvp.mjs",
+    "test:motion": "node tests/motion.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",
