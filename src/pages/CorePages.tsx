@@ -26,6 +26,7 @@ export function HomePage(){
       <Card className="hero-result">
         <div className="hero-orb orb1"/><div className="hero-orb orb2"/>
         <div className="hero-top"><span className="eyebrow">РЕЗУЛЬТАТ ДНЯ</span><Pill accent={k.important&&k.important===k.doneImportant?'mint':'lavender'}>{k.important&&k.important===k.doneImportant?'Главное выполнено':'В процессе'}</Pill></div>
+        <div className="hero-score">{k.score}<span>% <small>из 200%</small></span></div>
         <div className="double-bar"><span style={{width:`${k.important?k.doneImportant/k.important*50:0}%`}}/><span style={{width:`${k.extra?k.doneExtra/k.extra*50:0}%`}}/></div>
         <div className="hero-sub"><span>Важные <b>{k.doneImportant}/{k.important}</b></span><span>Дополнительные <b>{k.doneExtra}/{k.extra}</b></span></div>
         <button className="link-action" onClick={()=>open('today')}>Открыть задачи <Icon name="arrow-right" size={16}/></button>
