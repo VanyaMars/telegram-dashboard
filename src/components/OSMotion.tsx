@@ -20,10 +20,10 @@ export function MotionRoute({screen,children}:{screen:string;children:React.Reac
  const reduce=useReducedMotion();
  return <AnimatePresence initial={false} mode="wait">
   <m.div key={screen} className="motion-route"
-   initial={reduce?{opacity:0}:{opacity:0,y:10}}
+   initial={reduce?false:{opacity:0,y:10}}
    animate={{opacity:1,y:0}}
-   exit={reduce?{opacity:0}:{opacity:0,y:-6}}
-   transition={{duration:reduce?.1:.22,ease:'easeOut'}}>
+   exit={reduce?{opacity:1}:{opacity:0,y:-6}}
+   transition={{duration:reduce?0:0.22,ease:'easeOut'}}>
    {children}
   </m.div>
  </AnimatePresence>;
