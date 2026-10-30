@@ -4,6 +4,7 @@ import {request} from './lib/api';
 import {initData,setupTelegram,haptic} from './lib/telegram';
 import {isQAMode} from './qa/sandbox';
 import {dateInZone,initialTimezone,mondayOf,metricRange,dateAdd} from './lib/date';
+import {tabFromHash,hashForTab,loadSelectedDay,rememberSelectedDay} from './lib/navigation';
 import {demoToday,demoTasks,demoGoals,demoCategories,demoOS6,demoGoalHistory} from './lib/demo';
 
 type Editor={type:'task'|'goal'|'finance'|'workout'|'weight'|'exercise'|'repeat'|'challenge';item?:any;day?:string|null;priority?:TaskPriority} | null;
@@ -33,8 +34,9 @@ function metricsForTasks(tasks:Task[],day:string):DayMetrics{
 export function AppProvider({children}:{children:React.ReactNode}){
   const demo=new URLSearchParams(location.search).get('demo')==='1';
   const [tz,setTZ]=useState(initialTimezone());const [today,setToday]=useState(()=>dateInZone(new Date(),initialTimezone()));
-  const [day,setDay]=useState(today);const dayRef=useRef(day);dayRef.current=day;
-  const [tab,setTab]=useState<Tab>(()=>/^#\/(?:page\/|workspace)/.test(location.hash)?'buffer':'home');const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
+  const [day,setDay]=useState(()=>loadSelectedDay(today));const dayRef=useRef(day);dayRef.current=day;
+  useEffect(()=>{rememberSelectedDay(day)},[day]);
+  const [tab,setTab]=useState<Tab>(()=>tabFromHash(location.hash));const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
   const [ready,setReady]=useState(false);const [error,setError]=useState('');const [status,setStatus]=useState<CloudStatus>('connecting');
   const [tasks,setTasks]=useState<Task[]>([]);const [buffer,setBuffer]=useState<Task[]>([]);
   const [goals,setGoals]=useState<Goal[]>([]);const [goalHistory,setGoalHistory]=useState<GoalPoint[]>([]);
@@ -43,8 +45,8 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
   const notify=(m:string)=>{setMessage(m);};
-  const open=(t:Tab)=>{const wasPage=window.location.hash.startsWith('#/page/');if(t!=='workspace'&&t!=='buffer'&&window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search);if((t==='buffer'||t==='workspace')&&wasPage){window.location.hash='#/workspace';}if(t==='workspace'&&!window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search+'#/workspace');setTab(t);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
-  useEffect(()=>{const handle=()=>{if(/^#\/(?:page\/|workspace)/.test(location.hash))setTab('buffer')};window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
+  const open=(t:Tab)=>{const nextTab=t==='workspace'?'buffer':t;const hash=hashForTab(t);if(window.location.hash!==hash)window.location.hash=hash;setTab(nextTab);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
+  useEffect(()=>{const handle=()=>setTab(tabFromHash(window.location.hash));window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
   const readDays=useCallback(async(d:string)=>{
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});
