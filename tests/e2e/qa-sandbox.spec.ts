@@ -210,3 +210,51 @@ test('6.8 foundations: reduced motion keeps fast navigation and focus action cli
  const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
  expect(transform).toBe('none');
 });
+
+test('6.8 Pipeline: stage reorder saves and survives reload',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const stages=page.locator('.os-pipeline-premium .os-split');
+ await expect(stages).toHaveCount(2);
+ await expect(stages.first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Планирование');
+ await stages.nth(1).locator('.os-split-menu summary').click();
+ await stages.nth(1).getByRole('button',{name:'Этап левее'}).click();
+ await expect(stages.first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Разработка');
+ await page.reload();
+ await expect(page.locator('.os-pipeline-premium .os-split').first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Разработка');
+});
+
+test('6.8 Pipeline: Workflow reorder is persisted without changing split',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const stage=page.locator('.os-pipeline-premium .os-split').first();
+ const rows=stage.locator('.os-workflow-row');
+ await expect(rows).toHaveCount(2);
+ await rows.nth(1).getByRole('button',{name:'Выше: Подготовить макеты'}).click();
+ await expect(rows.first().getByRole('button',{name:'Изменить действие: Подготовить макеты'})).toBeVisible();
+ await page.reload();
+ const after=page.locator('.os-pipeline-premium .os-split').first().locator('.os-workflow-row');
+ await expect(after.first().getByRole('button',{name:'Изменить действие: Подготовить макеты'})).toBeVisible();
+});
+
+test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({page})=>{
+ await page.setViewportSize({width:390,height:780});
+ await enter(page);
+ await page.getByRole('button',{name:'Открыть меню'}).click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const stages=page.locator('.os-pipeline-premium .os-split');
+ await expect(stages).toHaveCount(2);
+ await expect(stages.first().locator('.os-split-body')).toBeVisible();
+ await expect(stages.nth(1).locator('.os-split-body')).toBeHidden();
+ await stages.nth(1).getByRole('button',{name:'Разработка',exact:true}).click();
+ await expect(stages.nth(1).locator('.os-split-body')).toBeVisible();
+ await expect(stages.first().locator('.os-split-body')).toBeHidden();
+ const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+ expect(size.doc).toBeLessThanOrEqual(size.width+2);
+});
