@@ -29,5 +29,7 @@ jobs:
         run: npm run test:v67
       - name: 6.8 foundations
         run: npm run test:v68
+      - name: 6.8 Goals compatibility
+        run: npm run test:goals-compat
       - name: Typecheck and build
         run: npm run build
