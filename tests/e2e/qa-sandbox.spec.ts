@@ -16,6 +16,7 @@ test('guest sign-in, UI actions, local persistence and no Supabase calls',async(
  await page.locator('.buffer-quick').getByRole('button',{name:'Добавить'}).click();
  await expect(page.getByRole('button',{name:'QA задача для проверки',exact:true})).toBeVisible();
  await page.reload();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await expect(page.getByRole('button',{name:'QA задача для проверки',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'QA задача для проверки',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Свойства задачи'})).toBeVisible();
