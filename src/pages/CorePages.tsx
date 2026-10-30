@@ -99,12 +99,12 @@ export function BufferPage(){
   })}
  </div>;
 }
-export function GoalsPage(){const{goals,goalHistory,setEditor}=useApp();
+export function GoalsPage(){const{goals,goalHistory,setEditor,tasks,buffer,os6,openTaskPage}=useApp();
   return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ТВОИ ОРИЕНТИРЫ</p><h1>Цели</h1><p>Обычные и амбициозные цели в одном месте</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Амбициозная</button></div>
     <Card><RegularGoals/></Card><SectionHead title="Амбициозные цели"/><div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
       return <Card key={g.id} className="goal-full"><div className="goal-full-head"><div><span className="eyebrow">{g.sphere||'ЦЕЛЬ'}</span><h2>{g.title}</h2></div><div className="goal-value">{percent}<small>%</small></div></div>
         <div className="goal-current"><strong>{Number(g.current_value).toLocaleString('ru-RU')} {g.unit}</strong><span>из {Number(g.target_value).toLocaleString('ru-RU')} {g.unit}</span></div>
-        <ProgressBar value={percent}/><Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
+        <ProgressBar value={percent}/>{(()=>{const ids=new Set(os6.links.filter(l=>l.goal_id===g.id).map(l=>l.task_id));const candidate=[...tasks,...buffer].find(t=>ids.has(t.id)&&!t.completed);return candidate?<button className="goal-next-action" onClick={()=>void openTaskPage(candidate)}><Icon name="arrow-right" size={15}/><span>Следующий шаг: <strong>{candidate.title}</strong></span></button>:null})()}<Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
         <div className="goal-full-footer"><span>Прогресс от старта · {history.length} обновлений</span><button className="btn small outline" onClick={()=>setEditor({type:'goal',item:g})}>Обновить <Icon name="right" size={15}/></button></div>
       </Card>})}
       {!goals.length&&<Card><Empty title="Добавь амбициозную цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}
