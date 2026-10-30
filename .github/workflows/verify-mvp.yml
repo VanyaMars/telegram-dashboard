@@ -23,5 +23,7 @@ jobs:
         run: npm run test:unified
       - name: MVP tests
         run: npm run test:mvp
+      - name: Motion regression
+        run: npm run test:motion
       - name: Typecheck and build
         run: npm run build

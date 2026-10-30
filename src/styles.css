@@ -115,3 +115,24 @@
 .mvp-goals-list{display:grid;gap:11px;margin:12px 0}.mvp-goals-list>div{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:12px}.mvp-goals-list span{overflow-wrap:anywhere;color:#45465c}.mvp-goals-list strong{color:#6860c9}.mvp-goals-list .progress-track{grid-column:1/-1}
 
 .today-summary{display:flex;flex-direction:column;gap:20px}.today-summary .today-numbers{display:flex;align-items:center;justify-content:space-between}.today-summary>.plan-score{align-self:stretch;width:100%!important}.today-summary>.plan-score .plan-score-track{width:100%!important;max-width:none!important;height:17px}.actual-goals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.actual-goals .regular-goals{display:contents}.actual-goals .regular-goals-grid{display:contents}.actual-goals .card-title-row{grid-column:1/-1}.actual-goals .regular-goal-card{min-width:0}.quick-category,.quick-category-form,.quick-plan-form,.planning-actions,.planning-date{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.quick-plan-form select,.planning-actions select,.planning-date input{min-height:42px;padding:8px;border:1px solid #deddea;border-radius:10px;background:white;flex:1;min-width:135px}.planning-task-list{max-height:350px;overflow-y:auto}.planning-task{display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #eeeef6;min-height:44px}.planning-task span{flex:1}.habit-table{overflow-x:auto}.habit-head,.habit-row{display:grid;grid-template-columns:minmax(140px,2fr) repeat(7,minmax(35px,1fr));gap:6px;align-items:center;min-width:430px;padding:9px 0}.habit-head small{text-align:center;font-size:10px}.habit-title{display:flex;flex-direction:column;text-align:left}.habit-day{min-height:38px;border:1px solid #dddcef;border-radius:9px;background:#f5f4fb}.habit-day.is-done{background:#8b84ed;color:white}.habit-day:disabled{opacity:.35}.habit-progress{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}.habit-progress .progress-track{grid-column:1/-1}.mvp-focus-layout{display:flex;gap:22px;flex-wrap:wrap;align-items:center}.mvp-focus-ring{height:150px;width:150px;border-radius:100%;display:grid;place-items:center}.mvp-focus-ring>div{height:112px;width:112px;background:white;border-radius:100%;display:flex;flex-direction:column;align-items:center;justify-content:center}.mvp-focus-ring strong{font-size:30px}.mvp-focus-tasks{display:grid;gap:8px;flex:1;min-width:180px}.mvp-focus-tasks>div{display:flex;justify-content:space-between;gap:10px}@media(max-width:700px){.actual-goals{grid-template-columns:1fr}.today-summary>.plan-score .plan-score-track{height:15px}}
+
+
+/* Personal OS 6.6 / Motion Experience: subtle, GPU-friendly transitions. */
+.motion-route{min-width:0;will-change:opacity,transform}
+.motion-route .page-stack{animation:none}
+.motion-card{transform-origin:center top}
+.motion-progress-fill{transition:none!important}
+.bottom-nav button{position:relative;isolation:isolate}
+.bottom-nav button.current{background:transparent}
+.motion-bottom-pill{position:absolute;inset:0;border-radius:13px;background:#f1eeff;z-index:-1;pointer-events:none}
+.task-checkbox>span{display:grid;place-items:center}
+@media(hover:hover) and (pointer:fine){
+ .motion-card.hero-result:hover,.motion-card.goal-mini:hover,.motion-card.mvp-kpi:hover{
+  box-shadow:0 17px 38px rgba(112,104,175,.12),0 0 0 1px rgba(191,177,246,.25)
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ .motion-route,.motion-card{will-change:auto}
+ .motion-route .page-stack{animation:none}
+ .motion-card,.motion-progress-fill,.motion-bottom-pill{transition:none!important;animation:none!important}
+}
