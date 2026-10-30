@@ -22,6 +22,7 @@ test('guest sign-in, UI actions, local persistence and no Supabase calls',async(
  await expect(page.getByRole('heading',{name:'Свойства задачи'})).toBeVisible();
  await page.getByRole('button',{name:'Добавить блок'}).click();
  await page.locator('.os-block-picker').getByRole('button',{name:'Чеклист'}).click();
+ await page.locator('.os-block-picker').getByRole('button',{name:'Вставить чеклист'}).click();
  const input=page.getByRole('textbox',{name:'Пункт чеклиста'}).first();
  await input.fill('Первый пункт QA');
  await input.press('Enter');
