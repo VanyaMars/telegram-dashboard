@@ -2,6 +2,7 @@ import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useS
 import type {Category,CloudStatus,DayMetrics,Goal,GoalPoint,OS6Data,Tab,Task,TaskPriority} from './types';
 import {request} from './lib/api';
 import {initData,setupTelegram,haptic} from './lib/telegram';
+import {isQAMode} from './qa/sandbox';
 import {dateInZone,initialTimezone,mondayOf,metricRange,dateAdd} from './lib/date';
 import {demoToday,demoTasks,demoGoals,demoCategories,demoOS6,demoGoalHistory} from './lib/demo';
 
@@ -79,7 +80,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
       setStatus('saved');setReady(true);setError('');
     }catch(e:any){setError(e.message||'Не удалось подключиться');setStatus('error');setReady(true);}
   },[demo,today]);
-  useEffect(()=>{setupTelegram();if(!demo&&!initData()){setStatus('error');setReady(true);setError('Открой приложение через бота ProDesk в Telegram.');return;}
+  useEffect(()=>{setupTelegram();if(!demo&&!isQAMode()&&!initData()){setStatus('error');setReady(true);setError('Открой приложение через бота ProDesk в Telegram.');return;}
     void reload(today,tz);
     // Initial user authentication is done only at the verified server.
   // eslint-disable-next-line react-hooks/exhaustive-deps
