@@ -33,7 +33,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const demo=new URLSearchParams(location.search).get('demo')==='1';
   const [tz,setTZ]=useState(initialTimezone());const [today,setToday]=useState(()=>dateInZone(new Date(),initialTimezone()));
   const [day,setDay]=useState(today);const dayRef=useRef(day);dayRef.current=day;
-  const [tab,setTab]=useState<Tab>('home');const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
+  const [tab,setTab]=useState<Tab>(()=>/^#\/(?:page\/|workspace)/.test(location.hash)?'workspace':'home');const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
   const [ready,setReady]=useState(false);const [error,setError]=useState('');const [status,setStatus]=useState<CloudStatus>('connecting');
   const [tasks,setTasks]=useState<Task[]>([]);const [buffer,setBuffer]=useState<Task[]>([]);
   const [goals,setGoals]=useState<Goal[]>([]);const [goalHistory,setGoalHistory]=useState<GoalPoint[]>([]);
@@ -42,7 +42,8 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
   const notify=(m:string)=>{setMessage(m);};
-  const open=(t:Tab)=>{setTab(t);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
+  const open=(t:Tab)=>{if(t!=='workspace'&&window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search);if(t==='workspace'&&!window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search+'#/workspace');setTab(t);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
+  useEffect(()=>{const handle=()=>{if(/^#\/(?:page\/|workspace)/.test(location.hash))setTab('workspace')};window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
   const readDays=useCallback(async(d:string)=>{
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});

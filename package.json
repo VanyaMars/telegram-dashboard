@@ -1,14 +1,15 @@
 {
   "name": "personal-os-premium",
   "private": true,
-  "version": "6.1.0",
+  "version": "6.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "check": "tsc --noEmit",
-    "test:smoke": "node tests/smoke.mjs"
+    "test:smoke": "node tests/smoke.mjs",
+    "test:workspace": "node tests/workspace.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",
