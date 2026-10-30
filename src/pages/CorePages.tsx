@@ -53,7 +53,7 @@ export function HomePage(){
     </div>
   </div>;
 }
-export function TodayPage(){const{day,setDay,today,tasks,buffer,saveTask,setEditor,open}=useApp();
+export function TodayPage(){const{day,setDay,today,tasks,buffer,saveTask,setEditor,open,mutate,os6}=useApp();
   const k=dayKpi(tasks),important=tasks.filter(t=>t.priority==='important'),extra=tasks.filter(t=>t.priority==='extra');
   const [expanded,setExpanded]=useState<Record<string,boolean>>({});
   const [bufferId,setBufferId]=useState('');const [bufferPriority,setBufferPriority]=useState<'important'|'extra'>('important');const [moving,setMoving]=useState(false);
@@ -76,6 +76,7 @@ export function TodayPage(){const{day,setDay,today,tasks,buffer,saveTask,setEdit
       <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select>
       <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={async()=>{const task=buffer.find(t=>t.id===bufferId);if(!task)return;setMoving(true);try{await saveTask({id:task.id,title:task.title,notes:task.notes,sphere:task.sphere,categoryId:task.os61_category_id||null,day,priority:bufferPriority});setBufferId('')}finally{setMoving(false)}}}>В день <Icon name="right" size={16}/></button></div>
     </Card>
+    {important.some(t=>!t.completed)&&!os6.focus.some(f=>f.state!=='finished')&&<button className="btn accent today-start-focus" onClick={()=>{const t=important.find(x=>!x.completed);if(t)void mutate('os6','focus',{command:'start',title:t.title,task_id:t.id}).then(()=>open('focus')).catch(()=>{})}}><Icon name="play" size={18}/> Начать главное — фокус</button>}
     {group(important,'important')}{group(extra,'extra')}
     <button className="btn add-inline" onClick={()=>setEditor({type:'task',day,priority:'important'})}><Icon name="plus" size={20}/> Добавить задачу</button>
     <button className="link-action center" onClick={()=>open('buffer')}><Icon name="inbox" size={17}/> Открыть буфер задач <Icon name="right" size={15}/></button>
