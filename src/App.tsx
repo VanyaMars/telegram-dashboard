@@ -2,6 +2,8 @@ import React,{useEffect} from 'react';
 import {useApp} from './AppContext';
 import {Icon} from './components/Icons';
 import {Dialog,StatusToast} from './components/UI';
+import {MotionRoute} from './components/OSMotion';
+import * as m from 'motion/react-m';
 import {TaskEditor} from './components/Tasks';
 import {HomePage,TodayPage,GoalsPage,GoalEditor,AnalyticsPage} from './pages/CorePages';
 import {CalendarPage,TomorrowPage,FinancePage,SportPage,FocusPage,ChallengesPage,RepeatsPage,ReviewPage,DisciplinePage,CategoriesPage,SettingsPage,HelpPage,EntityEditor} from './pages/ExtraPages';
@@ -18,7 +20,7 @@ const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'
 const appNames=Object.fromEntries([...primary,workspaceNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
 function NavItem({id,label,icon}:{id:Tab;label:string;icon:string}){
   const {tab,open}=useApp();return <button className={'nav-link '+(tab===id?'selected':'')} onClick={()=>open(id)} aria-current={tab===id?'page':undefined}>
-    <Icon name={icon} size={19}/><span>{label}</span>{tab===id&&<span className="active-nav-dot"/>}
+    <Icon name={icon} size={19}/><span>{label}</span>{tab===id&&<m.span layoutId="os-sidebar-active" className="active-nav-dot" transition={{type:'spring',stiffness:440,damping:35}}/>}
   </button>;
 }
 function Sidebar(){const{sidebar,setSidebar}=useApp();return <>
@@ -30,7 +32,7 @@ function Sidebar(){const{sidebar,setSidebar}=useApp();return <>
       <span className="sidebar-section-label">НАСТРОЙКА</span>
       <NavItem id="settings" label="Настройки" icon="settings"/><NavItem id="help" label="Помощь" icon="help"/>
     </nav>
-    <div className="sidebar-bottom"><div className="sidebar-footer-logo"><Icon name="cloud-check" size={16}/> Синхронизация с облаком</div><span className="version">Personal OS · v6.4</span></div>
+    <div className="sidebar-bottom"><div className="sidebar-footer-logo"><Icon name="cloud-check" size={16}/> Синхронизация с облаком</div><span className="version">Personal OS · v6.6</span></div>
   </aside></>;
 }
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
@@ -56,13 +58,13 @@ function HelpSheet(){const{help,setHelp,open}=useApp();return <Dialog open={help
   <div className="help-tip"><Icon name="calendar"/><span>«Сегодня» определяется по часовому поясу твоего профиля.</span></div>
   <button className="btn accent full" onClick={()=>{setHelp(false);open('help')}}>Полная справка</button>
   </div></Dialog>}
-export default function App(){const{ready,error,refresh}=useApp();
+export default function App(){const{ready,error,refresh,tab}=useApp();
   useEffect(()=>{const app=telegram();const back=()=>{const modal=document.querySelector('.modal-backdrop');if(modal){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));return;}window.history.back()};
     app?.BackButton?.onClick?.(back);return()=>{app?.BackButton?.offClick?.(back)}},[]);
   return <div className="app-shell"><Sidebar/><div className="app-center"><Header/>
     {!ready?<div className="full-loading"><div className="loading-orb"><Icon name="sparkles" size={29}/></div><strong>Personal OS</strong><span>Загружаем твой прогресс…</span></div>
       :error?<div className="full-loading error-view"><div className="loading-orb"><Icon name="cloud-off" size={28}/></div><strong>Не удалось подключиться</strong><p>{error}</p><button className="btn accent" onClick={()=>void refresh()}><Icon name="refresh"/> Повторить</button></div>
-      :<main className="app-content"><Route/></main>}
-    <footer className="mobile-footer-version">Personal OS · v6.4</footer><BottomNav/>
+      :<main className="app-content"><MotionRoute screen={tab}><Route/></MotionRoute></main>}
+    <footer className="mobile-footer-version">Personal OS · v6.6</footer><BottomNav/>
   </div><ActiveModal/><HelpSheet/><StatusToast/></div>;
 }
