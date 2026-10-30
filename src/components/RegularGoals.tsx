@@ -4,6 +4,8 @@ import {useApp} from '../AppContext';
 import {Card,Dialog,Empty,ProgressBar} from './UI';
 import {Icon} from './Icons';
 import {dateAdd,mondayOf} from '../lib/date';
+import {useReducedMotion} from 'motion/react';
+import * as m from 'motion/react-m';
 export type RegularGoal={id:string;title:string;description:string;period:'open'|'week'|'month'|'deadline';starts_on:string|null;ends_on:string|null;progress:number;completed:boolean};
 const periodNames={open:'Бессрочная',week:'Недельная',month:'Месячная',deadline:'Со сроком'};
 export function useRegularGoals(){
@@ -35,12 +37,13 @@ export function RegularGoalEditor({item,onClose,onSaved}:{item?:RegularGoal|null
 }
 export function RegularGoals({compact=false}:{compact?:boolean}){
  const{open}=useApp();const{goals,loading,error,reload}=useRegularGoals();const[editing,setEditing]=useState<RegularGoal|null|undefined>(undefined);
+ const reduced=useReducedMotion();
  const changed=()=>{window.dispatchEvent(new Event('os8:goals-changed'));};
  return <div className="regular-goals"><div className="card-title-row"><div><h2>Обычные цели</h2><p className="tiny-note">Бессрочные и с периодом</p></div>{!compact&&<button className="btn small accent" onClick={()=>setEditing(null)}><Icon name="plus" size={16}/> Цель</button>}</div>
    {error&&<p className="os-error-banner">{error} <button onClick={()=>void reload()}>Повторить</button></p>}
-   {loading?<p className="tiny-note">Загружаем цели…</p>:goals.length===0?<Empty title="Пока нет обычных целей" description="Создай первую цель с собственным сроком" action={!compact?<button className="btn accent" onClick={()=>setEditing(null)}>Добавить цель</button>:undefined}/>:<div className="regular-goals-grid">{(compact?goals.slice(0,3):goals).map(g=><button key={g.id} className="regular-goal-card" onClick={()=>{if(!compact)setEditing(g);else open('goals')}}>
+   {loading?<p className="tiny-note">Загружаем цели…</p>:goals.length===0?<Empty title="Пока нет обычных целей" description="Создай первую цель с собственным сроком" action={!compact?<button className="btn accent" onClick={()=>setEditing(null)}>Добавить цель</button>:undefined}/>:<div className="regular-goals-grid">{(compact?goals.slice(0,3):goals).map((g,i)=><m.button key={g.id} className="regular-goal-card" initial={reduced?false:{opacity:0,y:10}} animate={{opacity:1,y:0}} whileHover={!reduced?{y:-3}:undefined} whileTap={!reduced?{scale:0.985}:undefined} transition={{duration:reduced?0:0.3,delay:reduced?0:Math.min(i,5)*.04,ease:'easeOut'}} onClick={()=>{if(!compact)setEditing(g);else open('goals')}}>
     <div className="regular-goal-heading"><strong>{g.title}</strong><b>{g.progress}%</b></div><span className="tiny-note">{periodNames[g.period]}{g.ends_on?` · до ${g.ends_on}`:''}</span><ProgressBar value={g.progress}/>
-   </button>)}</div>}
+   </m.button>)}</div>}
    {editing!==undefined&&<RegularGoalEditor item={editing} onClose={()=>setEditing(undefined)} onSaved={changed}/>}
  </div>;
 }
