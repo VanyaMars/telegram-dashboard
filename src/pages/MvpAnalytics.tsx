@@ -13,7 +13,7 @@ const number=(v:number)=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}
 const currencySymbol=(c:string)=>({RUB:'₽',USD:'$',EUR:'€'} as Record<string,string>)[c]||c;
 type WindowSize=7|30|90;
 const keys:[WindowSize,string][]=[[7,'7 дней'],[30,'Месяц'],[90,'90 дней']];
-export function MvpAnalyticsPage(){
+export function MvpAnalyticsPage({focusIncome=false}:{focusIncome?:boolean}={}){
  const {today,goals,os6,metrics,open,demo,buffer,tasks,categories}=useApp();const {goals:regularGoals,goalStats}=useRegularGoals();
  const [period,setPeriod]=useState<WindowSize>(30),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const [days,setDays]=useState<Record<string,DayMetrics>>(metrics),[income,setIncome]=useState<IncomeSummary>({totals:{},daily:{},count:0});
@@ -44,11 +44,17 @@ export function MvpAnalyticsPage(){
   const focusTaskNames=new Map([...tasks,...buffer].map(task=>[task.id,task.title]));
   const focusTitle=(taskId:string)=>taskId==='none'?'Без привязки':focusTaskNames.get(taskId)||focusSessions.find(session=>session.task_id===taskId)?.title?.trim()||'Удалённая задача';
  const earnedEntries=Object.entries(income.totals).sort(([a],[b])=>a.localeCompare(b));
+ // One source of truth: confirmed task income from os9, not manual FinancePage.
+ const incomeCard=<Card className="income-summary-card"><SectionHead title="Полученный доход" caption="Из рабочих задач-страниц"/>
+    {earnedEntries.length?earnedEntries.map(([currency,amount])=><div className="mvp-income-row" key={currency}><span>{currency}</span><strong>{number(amount)} {currencySymbol(currency)}</strong></div>):<p className="mvp-muted">Нет подтверждённого дохода за период. В рабочей задаче укажи сумму и отметь «Деньги получены».</p>}
+    <p className="mvp-muted">Доход учитывается по дате получения. Разные валюты не складываются без конвертации.</p>
+   </Card>;
  const backlog=categories.map(c=>({id:c.id,name:c.name,color:c.color,count:buffer.filter(t=>t.os61_category_id===c.id||t.sphere===c.name).length})).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
  const untagged=buffer.length-backlog.reduce((v,c)=>v+c.count,0);
  return <div className="page-stack mvp-analytics">
-  <div className="page-heading"><div><p className="eyebrow">ПРОГРЕСС И РЕЗУЛЬТАТ</p><h1>Аналитика</h1><p>Цели, действия, дисциплина и подтверждённый доход</p></div><div className="mvp-period" role="group" aria-label="Период аналитики">{keys.map(([n,label])=><button key={n} className={period===n?'selected':''} onClick={()=>setPeriod(n)} aria-pressed={period===n}>{label}</button>)}</div></div>
+  <div className="page-heading"><div><p className="eyebrow">ПРОГРЕСС И РЕЗУЛЬТАТ</p><h1>{focusIncome?'Доходы':'Аналитика'}</h1><p>{focusIncome?'Подтверждённые поступления из рабочих задач-страниц. Ручной журнал учитывается отдельно.':'Цели, действия, дисциплина и подтверждённый доход'}</p></div><div className="mvp-period" role="group" aria-label="Период аналитики">{keys.map(([n,label])=><button key={n} className={period===n?'selected':''} onClick={()=>setPeriod(n)} aria-pressed={period===n}>{label}</button>)}</div></div>
   {error&&<Card><p role="alert" className="os-inline-error">{error}. Проверь Edge Function os9 и её журналы: Data API / Secrets / Verify JWT. Задачи и цели доступны независимо.</p></Card>}
+   {focusIncome&&<section className="mvp-income-feature" id="os-income-section" aria-label="Подтверждённый доход">{incomeCard}</section>}
   <div className="mvp-kpi-grid">
    <Card className="mvp-kpi"><span>Обычные цели</span><strong><MotionNumber value={goalAvg}/>%</strong><ProgressBar value={goalAvg}/><small>{regularGoals.length} целей · текущий прогресс</small><button onClick={()=>open('goals')}>Смотреть цели <Icon name="right" size={15}/></button></Card>
    <Card className="mvp-kpi"><span>Амбициозные цели</span><strong><MotionNumber value={ambitiousAvg}/>%</strong><ProgressBar value={ambitiousAvg}/><small>{goals.length} целей · текущий прогресс</small><button onClick={()=>open('goals')}>Смотреть цели <Icon name="right" size={15}/></button></Card>
@@ -57,10 +63,7 @@ export function MvpAnalyticsPage(){
   </div>
   <div className="mvp-analysis-columns">
    <Card><SectionHead title="Динамика действий" caption={loading?'Обновляем…':`${shortDay(start)} — ${shortDay(today)}`}/><div className="mvp-heatmap" role="list" aria-label="Выполненные задачи по дням">{dates.map(d=>{const done=days[d]?.tasks||0;return <div key={d} role="listitem" className="mvp-heat-cell" style={{background:done>0?`rgba(130,119,234,${Math.min(.2+done*.16,.94)})`:'#F1EFFC'}} title={`${prettyDay(d)}: ${done} выполнено`} aria-label={`${shortDay(d)}: ${done} задач`}/>} )}</div><p className="mvp-muted">Каждая клетка — один день. Чем ярче цвет, тем больше выполненных задач.</p></Card>
-   <Card><SectionHead title="Полученный доход" caption="Из рабочих задач-страниц"/>
-    {earnedEntries.length?earnedEntries.map(([currency,amount])=><div className="mvp-income-row" key={currency}><span>{currency}</span><strong>{number(amount)} {currencySymbol(currency)}</strong></div>):<p className="mvp-muted">Нет подтверждённого дохода за период. В рабочей задаче укажи сумму и отметь «Деньги получены».</p>}
-    <p className="mvp-muted">Доход учитывается по дате получения. Разные валюты не складываются без конвертации.</p>
-   </Card>
+   {!focusIncome&&<div className="mvp-income-wrap" id="os-income-section">{incomeCard}</div>}
   </div>
   <Card><div className="card-title-row"><div><span className="eyebrow">БУФЕР ЗАДАЧ</span><h2>Что ждёт планирования</h2></div><button className="btn text" onClick={()=>open('buffer')}>Открыть буфер <Icon name="right" size={16}/></button></div>
    <div className="mvp-backlog-total"><strong>{buffer.length}</strong><span>записей без запланированной даты</span></div>

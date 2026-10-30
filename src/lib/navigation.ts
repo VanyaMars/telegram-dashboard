@@ -1,5 +1,5 @@
 import type {Tab} from '../types';
-const allowed:readonly Tab[]=['home','today','goals','analytics','buffer','calendar','tomorrow','finance','sport','focus','challenges','repeats','review','discipline','settings','categories','help'];
+const allowed:readonly Tab[]=['home','today','goals','analytics','income','buffer','calendar','tomorrow','finance','sport','focus','challenges','repeats','review','discipline','settings','categories','help'];
 /** Pages retain their existing hash URL, top-level screens use #/tab/{tab}. */
 export function tabFromHash(hash:string):Tab{
  if(hash.startsWith('#/page/')||hash==='#/workspace')return 'buffer';

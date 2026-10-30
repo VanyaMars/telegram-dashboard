@@ -210,3 +210,41 @@ test('6.8 foundations: reduced motion keeps fast navigation and focus action cli
  const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
  expect(transform).toBe('none');
 });
+
+test('6.8 Shell: direct Pages navigation opens Workspace directory and survives reload',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/workspace');
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveAttribute('aria-current','page');
+ await page.reload();
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+});
+
+test('6.8 Shell: confirmed task Income has a direct route, never manual Finance data',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Доходы'}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/income');
+ await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
+ await expect(page.locator('.mvp-income-feature')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
+ await expect(page.locator('.mvp-income-feature')).toContainText('Разные валюты не складываются');
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
+});
+
+test('6.8 Shell: 390px bottom navigation Today/Buffer/Goals/More is complete',async({page})=>{
+ await page.setViewportSize({width:390,height:780});
+ await enter(page);
+ const bottom=page.getByRole('navigation',{name:'Основная навигация'});
+ for(const label of ['Сегодня','Буфер задач','Цели','Ещё'])await expect(bottom.getByRole('button',{name:label})).toBeVisible();
+ await bottom.getByRole('button',{name:'Ещё'}).click();
+ await expect(page.locator('.app-sidebar')).toHaveClass(/is-open/);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/workspace');
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await bottom.getByRole('button',{name:'Сегодня'}).click();
+ await expect(bottom.getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
+ const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
+ expect(size.doc).toBeLessThanOrEqual(size.client+2);
+});
