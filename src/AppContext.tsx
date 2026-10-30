@@ -44,6 +44,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [metrics,setMetrics]=useState<Record<string,DayMetrics>>({});const [previousMetrics,setPrevMetrics]=useState<Record<string,DayMetrics>>({});
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
+  const togglesInFlight=useRef(new Set<string>());
   const notify=(m:string)=>{setMessage(m);};
   const open=(t:Tab)=>{const nextTab=t==='workspace'?'buffer':t;const hash=hashForTab(t);if(window.location.hash!==hash)window.location.hash=hash;setTab(nextTab);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
   useEffect(()=>{const handle=()=>setTab(tabFromHash(window.location.hash));window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
@@ -99,7 +100,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   useEffect(()=>{if(!ready||status==='error')return;void readDays(day);
   // Avoid stale 'today' comparisons that made the Home screen show yesterday's tasks.
   },[day,ready,readDays]);
-  useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},5500);return()=>clearTimeout(t)},[message]);
+  useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},recentDeleted&&message==='Задача удалена'?8000:5500);return()=>clearTimeout(t)},[message,recentDeleted]);
   const refresh=async()=>{await reload(dayRef.current,tz);};
   const openTaskPage=async(task:Task)=>{
     if(demo){notify('Открой Mini App через Telegram для редактирования страниц задач');return;}
@@ -119,17 +120,27 @@ export function AppProvider({children}:{children:React.ReactNode}){
     try{
       const name=categories.find(c=>c.id===form.categoryId)?.name||form.sphere||'Без категории';
       const task={title:form.title.trim(),notes:form.notes||'',sphere:name,day:form.day||null,priority:form.priority||'extra'};
-      const result=await request<{id:string}>('os6','task_save_and_link',{id:form.id||null,task,goal_id:form.goalId||null});
+      // Moving/editing a task without an explicit goal selection must preserve its existing ambitious-goal link.
+      const linkedGoalId=form.goalId===undefined?(os6.links.find(link=>link.task_id===form.id)?.goal_id||null):(form.goalId||null);
+      const result=await request<{id:string}>('os6','task_save_and_link',{id:form.id||null,task,goal_id:linkedGoalId});
       if(form.categoryId!==undefined)await request('os61','task_category_set',{id:result.id,categoryId:form.categoryId||null});
       setEditor(null);haptic();await reload(dayRef.current,tz);notify('Задача сохранена');
     }catch(e:any){setStatus('error');notify(e.message||'Ошибка сохранения');throw e;}
   };
   const toggleTask=async(task:Task)=>{
+    if(togglesInFlight.current.has(task.id))return;
+    togglesInFlight.current.add(task.id);
     const next={...task,completed:!task.completed};
-    setTasks(x=>x.map(t=>t.id===task.id?next:t));haptic();
-    if(demo)return;
-    try{await request('dashboard','task_toggle',{id:task.id,completed:next.completed});await reload(dayRef.current,tz);}
-    catch(e:any){setTasks(x=>x.map(t=>t.id===task.id?task:t));notify('Не удалось обновить задачу: '+e.message);}
+    setTasks(x=>x.map(t=>t.id===task.id?next:t));
+    try{
+      if(demo){haptic();return;}
+      await request('dashboard','task_toggle',{id:task.id,completed:next.completed});
+      haptic();await reload(dayRef.current,tz);
+    }catch(e:any){
+      // A confirmed toggle is not undone merely because a subsequent refresh had a problem.
+      setTasks(x=>x.map(t=>t.id===task.id?task:t));
+      notify('Не удалось обновить задачу: '+(e?.message||'Ошибка связи'));
+    }finally{togglesInFlight.current.delete(task.id);}
   };
   const deleteTask=async(task:Task)=>{
     if(!demo){await request('dashboard','task_delete',{id:task.id});await reload(dayRef.current,tz);}
