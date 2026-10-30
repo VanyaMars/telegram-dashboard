@@ -26,8 +26,10 @@ export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:
  const commitOrder=async(ids:string[])=>{
   if(movingRef.current)return;
   movingRef.current=true;setMoving(true);setLocalOrder(ids);setOrderError('');setFailedOrder(null);
-  try{await action('split_reorder',{blockId,ids})}
-  catch{setLocalOrder(null);setFailedOrder(ids);setOrderError('Порядок этапов не сохранён. Восстановлен последний подтверждённый порядок.')}
+  let committed=false;
+  try{await write('split_reorder',{blockId,ids});committed=true;await reload()}
+  catch{if(committed)setOrderError('Порядок сохранён, но обновление данных не удалось. Открой страницу повторно.');
+   else{setLocalOrder(null);setFailedOrder(ids);setOrderError('Порядок этапов не сохранён. Восстановлен последний подтверждённый порядок.')}}
   finally{movingRef.current=false;setMoving(false)}
  };
  const move=async(splitId:string,direction:number)=>{
@@ -56,7 +58,7 @@ export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:
     <m.div className={'os-split '+(active===s.id?'active expanded':'is-collapsed')} key={s.id}
      layout={reduced?false:'position'} initial={false} transition={reduced?{duration:0}:{type:'spring',stiffness:380,damping:34,mass:.8}}>
      <SplitColumn split={s}index={i}items={items.filter(x=>x.split_id===s.id)}
-      move={move}action={action}allSplits={arranged}
+      move={move}action={action}write={write}reload={reload}allSplits={arranged}
       expanded={active===s.id}toggle={()=>setActive(s.id)}stageMoving={moving}/>
     </m.div>
    )}</div>
@@ -68,8 +70,8 @@ export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:
   {newSplitError?<p className="os-inline-error" id="split-name-error" role="alert">{newSplitError}</p>:<p className="os-inline-hint">Введи название и нажми Enter ↵ или галочку</p>}
  </section>;
 }
-type ColumnProps={split:WSplit;index:number;items:WItem[];move:(id:string,step:number)=>Promise<void>;action:(name:string,body:Record<string,unknown>)=>Promise<any>;allSplits:WSplit[];expanded:boolean;toggle:()=>void;stageMoving:boolean};
-function SplitColumn({split,index,items,move,action,allSplits,expanded,toggle,stageMoving}:ColumnProps){
+type ColumnProps={split:WSplit;index:number;items:WItem[];move:(id:string,step:number)=>Promise<void>;action:(name:string,body:Record<string,unknown>)=>Promise<any>;write:(action:string,body:Record<string,unknown>)=>Promise<any>;reload:()=>Promise<void>;allSplits:WSplit[];expanded:boolean;toggle:()=>void;stageMoving:boolean};
+function SplitColumn({split,index,items,move,action,write,reload,allSplits,expanded,toggle,stageMoving}:ColumnProps){
  const reduced=useReducedMotion();
  const [title,setTitle]=useState(split.title),[adding,setAdding]=useState(''),[editError,setEditError]=useState(''),[editing,setEditing]=useState<string|null>(null),[editText,setEditText]=useState(''),[editBusy,setEditBusy]=useState(false),[workflowEditError,setWorkflowEditError]=useState('');
  const [localOrder,setLocalOrder]=useState<string[]|null>(null),[orderError,setOrderError]=useState(''),[failedOrder,setFailedOrder]=useState<string[]|null>(null),[reordering,setReordering]=useState(false);
@@ -82,8 +84,10 @@ function SplitColumn({split,index,items,move,action,allSplits,expanded,toggle,st
  const commitRowOrder=async(ids:string[])=>{
   if(orderRef.current)return;
   orderRef.current=true;setReordering(true);setLocalOrder(ids);setOrderError('');setFailedOrder(null);
-  try{await action('workflow_reorder',{splitId:split.id,ids})}
-  catch{setLocalOrder(null);setFailedOrder(ids);setOrderError('Не удалось сохранить порядок. Вернули предыдущий.')}
+  let committed=false;
+  try{await write('workflow_reorder',{splitId:split.id,ids});committed=true;await reload()}
+  catch{if(committed)setOrderError('Порядок сохранён, но данные не обновились. Открой страницу повторно.');
+   else{setLocalOrder(null);setFailedOrder(ids);setOrderError('Не удалось сохранить порядок. Вернули предыдущий.')}}
   finally{orderRef.current=false;setReordering(false)}
  };
  const reorder=async(id:string,delta:number)=>{

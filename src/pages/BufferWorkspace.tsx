@@ -8,7 +8,7 @@ export function BufferWorkspacePage(){
  const [workspaceMode,setWorkspaceMode]=useState(()=>window.location.hash==='#/workspace');
  const [showPages,setShowPages]=useState(()=>window.location.hash.startsWith('#/page/')||window.location.hash==='#/workspace');
  useEffect(()=>{
-  const sync=()=>{const hash=window.location.hash;setEditingPage(hash.startsWith('#/page/'));setWorkspaceMode(hash==='#/workspace');if(hash.startsWith('#/page/')||hash==='#/workspace')setShowPages(true)};
+  const sync=()=>{const hash=window.location.hash;setEditingPage(hash.startsWith('#/page/'));setWorkspaceMode(hash==='#/workspace');if(hash.startsWith('#/page/')||hash==='#/workspace')setShowPages(true);else if(hash==='#/tab/buffer')setShowPages(false)};
   window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync);
  },[]);
  return <div className="unified-buffer">
