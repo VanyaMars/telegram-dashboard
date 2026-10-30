@@ -110,7 +110,7 @@ function PageBlock({block,pages,sources,data,openPage,write,refresh}:{block:WBlo
  </div>;
 }
 function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>}){
- const {categories,saveTask,goals,os6}=useApp();const {goals:regularGoals}=useRegularGoals();
+ const {categories,saveTask,goals,os6,mutate,open}=useApp();const {goals:regularGoals}=useRegularGoals();
  const [day,setDay]=useState(task.day||''),[priority,setPriority]=useState<'important'|'extra'>(task.priority),[categoryId,setCategory]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||''),[notes,setNotes]=useState(task.notes||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';
  const [goalId,setGoalId]=useState(link?'amb:'+link:'');
@@ -128,5 +128,5 @@ function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string
   <label>Связь с целью<select value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></label></div>
   <label>Дополнительно<textarea value={notes} rows={3} maxLength={6000} onChange={e=>setNotes(e.target.value)} placeholder="Контекст, ссылки, подробности задачи…"/></label>
   {error&&<p className="os-error-banner" role="alert">{error}</p>}
-  <div className="os-property-actions"><span>⌘/Ctrl + Enter — сохранить</span><button disabled={busy} className="os-icon os-save-icon" type="submit" title="Сохранить свойства" aria-label="Сохранить свойства"><Icon name={busy?'refresh':'check'} size={19}/></button></div></form>;
+  <div className="os-property-actions"><button type="button" className="os-btn" onClick={()=>void mutate("os6","focus",{command:"start",title:task.title,task_id:task.id}).then(()=>open("focus")).catch(()=>{})}><Icon name="play" size={16}/> Начать фокус</button><span>⌘/Ctrl + Enter — сохранить</span><button disabled={busy} className="os-icon os-save-icon" type="submit" title="Сохранить свойства" aria-label="Сохранить свойства"><Icon name={busy?'refresh':'check'} size={19}/></button></div></form>;
 }
