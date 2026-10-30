@@ -6,7 +6,7 @@ import * as m from 'motion/react-m';
  * Shared animation policy for Personal OS.
  * - One lightweight motion system for all screens
  * - Respects the device's reduced-motion accessibility preference
- * - domMax enables layout transitions for task reorder / navigation indicator
+ * - domMax enables shared-layout animation for navigation indicators
  */
 export function OSMotionProvider({children}:{children:React.ReactNode}){
  return <MotionConfig reducedMotion="user"><LazyMotion features={domMax} strict>{children}</LazyMotion></MotionConfig>;
@@ -20,13 +20,12 @@ export function MotionRoute({screen,children}:{screen:string;children:React.Reac
  const reduce=useReducedMotion();
  return <AnimatePresence initial={false} mode="wait">
   <m.div key={screen} className="motion-route"
-   initial={reduce?false:{opacity:0,y:10}}
-   animate={{opacity:1,y:0}}
-   exit={reduce?{opacity:1}:{opacity:0,y:-6}}
+   initial={reduce?false:{opacity:0}}
+   animate={{opacity:1}}
+   exit={reduce?{opacity:1}:{opacity:0}}
    transition={{duration:reduce?0:0.22,ease:'easeOut'}}>
    {children}
   </m.div>
  </AnimatePresence>;
 }
 
-export const cardTransition={duration:0.35,ease:'easeOut' as const};
