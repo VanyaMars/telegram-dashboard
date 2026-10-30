@@ -15,8 +15,9 @@ export function BufferWorkspacePage(){
   },[]);
   return <div className="unified-buffer">
     {!editingPage&&<BufferPage/>}
-    <div className={editingPage?'workspace-active':'workspace-collapsed'}>
+    <details className="mvp-advanced-pages" open={editingPage ? true : undefined}>
+      {!editingPage&&<summary>Дополнительные страницы и базы</summary>}
       <WorkspacePage embedded/>
-    </div>
+    </details>
   </div>;
 }
