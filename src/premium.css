@@ -133,3 +133,67 @@ input,select,textarea{accent-color:var(--purple)}
  .premium-progress-track>.progress-fill{transition:none!important;animation:none!important}
  .plan-score--pro .plan-score-track>span{animation:none!important}
 }
+
+/* 6.8 Action Flow: one next step drives the dashboard, score supports it. */
+.home-dashboard .next-step-card{min-height:300px;gap:0;padding:clamp(20px,2.3vw,30px);background:linear-gradient(135deg,#F4F2FC,#FFFFFF 74%)}
+.next-step-title{font-size:clamp(23px,2.4vw,34px);line-height:1.17;font-weight:750;color:var(--text);letter-spacing:-.9px;overflow-wrap:anywhere;margin-top:24px;max-width:30ch}
+.next-step-caption{font-size:13px;line-height:1.55;color:var(--muted);max-width:53ch;margin-top:9px}
+.next-step-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:20px 0 15px}
+.next-step-actions .btn{min-height:46px}
+.next-step-error,.buffer-save-error{margin:8px 0;color:var(--premium-error);font-size:12px;line-height:1.4}
+.next-step-score{border-top:1px solid #E2DEF0;padding-top:14px;margin-top:auto}
+.next-step-score-heading{display:flex;justify-content:space-between;align-items:center;gap:9px;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:1px}
+.next-step-score-heading button{display:flex;align-items:center;gap:4px;min-height:38px;padding:6px 1px;background:none;border:0;color:var(--purple);font-weight:700;letter-spacing:0;font-size:12px}
+.home-dashboard .next-step-card .plan-score{display:grid;grid-template-columns:auto minmax(0,1fr);gap:15px;align-items:center;margin-top:5px}
+.home-dashboard .next-step-card .plan-score-value{font-size:clamp(27px,3.3vw,37px);letter-spacing:-1px;white-space:nowrap}
+.home-dashboard .next-step-card .plan-score-track{height:9px}
+.home-dashboard .next-step-card .hero-sub{margin-top:8px}
+.home-dashboard .next-step-card .hero-orb{opacity:.14}
+.home-dashboard .priority-card{order:initial}
+.today-action-flow{gap:17px}
+.today-task-group--important{border-color:#DED9F5}
+.today-after-important{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px}
+.today-summary--compact{padding:17px 20px;min-height:0}
+.today-summary--compact .today-numbers{margin-bottom:11px}
+.today-summary--compact .plan-score{flex-direction:row;align-items:center;gap:16px}
+.today-summary--compact .plan-score-value{font-size:32px;white-space:nowrap}
+.today-summary--compact .plan-score-track{height:9px;flex:1}
+.today-summary--compact .summary-grid{margin-top:11px}
+.quick-plan-disclosure{min-width:0;display:flex;flex-direction:column;gap:9px;align-items:stretch}
+.quick-plan-toggle{white-space:nowrap;display:flex;gap:8px;justify-content:center}
+.quick-plan-card{padding:17px;max-width:100%}
+.quick-plan-card .quick-plan-form{margin-top:10px}
+.buffer-action-flow .buffer-quick{border-color:#DDD7FA;box-shadow:0 12px 28px rgba(102,88,217,.08)}
+.buffer-action-flow .buffer-quick form{min-height:54px}
+.buffer-action-flow .buffer-quick input{font-size:16px;min-height:48px}
+.buffer-action-flow .buffer-quick button{min-height:44px;border-radius:10px;background:var(--purple);color:white}
+.buffer-action-flow .buffer-save-error{margin-top:-16px}
+.buffer-action-flow .buffer-search:focus-within{border-color:#9386E8;box-shadow:0 0 0 2px rgba(102,88,217,.10)}
+@media(max-width:760px){.today-after-important{grid-template-columns:1fr}.quick-plan-disclosure{width:100%}.home-dashboard .next-step-card{min-height:0}}
+@media(max-width:430px){.next-step-title{font-size:25px}.next-step-actions{display:grid;grid-template-columns:1fr}.next-step-actions .btn{width:100%}.home-dashboard .next-step-card .hero-sub{gap:8px;flex-wrap:wrap}.buffer-action-flow .page-heading{flex-wrap:wrap}.buffer-action-flow .buffer-quick form{gap:5px}.buffer-action-flow .buffer-quick button{padding-inline:11px}.today-summary--compact .plan-score{gap:10px}}
+@media(prefers-reduced-motion:reduce){.next-step-card,.quick-plan-disclosure{scroll-behavior:auto}}
+
+
+/* 6.8 Goals compatibility: truthful current/target values, including decreasing goals. */
+.goal-values{min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 0}
+.goal-values>div{display:flex;flex-direction:column;gap:5px;min-width:0;overflow-wrap:anywhere}
+.goal-values>div>span{font-size:11px;font-weight:650;color:#686D7C}
+.goal-values>div>strong{font-size:clamp(15px,2.4vw,20px);font-weight:760;letter-spacing:-.4px;color:#242835;overflow-wrap:anywhere}
+.goal-values-origin{grid-column:1/-1;color:#686D7C;font-size:11px}
+.goal-values--compact{gap:7px}
+.goal-values--compact>div>span{font-size:10px}
+.goal-values--compact>div>strong{font-size:clamp(13px,1.5vw,17px)}
+.goal-mini .goal-values{margin-top:14px}
+.goal-mini .goal-values>div:last-of-type>strong{color:#5A4ACC}
+.goal-full .goal-values>div:last-of-type>strong{color:#5A4ACC}
+.regular-goal-card .goal-values{padding:0}
+.regular-goal-card .goal-values>div>strong{font-size:15px}
+.goal-snapshot{padding:14px 16px;border-radius:13px;background:#F7F5FF;border:1px solid #E3DEFA;display:grid;gap:5px}
+.goal-snapshot-progress{font-weight:750;font-size:13px;color:#5C4CC5}
+.goal-snapshot-validation{padding:10px 12px;color:#A33C4C;background:#FFF4F5;border:1px solid #F1DDE1;border-radius:9px;font-size:12px}
+.goal-manual-values{padding:10px 12px;background:#F8F7FC;border:1px solid #E9E6F3;border-radius:12px;display:grid;gap:6px}
+.goal-manual-values strong{font-size:13px;color:#34394B}
+.goal-manual-values p{font-size:12px;color:#464E61}
+.goal-manual-values small{font-size:11px;color:#747C8F;line-height:1.4}
+.mvp-goals-list .goal-values{width:100%}
+@media(max-width:360px){.goal-values{gap:8px}.goal-values>div>strong{font-size:14px}}

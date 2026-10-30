@@ -29,5 +29,15 @@ jobs:
         run: npm run test:v67
       - name: 6.8 foundations
         run: npm run test:v68
+      - name: 6.8 action flow
+        run: npm run test:action-flow
+      - name: 6.8 Pipeline
+        run: npm run test:pipeline-motion
+      - name: 6.8 Navigation
+        run: npm run test:shell
+      - name: 6.8 Goals
+        run: npm run test:goals-compat
+      - name: 6.8 Integration
+        run: npm run test:integration
       - name: Typecheck and build
         run: npm run build

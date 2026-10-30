@@ -1,4 +1,4 @@
-import React,{useEffect} from 'react';
+import React,{useEffect,useState} from 'react';
 import {useApp} from './AppContext';
 import {Icon} from './components/Icons';
 import {Dialog,StatusToast} from './components/UI';
@@ -19,50 +19,85 @@ import {PlanningPage} from './pages/PlanningPage';
 import {HabitsPage} from './pages/HabitsPage';
 import './styles.css';
 import './premium.css';
+import './shell.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
+const pageNav:{id:Tab;label:string;icon:string}={id:'workspace',label:'Страницы',icon:'folder'};
+const incomeNav:{id:Tab;label:string;icon:string}={id:'income',label:'Доходы',icon:'wallet'};
+const mobilePrimary=[primary[1],workspaceNav,primary[2]];
 const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Планирование',icon:'calendar-check'},{id:'focus',label:'Фокус-таймер',icon:'timer'},{id:'challenges',label:'Привычки',icon:'check-circle'},{id:'repeats',label:'Повторения',icon:'repeat'}];
-const appNames=Object.fromEntries([...primary,workspaceNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
-function NavItem({id,label,icon}:{id:Tab;label:string;icon:string}){
- const {tab,open}=useApp();const reduced=useReducedMotion();const active=tab===id;
+const appNames=Object.fromEntries([...primary,workspaceNav,pageNav,incomeNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
+function useRouteHash(){
+ const [hash,setHash]=useState(()=>window.location.hash);
+ useEffect(()=>{const onChange=()=>setHash(window.location.hash);window.addEventListener('hashchange',onChange);return()=>window.removeEventListener('hashchange',onChange)},[]);
+ return hash;
+}
+function NavItem({id,label,icon,routeHash}:{id:Tab;label:string;icon:string;routeHash?:string}){
+ const {tab,open}=useApp();const reduced=useReducedMotion();
+ const hash=routeHash??window.location.hash;
+ const isPage=hash==='#/workspace'||hash.startsWith('#/page/');
+ const active=id==='workspace'?isPage:id==='buffer'?tab==='buffer'&&!isPage:tab===id;
  return <button className={'nav-link '+(active?'selected':'')} onClick={()=>open(id)}
   aria-current={active?'page':undefined}>
   {active&&<m.span layoutId="os-sidebar-selection" className="premium-nav-selection"
-   aria-hidden="true" initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
+    aria-hidden="true" initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
   <Icon name={icon} size={19}/><span>{label}</span>
   {active&&<span className="active-nav-dot" aria-hidden="true"/>}
  </button>;
 }
-function Sidebar(){const{sidebar,setSidebar}=useApp();return <>
+function Sidebar(){
+ const {sidebar,setSidebar}=useApp(),hash=useRouteHash();
+ return <>
   <div className={'sidebar-scrim '+(sidebar?'visible':'')} onClick={()=>setSidebar(false)} aria-hidden="true"/>
   <aside className={'app-sidebar '+(sidebar?'is-open':'')} aria-label="Боковая навигация">
-    <div className="brand"><div className="brand-logo"><Icon name="sparkles" size={23}/></div><div><strong>Personal OS</strong><small>Твоя система прогресса</small></div><button className="mobile-close icon-btn" onClick={()=>setSidebar(false)} aria-label="Закрыть меню"><Icon name="x"/></button></div>
-    <nav className="sidebar-scroll"><span className="sidebar-section-label">ОСНОВНОЕ</span>{primary.map(n=><NavItem key={n.id} {...n}/>)}<NavItem {...workspaceNav}/>
-      <span className="sidebar-section-label">ИНСТРУМЕНТЫ</span>{secondary.map(n=><NavItem key={n.id} {...n}/>)}
-      <span className="sidebar-section-label">НАСТРОЙКА</span>
-      <NavItem id="settings" label="Настройки" icon="settings"/><NavItem id="help" label="Помощь" icon="help"/>
-    </nav>
-    <div className="sidebar-bottom"><div className="sidebar-footer-logo">{isQAMode()?<><Icon name="check-circle" size={16}/> Данные только в браузере</>:<><Icon name="cloud-check" size={16}/> Синхронизация с облаком</>}</div><span className="version">{APP_BUILD_LABEL}</span></div>
-  </aside></>;
+   <div className="brand"><div className="brand-logo"><Icon name="sparkles" size={23}/></div><div><strong>Personal OS</strong><small>Твоя система прогресса</small></div><button className="mobile-close icon-btn" onClick={()=>setSidebar(false)} aria-label="Закрыть меню"><Icon name="x"/></button></div>
+   <nav className="sidebar-scroll">
+    <span className="sidebar-section-label">ОСНОВНОЕ</span>
+    {primary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
+    <NavItem {...workspaceNav} routeHash={hash}/>
+    <NavItem {...pageNav} routeHash={hash}/>
+    <NavItem {...incomeNav} routeHash={hash}/>
+    <span className="sidebar-section-label">ИНСТРУМЕНТЫ</span>
+    {secondary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
+    <span className="sidebar-section-label">НАСТРОЙКА</span>
+    <NavItem id="settings" label="Настройки" icon="settings" routeHash={hash}/>
+    <NavItem id="help" label="Помощь" icon="help" routeHash={hash}/>
+   </nav>
+   <div className="sidebar-bottom"><div className="sidebar-footer-logo">{isQAMode()?<><Icon name="check-circle" size={16}/> Данные только в браузере</>:<><Icon name="cloud-check" size={16}/> Синхронизация с облаком</>}</div><span className="version">{APP_BUILD_LABEL}</span></div>
+  </aside>
+ </>;
 }
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
+  const hash=useRouteHash();const mobileLabel=hash==='#/workspace'||hash.startsWith('#/page/')?'Страницы':appNames[tab]||'Personal OS';
   const qa=isQAMode();
   const cloud=qa?'refresh':status==='saved'?'cloud-check':status==='error'?'cloud-off':'cloud';
-  return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{appNames[tab]||'Personal OS'}</span></div>
+  return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
     <div className="topbar-right">{isQAMode()?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}<button className={'icon-btn cloud-button '+(qa?'local':status)} onClick={()=>void refresh()} title={qa?'Обновить локальные тестовые данные':status==='saved'?'Синхронизировано':status==='saving'?'Сохраняем':'Обновить облако'} aria-label={qa?'Обновить локальные тестовые данные':'Обновить облачные данные'}><Icon name={cloud} size={21}/></button>
       <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button></div>
   </header>;
 }
-function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{primary.map(n=><BottomItem key={n.id} {...n}/>)}</nav>}
+function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{mobilePrimary.map(n=><BottomItem key={n.id} {...n}/>) }<MoreBottomItem/></nav>}
 function BottomItem({id,label,icon}:{id:Tab;label:string;icon:string}){
- const{tab,open}=useApp();const reduced=useReducedMotion();const active=tab===id;
+  const{tab,open}=useApp();const reduced=useReducedMotion();const hash=useRouteHash();
+  const inPages=hash==='#/workspace'||hash.startsWith('#/page/');
+  const active=id==='buffer'?tab==='buffer'&&!inPages:tab===id;
  return <button className={active?'current':''} onClick={()=>open(id)} aria-label={label} aria-current={active?'page':undefined}>
   {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active" aria-hidden="true"
    initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
   <Icon name={icon} size={22}/><span>{label}</span>
  </button>;
 }
-function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <HabitsPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
+function MoreBottomItem(){
+  const {tab,sidebar,setSidebar}=useApp();const reduced=useReducedMotion();const hash=useRouteHash();
+  const active=hash==='#/workspace'||hash.startsWith('#/page/')||!(['today','buffer','goals'] as Tab[]).includes(tab);
+ return <button className={active?'current':''} type="button" onClick={()=>setSidebar(true)}
+  aria-label="Ещё" aria-expanded={sidebar}>
+  {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active"
+   aria-hidden="true" initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
+  <Icon name="menu" size={22}/><span>Ещё</span>
+ </button>;
+}
+function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'income':return <MvpAnalyticsPage focusIncome/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <HabitsPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
 function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   const labels={task:editor.item?'Изменить задачу':'Новая задача',goal:editor.item?'Изменить цель':'Новая цель',finance:'Финансовая запись',workout:'Тренировка',weight:'Замер веса',exercise:'Упражнение',repeat:'Повторение',challenge:'Личный вызов'};
   return <Dialog open onClose={()=>setEditor(null)} title={labels[editor.type]}>

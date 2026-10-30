@@ -1,4 +1,4 @@
-name: Publish Personal OS 6.7
+name: Publish Personal OS 6.8
 on:
   push:
     branches: [main]
@@ -39,6 +39,16 @@ jobs:
         run: npm run test:v67
       - name: 6.8 foundations
         run: npm run test:v68
+      - name: 6.8 Action Flow
+        run: npm run test:action-flow
+      - name: 6.8 Pipeline
+        run: npm run test:pipeline-motion
+      - name: 6.8 Navigation
+        run: npm run test:shell
+      - name: 6.8 Goals compatibility
+        run: npm run test:goals-compat
+      - name: 6.8 Integration
+        run: npm run test:integration
       - name: Compile and build
         env:
           VITE_BUILD_SHA: ${{ github.sha }}

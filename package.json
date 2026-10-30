@@ -1,7 +1,7 @@
 {
   "name": "personal-os-premium",
   "private": true,
-  "version": "6.7.2",
+  "version": "6.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -15,7 +15,12 @@
     "test:motion": "node tests/motion.mjs",
     "test:v67": "node tests/v67.mjs",
     "test:qa": "playwright test",
-    "test:v68": "node tests/v68.mjs"
+    "test:v68": "node tests/v68.mjs",
+    "test:action-flow": "node tests/action-flow.mjs",
+    "test:pipeline-motion": "node tests/pipeline-motion.mjs",
+    "test:shell": "node tests/shell.mjs",
+    "test:goals-compat": "node tests/goals-compat.mjs",
+    "test:integration": "node tests/integration.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",

@@ -1,0 +1,16 @@
+/* Personal OS 6.8: direct Pages/Income navigation and four deliberate mobile destinations. */
+.nav-link[aria-current="page"]{font-weight:700}
+@media(max-width:860px){
+ .bottom-nav{display:flex;gap:4px}
+ .bottom-nav button{min-width:0;gap:4px}
+ .bottom-nav button>span:not(.motion-bottom-pill){font-size:11px;font-weight:650}
+ .bottom-nav button:focus-visible{outline:2px solid #6658D9;outline-offset:-3px}
+ .mobile-title{color:#242835}
+}
+.mvp-income-wrap>.glass-card{height:100%;min-height:100%}
+.mvp-income-feature{scroll-margin-top:90px}
+.mvp-income-feature .glass-card{border:1px solid #DDD8F6;background:linear-gradient(140deg,#F8F7FF,#FFFFFF);padding:clamp(20px,3vw,30px);box-shadow:0 10px 27px rgba(102,88,217,.07)}
+.mvp-income-feature .mvp-income-row strong{font-size:clamp(22px,3.2vw,32px);color:#242835;letter-spacing:-.6px}
+.mvp-income-feature .mvp-income-row{padding:16px 0;border-bottom:1px solid #EAE7F2}
+.mvp-income-feature .mvp-income-row:last-of-type{border:0}
+@media(prefers-reduced-motion:reduce){.bottom-nav button,.nav-link{transition:none!important}}

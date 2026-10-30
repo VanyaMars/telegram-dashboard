@@ -125,7 +125,7 @@ test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details'
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.7.2');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.8.0');
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('#os-workspace-panel')).toBeVisible();
@@ -209,4 +209,271 @@ test('6.8 foundations: reduced motion keeps fast navigation and focus action cli
  await expect(page.locator('main.app-content .motion-route')).toBeVisible();
  const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
  expect(transform).toBe('none');
+});
+
+test('6.8 Action Flow: Home puts next step first and shows real daily score',async({page})=>{
+ await enter(page);
+ await expect(page.locator('.next-step-title')).toBeVisible();
+ await expect(page.locator('.next-step-card .plan-score-value')).toBeVisible();
+ await expect(page.locator('.next-step-card .next-step-score-heading')).toContainText('РЕЗУЛЬТАТ ДНЯ');
+ await expect(page.locator('.next-step-card').getByRole('button',{name:'Открыть план на сегодня'})).toBeVisible();
+});
+
+test('6.8 Action Flow: fast Buffer capture prevents duplicate Enter and clears search',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ const input=page.getByRole('textbox',{name:'Быстро добавить задачу'});
+ await input.fill('QA быстрый захват 6.8');
+ await input.press('Enter');
+ await input.press('Enter');
+ await expect(page.getByRole('button',{name:'QA быстрый захват 6.8',exact:true})).toHaveCount(1);
+ await expect(input).toBeFocused();
+ await expect(input).toHaveValue('');
+ await page.getByRole('searchbox',{name:'Поиск задач'}).fill('НЕСУЩЕСТВУЮЩИЙ_ЗАПРОС_68');
+ await expect(page.getByText('Ничего не найдено')).toBeVisible();
+ await page.getByRole('button',{name:'Сбросить фильтры'}).click();
+ await expect(page.getByRole('button',{name:'QA быстрый захват 6.8',exact:true})).toBeVisible();
+});
+
+test('6.8 Action Flow: Today important tasks before score and optional Buffer picker',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
+ await expect(page.locator('.today-task-group--important')).toBeVisible();
+ await expect(page.locator('.today-summary--compact')).toBeVisible();
+ const above=await page.evaluate(()=>{
+  const imp=document.querySelector('.today-task-group--important');
+  const score=document.querySelector('.today-summary--compact');
+  return !!(imp&&score&&(imp.compareDocumentPosition(score)&Node.DOCUMENT_POSITION_FOLLOWING));
+ });
+ expect(above).toBe(true);
+ const toggle=page.getByRole('button',{name:/Из буфера/});
+ await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await toggle.click();
+ await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await expect(page.locator('#today-buffer-picker')).toBeVisible();
+});
+
+test('6.8 Action Flow: planning keeps the linked goal and task ID',async({page})=>{
+ await enter(page);
+ const reference=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const key='personal-os:qa:data:v1:'+session.id;
+  const data=JSON.parse(localStorage.getItem(key)||'{}');
+  const link=data.os6.links[0];const task=data.tasks.find((t:any)=>t.id===link.task_id);
+  task.day=null;task.completed=false;
+  localStorage.setItem(key,JSON.stringify(data));
+  return {taskId:task.id,goalId:link.goal_id,title:task.title,key,categoryId:task.os61_category_id};
+ });
+ await page.reload();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Планирование'}).click();
+ const item=page.locator('.planning-task').filter({hasText:reference.title});
+ await item.getByRole('checkbox').check();
+ await page.getByRole('button',{name:'Запланировать 1'}).click();
+ await expect(page.getByText('Запланировано: 1')).toBeVisible();
+ const after=await page.evaluate(key=>{
+  const data=JSON.parse(localStorage.getItem(key)||'{}');
+  return {task:data.tasks.find((t:any)=>t.id===data.os6.links[0]?.task_id),link:data.os6.links[0],all:data.tasks.filter((t:any)=>t.title==='Отправить три предложения клиентам').length};
+ },reference.key);
+ expect(after.link.task_id).toBe(reference.taskId);
+ expect(after.link.goal_id).toBe(reference.goalId);
+ expect(after.task.os61_category_id).toBe(reference.categoryId);
+ expect(after.task.day).toBeTruthy();
+ expect(after.all).toBe(1);
+});
+
+
+test('6.8 Pipeline: stage reorder saves and survives reload',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const stages=page.locator('.os-pipeline-premium .os-split');
+ await expect(stages).toHaveCount(2);
+ await expect(stages.first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Планирование');
+ await stages.nth(1).locator('.os-split-menu summary').click();
+ await stages.nth(1).getByRole('button',{name:'Этап левее'}).click();
+ await expect(stages.first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Разработка');
+ await page.reload();
+ await expect(page.locator('.os-pipeline-premium .os-split').first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Разработка');
+});
+
+test('6.8 Pipeline: Workflow reorder is persisted without changing split',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const stage=page.locator('.os-pipeline-premium .os-split').first();
+ const rows=stage.locator('.os-workflow-row');
+ await expect(rows).toHaveCount(2);
+ await rows.nth(1).getByRole('button',{name:'Выше: Подготовить макеты'}).click();
+ await expect(rows.first().getByRole('button',{name:'Изменить действие: Подготовить макеты'})).toBeVisible();
+ await page.reload();
+ const after=page.locator('.os-pipeline-premium .os-split').first().locator('.os-workflow-row');
+ await expect(after.first().getByRole('button',{name:'Изменить действие: Подготовить макеты'})).toBeVisible();
+});
+
+test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({page})=>{
+ await page.setViewportSize({width:390,height:780});
+ await enter(page);
+ await page.getByRole('button',{name:'Открыть меню'}).click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
+ await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ const stages=page.locator('.os-pipeline-premium .os-split');
+ await expect(stages).toHaveCount(2);
+ await expect(stages.first().locator('.os-split-body')).toBeVisible();
+ await expect(stages.nth(1).locator('.os-split-body')).toBeHidden();
+ await stages.nth(1).getByRole('button',{name:'Разработка',exact:true}).click();
+ await expect(stages.nth(1).locator('.os-split-body')).toBeVisible();
+ await expect(stages.first().locator('.os-split-body')).toBeHidden();
+ const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+ expect(size.doc).toBeLessThanOrEqual(size.width+2);
+});
+
+
+test('6.8 Shell: direct Pages navigation opens Workspace directory and survives reload',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/workspace');
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveAttribute('aria-current','page');
+ await page.reload();
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+});
+
+test('6.8 Shell: confirmed task Income has a direct route, never manual Finance data',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Доходы'}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/income');
+ await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
+ await expect(page.locator('.mvp-income-feature')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
+ await expect(page.locator('.mvp-income-feature')).toContainText('Разные валюты не складываются');
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
+});
+
+test('6.8 Shell: 390px bottom navigation Today/Buffer/Goals/More is complete',async({page})=>{
+ await page.setViewportSize({width:390,height:780});
+ await enter(page);
+ const bottom=page.getByRole('navigation',{name:'Основная навигация'});
+ for(const label of ['Сегодня','Буфер задач','Цели','Ещё'])await expect(bottom.getByRole('button',{name:label})).toBeVisible();
+ await bottom.getByRole('button',{name:'Ещё'}).click();
+ await expect(page.locator('.app-sidebar')).toHaveClass(/is-open/);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/workspace');
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await bottom.getByRole('button',{name:'Сегодня'}).click();
+ await expect(bottom.getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
+ const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
+ expect(size.doc).toBeLessThanOrEqual(size.client+2);
+});
+
+
+test('6.8 Goals: regular linked goal has truthful dynamic task target',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ const linked=page.locator('.regular-goal-card').filter({hasText:'Собрать работающий MVP'});
+ await expect(linked).toBeVisible();
+ await expect(linked).toContainText('Сейчас');
+ await expect(linked).toContainText('Целевое значение');
+ await expect(linked).toContainText('задач');
+ await expect(linked).toContainText('Автоматически: связанные задачи');
+});
+
+test('6.8 Goals: decreasing ambitious goal uses current/target with accurate progress',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ const weight=page.locator('.goal-full').filter({hasText:'Вес 90 кг'});
+ await expect(weight).toBeVisible();
+ await expect(weight).toContainText('Сейчас');
+ await expect(weight).toContainText('100 кг');
+ await expect(weight).toContainText('Целевое значение');
+ await expect(weight).toContainText('90 кг');
+ await expect(weight).toContainText('41%');
+ await weight.getByRole('button',{name:'Обновить'}).click();
+ const dialog=page.getByRole('dialog',{name:'Изменить цель'});
+ await expect(dialog).toContainText('Снижение');
+ await expect(dialog).toContainText('41% пути от старта');
+ await dialog.getByRole('spinbutton',{name:'Целевое значение'}).fill('');
+ await expect(dialog.getByRole('button',{name:'Сохранить'})).toBeDisabled();
+ await dialog.getByRole('spinbutton',{name:'Целевое значение'}).fill('90');
+ await dialog.getByRole('button',{name:'Сохранить'}).click();
+ await expect(dialog).toHaveCount(0);
+ await page.reload();
+ await expect(page.locator('.goal-full').filter({hasText:'Вес 90 кг'})).toContainText('Целевое значение');
+});
+
+test('6.8 Goals: manual ordinary goal clearly shows 100-percent target',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ await page.getByRole('button',{name:'Цель',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Новая обычная цель'});
+ await dialog.getByRole('textbox',{name:'Название'}).fill('Цель без связей 68');
+ await expect(dialog).toContainText('Целевое значение: 100%');
+ await dialog.getByRole('button',{name:'Сохранить'}).click();
+ await expect(dialog).toHaveCount(0);
+ const card=page.locator('.regular-goal-card').filter({hasText:'Цель без связей 68'});
+ await expect(card).toContainText('Целевое значение');
+ await expect(card).toContainText('100 %');
+ await expect(card).toContainText('Ручной процент');
+});
+
+test('6.8 integration: Home to Buffer capture, Today transfer and direct Pages/Income',async({page})=>{
+ const called:string[]=[];
+ page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});
+ await enter(page);
+ await expect(page.locator('.next-step-title')).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ const capture=page.getByRole('textbox',{name:'Быстро добавить задачу'});
+ await capture.fill('Сквозная задача Personal OS 6.8');
+ await capture.press('Enter');
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
+ const picker=page.getByRole('button',{name:/Из буфера/});
+ await picker.click();
+ await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.8'});
+ await page.locator('#today-buffer-picker').getByRole('button',{name:/В день/}).click();
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ await expect(page.locator('.goal-values').first()).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(page.locator('.buffer-mvp')).toHaveCount(0);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Доходы'}).click();
+ await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
+ expect(called).toEqual([]);
+});
+
+for(const width of [320,390,430,1440]){
+ test('6.8 integration: Pages and Income routes fit '+width+'px',async({page})=>{
+  await page.setViewportSize({width,height:830});
+  await enter(page);
+  for(const route of ['workspace','income']){
+   await page.goto(entry+(route==='workspace'?'#/workspace':'#/tab/income'));
+   await expect(page.locator('main.app-content .motion-route')).toBeVisible();
+   if(route==='workspace')await expect(page.locator('.os-page-gallery')).toBeVisible();
+   else await expect(page.locator('.mvp-income-feature')).toBeVisible();
+   const dim=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+   expect(dim.doc,'Document overflow at '+width+'px in '+route).toBeLessThanOrEqual(dim.width+2);
+  }
+ });
+}
+
+test('6.8 integration: mobile More remains selected on direct Pages',async({page})=>{
+ await page.setViewportSize({width:390,height:780});
+ await enter(page);
+ const nav=page.getByRole('navigation',{name:'Основная навигация'});
+ await nav.getByRole('button',{name:'Ещё'}).click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'}).click();
+ await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await expect(nav.getByRole('button',{name:'Ещё'})).toHaveClass(/current/);
+ await expect(nav.getByRole('button',{name:'Буфер задач'})).not.toHaveClass(/current/);
+ await nav.getByRole('button',{name:'Буфер задач'}).click();
+ await expect(nav.getByRole('button',{name:'Буфер задач'})).toHaveClass(/current/);
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
 });
