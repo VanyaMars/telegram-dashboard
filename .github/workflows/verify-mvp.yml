@@ -1,0 +1,27 @@
+name: Verify MVP changes
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Smoke tests
+        run: npm run test:smoke
+      - name: Workspace tests
+        run: npm run test:workspace
+      - name: Unified tests
+        run: npm run test:unified
+      - name: MVP tests
+        run: npm run test:mvp
+      - name: Typecheck and build
+        run: npm run build
