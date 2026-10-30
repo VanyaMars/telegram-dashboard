@@ -6,6 +6,8 @@ import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
+import {RegularGoals} from '../components/RegularGoals';
+import {PlanScore} from '../components/PlanScore';
 
 const sums=(days:Record<string,DayMetrics>,dates:string[])=>dates.reduce((a,d)=>{const m=days[d];return {tasks:a.tasks+(m?.tasks||0),sales:a.sales+(m?.sales||0),sport:a.sport+(m?.sport||0)};},{tasks:0,sales:0,sport:0});
 function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important');const extra=tasks.filter(t=>t.priority==='extra');
@@ -13,12 +15,10 @@ function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important'
     score:score(imp.length,imp.filter(t=>t.completed).length,extra.length,extra.filter(t=>t.completed).length)};
 }
 export function HomePage(){
-  const {today,day,setDay,tasks,goals,goalHistory,os6,metrics,open,setEditor}=useApp();
+  const {today,day,setDay,tasks,goals,goalHistory,os6,metrics,open,setEditor,openTaskPage}=useApp();
   useEffect(()=>{if(day!==today)setDay(today)},[today]);
   const k=dayKpi(tasks);const dates=weekDates(mondayOf(today));const totals=sums(metrics,dates);
   const important=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
-  const finance=os6.finance.filter(f=>f.day.slice(0,7)===today.slice(0,7));
-  const currency=finance.length?finance[0].currency:'RUB';const balance=finance.filter(f=>f.currency===currency).reduce((n,f)=>n+(f.direction==='income'?Number(f.amount):-Number(f.amount)),0);
   const goalAverage=goals.length?Math.round(goals.reduce((n,g)=>n+goalProgress(g),0)/goals.length):0;
   return <div className="page-stack">
     <div className="hello-block"><div><p className="eyebrow">ТВОЯ ЛИЧНАЯ СИСТЕМА</p><h1>Добро пожаловать<span className="hello-dot">.</span></h1><p>Всё важное — на одном экране</p></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
@@ -26,16 +26,14 @@ export function HomePage(){
       <Card className="hero-result">
         <div className="hero-orb orb1"/><div className="hero-orb orb2"/>
         <div className="hero-top"><span className="eyebrow">РЕЗУЛЬТАТ ДНЯ</span><Pill accent={k.important&&k.important===k.doneImportant?'mint':'lavender'}>{k.important&&k.important===k.doneImportant?'Главное выполнено':'В процессе'}</Pill></div>
-        <div className="hero-score">{k.score}<span>% <small>из 200%</small></span></div>
-        <div className="double-bar"><span style={{width:`${k.important?k.doneImportant/k.important*50:0}%`}}/><span style={{width:`${k.extra?k.doneExtra/k.extra*50:0}%`}}/></div>
+        <PlanScore important={k.important} doneImportant={k.doneImportant} extra={k.extra} doneExtra={k.doneExtra}/>
         <div className="hero-sub"><span>Важные <b>{k.doneImportant}/{k.important}</b></span><span>Дополнительные <b>{k.doneExtra}/{k.extra}</b></span></div>
         <button className="link-action" onClick={()=>open('today')}>Открыть задачи <Icon name="arrow-right" size={16}/></button>
       </Card>
       <div className="home-stat-grid">
         <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap purple"><Icon name="check-circle"/></span><Icon name="arrow-up-right" size={18}/></div><span className="muted-label">Задачи недели</span><strong>{totals.tasks}<small> / {os6.settings.target_task}</small></strong><ProgressBar value={progress(totals.tasks,os6.settings.target_task)}/></Card>
-        <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap peach"><Icon name="target"/></span><Icon name="arrow-up-right" size={18}/></div><span className="muted-label">Прогресс целей</span><strong>{goalAverage}<small>%</small></strong><ProgressBar value={goalAverage}/></Card>
-        <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap mint"><Icon name="wallet"/></span><Icon name="arrow-up-right" size={18}/></div><span className="muted-label">Баланс за месяц</span><strong className="stat-money">{Math.round(balance).toLocaleString('ru-RU')}<small> {currency}</small></strong><span className="tiny-note">В выбранной валюте</span></Card>
-        <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap sky"><Icon name="dumbbell"/></span><Icon name="arrow-up-right" size={18}/></div><span className="muted-label">Тренировки</span><strong>{totals.sport}<small> / {os6.settings.target_sport}</small></strong><ProgressBar value={progress(totals.sport,os6.settings.target_sport)}/></Card>
+        <Card className="mini-stat"><div className="stat-top"><span className="icon-wrap peach"><Icon name="target"/></span><Icon name="arrow-up-right" size={18}/></div><span className="muted-label">Амбициозные цели</span><strong>{goalAverage}<small>%</small></strong><ProgressBar value={goalAverage}/></Card>
+
       </div>
     </div>
     <div className="home-second">
@@ -44,12 +42,12 @@ export function HomePage(){
         <div className="week-footer"><span><i className="legend-lavender"/> Выполненные задачи</span><b>{totals.tasks} всего</b></div>
       </Card>
       <Card className="priority-card"><div className="card-title-row"><div><span className="eyebrow">ФОКУС</span><h2>Главное сегодня</h2></div><button className="icon-btn" onClick={()=>setEditor({type:'task',day:today,priority:'important'})} aria-label="Добавить важную задачу"><Icon name="plus"/></button></div>
-        {important.length?important.map(t=><button className="mini-task" key={t.id} onClick={()=>setEditor({type:'task',item:t})}><span className="mini-checkbox"/><span>{t.title}</span><Icon name="right" size={17}/></button>):
+        {important.length?important.map(t=><button className="mini-task" key={t.id} onClick={()=>void openTaskPage(t)}><span className="mini-checkbox"/><span>{t.title}</span><Icon name="right" size={17}/></button>):
           <div className="success-spot"><Icon name="check-circle" size={26}/><strong>Важные дела закрыты</strong><span>Можно заняться дополнительными задачами</span></div>}
         <button className="link-action" onClick={()=>open('today')}>Весь список <Icon name="arrow-right" size={16}/></button>
       </Card>
     </div>
-    <div className="home-goals"><SectionHead title="Амбициозные цели" action={<button className="btn text" onClick={()=>open('goals')}>Все цели <Icon name="right" size={16}/></button>}/>
+    <div className="home-goals"><Card><RegularGoals compact/></Card><SectionHead title="Амбициозные цели" action={<button className="btn text" onClick={()=>open('goals')}>Все цели <Icon name="right" size={16}/></button>}/>
       <div className="goals-grid">{goals.slice(0,2).map(g=><GoalMini key={g.id} title={g.title} current={Number(g.current_value)} target={Number(g.target_value)} start={Number(g.start_value)} unit={g.unit} history={goalHistory.filter(x=>x.goal_id===g.id)} open={()=>open('goals')}/>)}
         {!goals.length&&<Card><Empty icon="target" title="Добавь первую цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}
       </div>
@@ -70,8 +68,8 @@ export function TodayPage(){const{day,setDay,today,tasks,setEditor,open}=useApp(
   return <div className="page-stack">
     <div className="page-heading"><div><p className="eyebrow">ПЛАН НА ДЕНЬ</p><h1>Сегодня</h1><p>{prettyDay(day)}</p></div><div className="date-chooser"><button onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button><input aria-label="Дата задач" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button></div></div>
     {day!==today&&<button className="pill-tab" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
-    <Card className="today-summary"><div className="today-numbers"><div><span className="eyebrow">ВЫПОЛНЕНИЕ ПЛАНА</span><div className="today-percent">{k.score}<span>% <small>/ 200%</small></span></div></div><span className="status-pill">{k.important&&k.important===k.doneImportant?'Главное закрыто':'Фокус на главном'}</span></div>
-      <div className="double-bar"><span style={{width:`${k.important?k.doneImportant/k.important*50:0}%`}}/><span style={{width:`${k.extra?k.doneExtra/k.extra*50:0}%`}}/></div>
+    <Card className="today-summary"><div className="today-numbers"><div><span className="eyebrow">ВЫПОЛНЕНИЕ ПЛАНА</span><div className="today-percent"><PlanScore important={k.important} doneImportant={k.doneImportant} extra={k.extra} doneExtra={k.doneExtra}/></div></div><span className="status-pill">{k.important&&k.important===k.doneImportant?'Главное закрыто':'Фокус на главном'}</span></div>
+
       <div className="summary-grid"><div><span>Важные</span><b>{progress(k.doneImportant,k.important)}%</b></div><div><span>Дополнительные</span><b>{progress(k.doneExtra,k.extra)}%</b></div></div></Card>
     {group(important,'important')}{group(extra,'extra')}
     <button className="btn add-inline" onClick={()=>setEditor({type:'task',day,priority:'important'})}><Icon name="plus" size={20}/> Добавить задачу</button>
@@ -93,8 +91,8 @@ export function BufferPage(){const{buffer,categories,setEditor,saveTask,day}=use
   </div>;
 }
 export function GoalsPage(){const{goals,goalHistory,setEditor}=useApp();
-  return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ВИДЕТЬ БОЛЬШЕ</p><h1>Амбициозные цели</h1><p>Большие результаты — маленькими шагами</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Цель</button></div>
-    <div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
+  return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ТВОИ ОРИЕНТИРЫ</p><h1>Цели</h1><p>Обычные и амбициозные цели в одном месте</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Амбициозная</button></div>
+    <Card><RegularGoals/></Card><SectionHead title="Амбициозные цели"/><div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
       return <Card key={g.id} className="goal-full"><div className="goal-full-head"><div><span className="eyebrow">{g.sphere||'ЦЕЛЬ'}</span><h2>{g.title}</h2></div><div className="goal-value">{percent}<small>%</small></div></div>
         <div className="goal-current"><strong>{Number(g.current_value).toLocaleString('ru-RU')} {g.unit}</strong><span>из {Number(g.target_value).toLocaleString('ru-RU')} {g.unit}</span></div>
         <ProgressBar value={percent}/><Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>

@@ -1,4 +1,4 @@
-name: Publish Personal OS 6.1
+name: Publish Personal OS 6.3
 on:
   push:
     branches: [main]
@@ -29,6 +29,8 @@ jobs:
         run: npm run test:smoke
       - name: Workspace tests
         run: npm run test:workspace
+      - name: Unified tasks and goals tests
+        run: npm run test:unified
       - name: Compile and build
         run: npm run build
       - name: Configure Pages

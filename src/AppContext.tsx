@@ -12,7 +12,7 @@ type AppContextValue={
   tasks:Task[];buffer:Task[];goals:Goal[];goalHistory:GoalPoint[];categories:Category[];os6:OS6Data;
   metrics:Record<string,DayMetrics>;previousMetrics:Record<string,DayMetrics>;legacyRows:any[];
   editor:Editor;setEditor:(e:Editor)=>void;message:string;notify:(m:string)=>void;recentDeleted:Task|null;undoDelete:()=>Promise<void>;
-  refresh:()=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
+  openTaskPage:(task:Task)=>Promise<void>;refresh:()=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
   reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
   saveCategory:(form:any)=>Promise<void>;deleteCategory:(cat:Category)=>Promise<void>;
@@ -33,7 +33,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const demo=new URLSearchParams(location.search).get('demo')==='1';
   const [tz,setTZ]=useState(initialTimezone());const [today,setToday]=useState(()=>dateInZone(new Date(),initialTimezone()));
   const [day,setDay]=useState(today);const dayRef=useRef(day);dayRef.current=day;
-  const [tab,setTab]=useState<Tab>(()=>/^#\/(?:page\/|workspace)/.test(location.hash)?'workspace':'home');const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
+  const [tab,setTab]=useState<Tab>(()=>/^#\/(?:page\/|workspace)/.test(location.hash)?'buffer':'home');const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
   const [ready,setReady]=useState(false);const [error,setError]=useState('');const [status,setStatus]=useState<CloudStatus>('connecting');
   const [tasks,setTasks]=useState<Task[]>([]);const [buffer,setBuffer]=useState<Task[]>([]);
   const [goals,setGoals]=useState<Goal[]>([]);const [goalHistory,setGoalHistory]=useState<GoalPoint[]>([]);
@@ -42,8 +42,8 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
   const notify=(m:string)=>{setMessage(m);};
-  const open=(t:Tab)=>{if(t!=='workspace'&&window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search);if(t==='workspace'&&!window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search+'#/workspace');setTab(t);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
-  useEffect(()=>{const handle=()=>{if(/^#\/(?:page\/|workspace)/.test(location.hash))setTab('workspace')};window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
+  const open=(t:Tab)=>{const wasPage=window.location.hash.startsWith('#/page/');if(t!=='workspace'&&t!=='buffer'&&window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search);if((t==='buffer'||t==='workspace')&&wasPage){window.location.hash='#/workspace';}if(t==='workspace'&&!window.location.hash.startsWith('#/'))history.replaceState(null,'',location.pathname+location.search+'#/workspace');setTab(t);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
+  useEffect(()=>{const handle=()=>{if(/^#\/(?:page\/|workspace)/.test(location.hash))setTab('buffer')};window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
   const readDays=useCallback(async(d:string)=>{
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});
@@ -98,6 +98,12 @@ export function AppProvider({children}:{children:React.ReactNode}){
   },[day,ready,readDays]);
   useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},5500);return()=>clearTimeout(t)},[message]);
   const refresh=async()=>{await reload(dayRef.current,tz);};
+  const openTaskPage=async(task:Task)=>{
+    if(demo){notify('Открой Mini App через Telegram для редактирования страниц задач');return;}
+    try{setStatus('saving');const r=await request<{pageId:string}>('os8','task_page_ensure',{taskId:task.id});
+      setTab('buffer');setSidebar(false);window.location.hash='#/page/'+r.pageId;setStatus('saved');
+    }catch(e:any){setStatus('error');notify(e.message||'Не удалось открыть страницу задачи');}
+  }; 
   const mutate=async(fn:'os6'|'os61'|'dashboard',action:string,data:Record<string,unknown>={})=>{
     if(demo){notify('Это демонстрация. Для сохранения открой Mini App через Telegram.');return {ok:true};}
     setStatus('saving');try{const r=await request(fn,action,data);await reload(dayRef.current,tz);setStatus('saved');return r;}
@@ -169,7 +175,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
     tasks,buffer,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
-    refresh,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
+    openTaskPage,refresh,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export const useApp=()=>{const v=useContext(Context);if(!v)throw Error('No AppProvider');return v;};

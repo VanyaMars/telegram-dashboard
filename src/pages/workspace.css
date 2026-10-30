@@ -4,3 +4,6 @@
 @media(max-width:360px){.os-workspace-top h1{font-size:24px}.os-page-editor{padding:10px 8px}.os-pipeline{padding:9px}.os-split-actions .os-icon{width:24px;height:24px}.os-add-split{flex-wrap:wrap}.os-add-split .os-btn{max-width:100%}}
 @media(prefers-reduced-motion:reduce){.os-workspace *{transition:none!important;animation:none!important}}
 .os-fields-manager{padding:12px;border:1px solid #e7e8f3;border-radius:11px;background:#fafaff;margin-bottom:10px}.os-fields-manager>strong{font-size:12px}.os-fields-manager>div{display:flex;align-items:center;gap:7px;border-bottom:1px solid #e9eaf1;padding:6px 0}.os-fields-manager>div span{flex:1;font-size:11px;color:#7d8295}.os-fields-manager .os-icon{width:28px;height:28px}.os-db-tabs>button:last-child{font-weight:bold}
+
+/* 6.3: mobile pipeline is a vertical sequence, not horizontal tabs */
+@media(max-width:600px){.os-pipe-tabs{display:none!important}.os-pipe-columns{display:flex!important;flex-direction:column;gap:12px;overflow:visible!important;scroll-snap-type:none}.os-split,.os-split.active{display:block!important;min-width:0!important;width:100%!important;flex:0 0 auto!important}}

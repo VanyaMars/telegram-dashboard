@@ -4,29 +4,35 @@ import {Icon} from '../components/Icons';
 import {WorkspaceDatabase} from '../components/WorkspaceDatabase';
 import {SplitPipeline} from '../components/WorkspacePipeline';
 import {WPage,WBlock,WSource,WPageResponse,BlockType,workspaceRequest,pageLink} from '../lib/workspace';
+import {request} from '../lib/api';
+import type {Task} from '../types';
 import './workspace.css';
 
 const icons=['📄','📁','🎯','💼','🧠','📝','🚀','🏡','💰','📚','⚡'];
 const blockLabels:Record<BlockType,string>={text:'Текст',heading:'Заголовок',checklist:'Чеклист',image:'Изображение',divider:'Разделитель',database:'База данных',pipeline:'Split Pipeline',page_link:'Ссылка на страницу'};
 const uuidRoute=()=>{const match=window.location.hash.match(/^#\/page\/([0-9a-f-]{36})$/i);return match?.[1]||null};
-export function WorkspacePage(){
+export function WorkspacePage({embedded=false}:{embedded?:boolean}){
  const {demo}=useApp(),[pages,setPages]=useState<WPage[]>([]),[sources,setSources]=useState<WSource[]>([]);
  const [selectedId,setSelectedId]=useState<string|null>(uuidRoute),[details,setDetails]=useState<WPageResponse|null>(null),[loading,setLoading]=useState(true);
- const [error,setError]=useState(''),[recordPageIds,setRecordPageIds]=useState<string[]>([]),[newTitle,setNewTitle]=useState(''),[working,setWorking]=useState(false);
+ const [error,setError]=useState(''),[recordPageIds,setRecordPageIds]=useState<string[]>([]),[newTitle,setNewTitle]=useState(''),[working,setWorking]=useState(false),[taskData,setTaskData]=useState<Task|null>(null);
  const openPage=useCallback((id:string)=>{setDetails(null);window.location.hash=pageLink(id);setSelectedId(id);window.scrollTo({top:0,behavior:'smooth'})},[]);
  const home=()=>{window.location.hash='#/workspace';setSelectedId(null)};
- const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const data=await workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap');setPages(data.pages||[]);setSources(data.sources||[]);setRecordPageIds(data.recordPageIds||[]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
- const loadPage=useCallback(async(id:string)=>{if(demo)return;setWorking(true);try{const data=await workspaceRequest<WPageResponse>('page_get',{id});setDetails(data);setError('')}catch(e:any){setError(e.message||'Страница не загрузилась');setDetails(null)}finally{setWorking(false)}},[demo]);
+ const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const [data,taskPages]=await Promise.all([workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap'),request<{pageIds:string[]}>('os8','task_page_links')]);setPages(data.pages||[]);setSources(data.sources||[]);setRecordPageIds([...new Set([...(data.recordPageIds||[]),...(taskPages.pageIds||[])])]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
+ const loadPage=useCallback(async(id:string)=>{if(demo)return;setWorking(true);try{const [data,linked]=await Promise.all([workspaceRequest<WPageResponse>('page_get',{id}),request<{task:Task|null}>('os8','task_page_find',{pageId:id})]);setDetails(data);setTaskData(linked.task||null);setError('')}catch(e:any){setError(e.message||'Страница не загрузилась');setDetails(null);setTaskData(null)}finally{setWorking(false)}},[demo]);
  const refresh=useCallback(async()=>{await loadList();if(selectedId)await loadPage(selectedId)},[loadList,loadPage,selectedId]);
  useEffect(()=>{const change=()=>{setDetails(null);setSelectedId(uuidRoute())};window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
  useEffect(()=>{void loadList()},[loadList]);
  useEffect(()=>{if(selectedId)void loadPage(selectedId);else setDetails(null)},[selectedId,loadPage]);
- const run=async(action:string,data:Record<string,unknown>)=>{try{return await workspaceRequest<any>(action,data)}catch(e:any){setError(e.message||'Изменение не сохранилось');throw e}};
+ const run=async(action:string,data:Record<string,unknown>)=>{try{
+   if(action==='page_save'&&taskData&&data.id===details?.page.id){
+     await request('os8','task_page_title',{pageId:data.id,title:data.title});return workspaceRequest<any>(action,data);
+   }return await workspaceRequest<any>(action,data);
+  }catch(e:any){setError(e.message||'Изменение не сохранилось');throw e}};
  const createPage=async(title:string,parentId:string|null=null)=>{if(!title.trim())return;setWorking(true);try{const res=await run('page_save',{title,parentId});await loadList();openPage(res.id);setNewTitle('');return res.id}finally{setWorking(false)}};
- const deletePage=async(page:WPage)=>{if(!window.confirm(`Удалить страницу «${page.title}» вместе со всеми вложенными блоками?`))return;await run('page_delete',{id:page.id});home();await loadList()};
+ const deletePage=async(page:WPage)=>{if(taskData&&page.id===details?.page.id){setError('Это страница задачи: удаляй задачу через её меню, чтобы не потерять свойства.');return;}if(!window.confirm(`Удалить страницу «${page.title}» вместе со всеми вложенными блоками?`))return;await run('page_delete',{id:page.id});home();await loadList()};
  const parents=useMemo(()=>{const out:WPage[]=[];let at=details?.page.parent_id||null;for(let i=0;at&&i<50;i++){const p=pages.find(x=>x.id===at);if(!p)break;out.unshift(p);at=p.parent_id}return out},[details,pages]);
  return <div className="os-workspace">
-  <div className="os-workspace-top"><div><span className="os-kicker">PERSONAL OS · ПРОСТРАНСТВО</span><h1>Страницы</h1><p>Свои страницы, базы данных и процессы в одном месте.</p></div><button className="os-btn os-btn-primary" onClick={()=>void createPage('Новая страница')} disabled={working||demo}><Icon name="plus" size={17}/> Страница</button></div>
+  <div className="os-workspace-top" style={selectedId?{display:"none"}:undefined}><div><span className="os-kicker">{embedded?'ПРОЕКТЫ И СТРАНИЦЫ':'PERSONAL OS · ПРОСТРАНСТВО'}</span><h1>{embedded?'Пространство':'Страницы'}</h1><p>Документы, базы и Split Pipeline внутри задач или отдельных страниц.</p></div><button className="os-btn os-btn-primary" onClick={()=>void createPage('Новая страница')} disabled={working||demo}><Icon name="plus" size={17}/> Страница</button></div>
   {error&&<div role="alert" className="os-error-banner">{error}<button onClick={()=>void refresh()}>Повторить</button></div>}
   {demo&&<div className="os-info">В демо-режиме создание и облачное сохранение страниц недоступны. Открой Mini App через Telegram, чтобы работать с настоящими данными.</div>}
   <div className="os-workspace-layout"><aside className="os-page-rail" aria-label="Дерево страниц"><button className={!selectedId?'active':''} onClick={home}><Icon name="folder" size={17}/> Все страницы</button>{pages.filter(p=>!p.parent_id&&!recordPageIds.includes(p.id)).map(p=><PageTree key={p.id} page={p}all={pages}selected={selectedId}onOpen={openPage}level={0}/>)}</aside>
@@ -37,7 +43,7 @@ export function WorkspacePage(){
      </div><div className="os-surface"><h3>Как устроено</h3><p>Страница содержит блоки. Блок «База данных» показывает одну коллекцию в таблице, доске, списке или календаре. Split Pipeline показывает этапы и чеклисты выполнения.</p></div></div>
    :working&&!details?<p className="os-muted">Открываем страницу…</p>
    :details&&<div className="os-page-editor" key={details.page.id}><div className="os-breadcrumbs"><button onClick={home}>Страницы</button>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>
-      <PageContents data={details}pages={pages}sources={sources}onOpen={openPage}onAddPage={createPage}onDeletePage={deletePage}write={run}refresh={refresh}/>
+      <PageContents data={details}taskData={taskData}pages={pages}sources={sources}onOpen={openPage}onAddPage={createPage}onDeletePage={deletePage}write={run}refresh={refresh}/>
     </div>}
    </div></div>
  </div>;
@@ -45,8 +51,8 @@ export function WorkspacePage(){
 function PageTree({page,all,selected,onOpen,level}:{page:WPage;all:WPage[];selected:string|null;onOpen:(id:string)=>void;level:number}){
  return <div><button style={{paddingLeft:`${10+Math.min(level,6)*13}px`}} className={selected===page.id?'active':''} onClick={()=>onOpen(page.id)}><span>{page.icon}</span><span className="os-ellipsis">{page.title}</span></button>{level<8&&all.filter(x=>x.parent_id===page.id).map(p=><PageTree key={p.id} page={p}all={all}selected={selected}onOpen={onOpen}level={level+1}/>)}</div>;
 }
-type Contents={data:WPageResponse;pages:WPage[];sources:WSource[];onOpen:(id:string)=>void;onAddPage:(title:string,parentId:string|null)=>Promise<any>;onDeletePage:(p:WPage)=>Promise<void>;write:(action:string,body:Record<string,unknown>)=>Promise<any>;refresh:()=>Promise<void>};
-function PageContents({data,pages,sources,onOpen,onAddPage,onDeletePage,write,refresh}:Contents){
+type Contents={data:WPageResponse;taskData:Task|null;pages:WPage[];sources:WSource[];onOpen:(id:string)=>void;onAddPage:(title:string,parentId:string|null)=>Promise<any>;onDeletePage:(p:WPage)=>Promise<void>;write:(action:string,body:Record<string,unknown>)=>Promise<any>;refresh:()=>Promise<void>};
+function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage,write,refresh}:Contents){
  const {page,blocks}=data,[title,setTitle]=useState(page.title),[icon,setIcon]=useState(page.icon),[type,setType]=useState<BlockType>('text');
  const [sourceId,setSourceId]=useState(sources[0]?.id||''),[sourceName,setSourceName]=useState(''),[linkId,setLinkId]=useState('');
  const [adding,setAdding]=useState(false);
@@ -67,6 +73,7 @@ function PageContents({data,pages,sources,onOpen,onAddPage,onDeletePage,write,re
    <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
    <input className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
    {data.record&&<div className="os-info">Это запись базы данных. Редактируй её поля в представлении базы; здесь можно добавлять любые блоки.</div>}
+   {taskData&&<TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh}/>}
    <div className="os-blocks">{blocks.map((block,index)=><div className="os-block-shell" key={block.id}><div className="os-block-handles"><button title="Поднять блок" disabled={!index} onClick={()=>void blockOrder(block.id,-1)}>↑</button><button title="Опустить блок" disabled={index===blocks.length-1} onClick={()=>void blockOrder(block.id,1)}>↓</button><button title="Удалить блок" onClick={()=>{if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>×</button></div><PageBlock block={block}pages={pages}sources={sources}data={data}openPage={onOpen}write={write}refresh={refresh}/></div>)}</div>
    <div className="os-new-block"><button className="os-btn" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/> Добавить блок</button>{adding&&<div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
      {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{!sourceId&&<input placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
@@ -86,4 +93,19 @@ function PageBlock({block,pages,sources,data,openPage,write,refresh}:{block:WBlo
  if(block.type==='image')return <div className="os-image-block"><input className="os-input" placeholder="HTTPS-ссылка на изображение" aria-label="URL изображения" value={url} onChange={e=>setUrl(e.target.value)} onBlur={()=>{if(url!==block.content.url)void save({url,alt:block.content.alt||''})}}/>{/^https:\/\//i.test(url)&&<img loading="lazy" src={url} alt={block.content.alt||'Изображение страницы'}/>}</div>;
  if(block.type==='checklist')return <div className="os-check-block"><input type="checkbox" checked={block.content.checked===true} onChange={e=>void save({...block.content,text:value,checked:e.target.checked}).then(refresh)} aria-label="Выполнено"/><input className={block.content.checked?'done':''} placeholder="Пункт чеклиста" aria-label="Пункт чеклиста" value={value} onChange={e=>setValue(e.target.value)} onBlur={()=>{if(value!==block.content.text)void save({...block.content,text:value})}}/></div>;
  return <textarea rows={block.type==='heading'?1:Math.max(2,Math.min(8,value.split('\n').length))} className={'os-block-text '+(block.type==='heading'?'os-block-h':'')} aria-label={block.type==='heading'?'Заголовок':'Текстовый блок'} placeholder={block.type==='heading'?'Заголовок':'Напиши что-нибудь…'} value={value} onChange={e=>setValue(e.target.value)} onBlur={()=>{if(value!==block.content.text)void save({...block.content,text:value})}}/>;
+}
+function TaskPageProperties({task,pageTitle,onSaved}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>}){
+ const {categories,saveTask,goals,os6}=useApp();
+ const [day,setDay]=useState(task.day||''),[priority,setPriority]=useState<'important'|'extra'>(task.priority),[categoryId,setCategory]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||''),[notes,setNotes]=useState(task.notes||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';const [goalId,setGoalId]=useState(link);
+ const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await saveTask({id:task.id,title:pageTitle.trim()||task.title,notes,day:day||null,priority,categoryId,sphere:categories.find(c=>c.id===categoryId)?.name||task.sphere,goalId});await onSaved();}catch(err:any){setError(err.message||'Не удалось сохранить свойства')}finally{setBusy(false)}};
+ return <form className="os-task-properties" onSubmit={save}><div className="os-section-title"><h3>Свойства задачи</h3><span className="tiny-note">Одна запись для Буфера и Сегодня</span></div>
+  <div className="os-task-properties-grid"><label>Категория<select value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+  <label>Тип<select value={priority} onChange={e=>setPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select></label>
+  <label>Дата<input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label>
+  <label>Срок/расположение<button className="os-btn" type="button" onClick={()=>setDay('')}>{day?'Убрать из плана':'В буфере'}</button></label>
+  <label>Связь с целью<select value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">Без цели</option>{goals.map(g=><option key={g.id} value={g.id}>{g.title}</option>)}</select></label></div>
+  <label>Дополнительно<textarea value={notes} rows={3} maxLength={6000} onChange={e=>setNotes(e.target.value)} placeholder="Контекст, ссылки, подробности задачи…"/></label>
+  {error&&<p className="os-error-banner" role="alert">{error}</p>}
+  <button disabled={busy} className="os-btn os-btn-primary" type="submit">{busy?'Сохраняем…':'Сохранить свойства'}</button></form>;
 }

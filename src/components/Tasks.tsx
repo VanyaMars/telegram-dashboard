@@ -49,14 +49,14 @@ export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone
   </div>;
 }
 function TaskRow({task,zone,dragging,targeted,dragProps}:{task:Task;zone:Zone;dragging:boolean;targeted:boolean;dragProps:any}){
-  const {categories,toggleTask,setEditor,reorder,deleteTask,os6,goals}=useApp();const [menu,setMenu]=useState(false);
+  const {categories,toggleTask,setEditor,reorder,deleteTask,os6,goals,openTaskPage}=useApp();const [menu,setMenu]=useState(false);
   const category=categories.find(c=>c.id===task.os61_category_id)||categories.find(c=>c.name===task.sphere);
   const goalID=os6.links.find(x=>x.task_id===task.id)?.goal_id;
   const goal=goals.find(g=>g.id===goalID);
   return <article className={'task-row '+(task.completed?'is-done ':'')+(dragging?'task-moving ':'')+(targeted?'task-drop-target':'')} data-task-id={task.id}>
     {zone!=='buffer'?<button className={'task-checkbox '+(task.completed?'checked':'')} onClick={()=>void toggleTask(task)} aria-label={`${task.completed?'Снять выполнение':'Выполнить'}: ${task.title}`}>
       {task.completed&&<Icon name="check" size={15}/>}</button>:<div className="task-dot"/>}
-    <button className="task-copy" onClick={()=>setEditor({type:'task',item:task})}><span className="task-text">{task.title}</span><span className="task-labels">
+    <button className="task-copy" onClick={()=>void openTaskPage(task)} title="Открыть страницу задачи"><span className="task-text">{task.title}</span><span className="task-labels">
       {category&&<span className="task-category"><i style={{background:category.color}}/>{category.name}</span>}{goal&&<span className="linked-goal"><Icon name="target" size={11}/>{goal.title}</span>}
       {zone==='buffer'&&task.notes&&<span className="task-notes">{task.notes.slice(0,64)}</span>}
     </span></button>
@@ -64,7 +64,7 @@ function TaskRow({task,zone,dragging,targeted,dragProps}:{task:Task;zone:Zone;dr
       <button className="drag-handle" title="Перетащить задачу. Клавиши ↑ и ↓ также меняют порядок." aria-label={`Перетащить ${task.title}`} {...dragProps}><Icon name="grip" size={19}/></button>
       <button className="more-btn" aria-label={`Действия с задачей ${task.title}`} aria-expanded={menu} onClick={()=>setMenu(!menu)}><Icon name="more" size={18}/></button>
       {menu&&<div className="task-popover" role="menu">
-        <button onClick={()=>{setMenu(false);setEditor({type:'task',item:task})}}><Icon name="edit" size={16}/> Изменить</button>
+        <button onClick={()=>{setMenu(false);setEditor({type:'task',item:task})}}><Icon name="edit" size={16}/> Изменить свойства</button>
         {zone!=='important'&&<button onClick={()=>{setMenu(false);void reorder(task.id,'important',null)}}><Icon name="target" size={16}/> В важные</button>}
         {zone!=='extra'&&<button onClick={()=>{setMenu(false);void reorder(task.id,'extra',null)}}><Icon name="zap" size={16}/> В дополнительные</button>}
         {zone!=='buffer'&&<button onClick={()=>{setMenu(false);void reorder(task.id,'buffer',null)}}><Icon name="inbox" size={16}/> В буфер</button>}
