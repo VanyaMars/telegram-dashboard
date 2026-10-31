@@ -219,3 +219,5 @@
 .os-task-properties .os-custom-property-row>small{grid-column:2}
 .os-task-properties .os-inline-error button{margin-left:10px;background:transparent;border:0;color:#836bd9;text-decoration:underline}
 @media(max-width:480px){.os-task-properties .os-property-row,.os-task-properties .os-custom-property-row{grid-template-columns:minmax(90px,37%) minmax(0,1fr);gap:7px}.os-property-name-button{gap:5px;font-size:11px}.os-property-settings{width:min(300px,88vw)}.os-property-icons{grid-template-columns:repeat(6,minmax(0,1fr))}}
+
+.os-property-settings select{width:100%;min-width:0;padding:9px;border:1px solid #e7e8f0;border-radius:8px;background:#fff;color:#323b54}
