@@ -125,7 +125,7 @@ test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details'
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.0-rc.1');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.0');
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('#os-workspace-panel')).toBeVisible();

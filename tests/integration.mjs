@@ -13,7 +13,7 @@ assert.doesNotMatch(core,/Начать фокус|Начать с 5 минут|o
 assert.doesNotMatch(analytics,/focusIncome|Фокус по задачам/);assert.match(analytics,/GoalValues/);assert.match(analytics,/regularGoalValues/);
 assert.match(pages,/workspaceMode/);assert.match(pages,/!editingPage&&!workspaceMode&&<BufferPage/);
 assert.match(pipeline,/LayoutGroup/);assert.match(pipeline,/useReducedMotion/);
-assert.match(read('package.json'),/6\.9\.0-rc\.1/);
+assert.match(read('package.json'),/6\.9\.0/);
 assert.ok(!read('src/lib/api.ts').includes('goal_target_mode'),'No invented backend contract');
 console.log('6.8 integrated static checks: Home, Goals, Pages, Income, Pipeline and build label OK');
 
