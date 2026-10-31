@@ -35,17 +35,85 @@ Deno.serve(async(req:Request)=>{
   const db=admin(),act=String(body.action||'');
   // One query per goal, not one API request per task: all linked tasks, including Buffer.
 
+
+  // Editable presentation for fixed built-in fields. Storage semantics never change.
+  const nativeKeys=['category','priority','day','goal','notes','progress'];
+  const iconKeys=['folder','flag','calendar','target','list','chart','clock','wallet','briefcase','check-square','idea','book-open','heart-pulse','zap','star','settings','palette','inbox','timer','users','tag','hash','type','check','filter'];
+  if(act==='task_native_fields'){
+    const rows=await must(db.from('os11_task_property_definitions').select('slug,name,options').eq('telegram_user_id',uid).like('slug','native:%').limit(20));
+    return reply({ok:true,fields:Object.fromEntries(rows.filter((r:any)=>nativeKeys.includes(String(r.slug).slice(7))).map((r:any)=>[r.slug.slice(7),{name:r.name,icon:r.options?.icon||null}]))});
+  }
+  if(act==='task_field_appearance'){
+    const key=String(body.key||''),name=trimmed(body.name,80),icon=String(body.icon||'');
+    if(!name||!iconKeys.includes(icon))return reply({ok:false,error:'Название или иконка недопустимы'},400);
+    if(nativeKeys.includes(key)){
+      const slug='native:'+key;
+      await must(db.from('os11_task_property_definitions').upsert({telegram_user_id:uid,slug,name,field_type:'text',options:{icon},position:-100},{onConflict:'telegram_user_id,slug'}).select('id').single());
+      return reply({ok:true});
+    }
+    if(!idOk(key))return reply({ok:false,error:'Неверное свойство'},400);
+    const field=await must(db.from('os11_task_property_definitions').select('id,field_type,options').eq('telegram_user_id',uid).eq('id',key).is('slug',null).maybeSingle());
+    if(!field)return reply({ok:false,error:'Свойство не найдено'},404);
+    const choices=field.field_type==='select'&&Array.isArray(body.choices)
+      ?body.choices.filter((x:unknown)=>typeof x==='string'&&x.trim().length>0&&x.length<=80).slice(0,25)
+      :field.options?.choices||[];
+    if(field.field_type==='select'){
+      const rows=await must(db.from('os11_task_property_values').select('value').eq('telegram_user_id',uid).eq('property_id',key).neq('value','').limit(3000));
+      if(rows.some((r:any)=>!choices.includes(r.value)))return reply({ok:false,error:'Нельзя удалить вариант, уже используемый в задачах'},400);
+    }
+    await must(db.from('os11_task_property_definitions').update({name,options:{...field.options,icon,choices}}).eq('telegram_user_id',uid).eq('id',key).select('id').single());
+    return reply({ok:true});
+  }
+  if(act==='task_native_patch'){
+    const taskId=body.taskId,key=String(body.key||'');
+    if(!idOk(taskId)||!['category','priority','day','notes','goal'].includes(key))return reply({ok:false,error:'Неверное свойство задачи'},400);
+    const task=await must(db.from('personal_tasks').select('id').eq('telegram_user_id',uid).eq('id',taskId).maybeSingle());
+    if(!task)return reply({ok:false,error:'Задача не найдена'},404);
+    const value=body.value;
+    if(key==='category'){
+      if(value!==null&&!idOk(value))return reply({ok:false,error:'Неверная категория'},400);
+      let category:any=null;
+      if(value){category=await must(db.from('os61_categories').select('id,name').eq('telegram_user_id',uid).eq('id',value).maybeSingle());
+        if(!category)return reply({ok:false,error:'Категория не найдена'},404);}
+      await must(db.from('personal_tasks').update({os61_category_id:category?.id||null,sphere:category?.name||'Без категории'}).eq('telegram_user_id',uid).eq('id',taskId).select('id').single());
+    }else if(key==='priority'){
+      if(!['important','extra'].includes(value))return reply({ok:false,error:'Неверный приоритет'},400);
+      await must(db.from('personal_tasks').update({priority:value}).eq('telegram_user_id',uid).eq('id',taskId).select('id').single());
+    }else if(key==='day'){
+      if(value!==null&&!iso(value))return reply({ok:false,error:'Неверная дата'},400);
+      await must(db.from('personal_tasks').update({day:value}).eq('telegram_user_id',uid).eq('id',taskId).select('id').single());
+    }else if(key==='notes'){
+      if(typeof value!=='string'||value.length>6000)return reply({ok:false,error:'Заметки слишком длинные'},400);
+      await must(db.from('personal_tasks').update({notes:value}).eq('telegram_user_id',uid).eq('id',taskId).select('id').single());
+    }else if(key==='goal'){
+      const kind=String(body.kind||'none');
+      if(!['regular','strategic','none'].includes(kind))return reply({ok:false,error:'Неверная цель'},400);
+      if(kind!=='none'&&!idOk(value))return reply({ok:false,error:'Неверный ID цели'},400);
+      if(kind!=='none'){
+        const table=kind==='regular'?'os8_regular_goals':'ambitious_goals';
+        const goal=await must(db.from(table).select('id').eq('telegram_user_id',uid).eq('id',value).maybeSingle());
+        if(!goal)return reply({ok:false,error:'Цель не найдена'},404);
+      }
+      const strategic=kind==='strategic'?'os6_task_goal':'os9_regular_goal_tasks',other=kind==='strategic'?'os9_regular_goal_tasks':'os6_task_goal';
+      // Add or replace intended link before removing the other kind to avoid losing the existing link on insert failure.
+      if(kind!=='none')await must(db.from(strategic).upsert({telegram_user_id:uid,task_id:taskId,goal_id:value},{onConflict:'telegram_user_id,task_id'}).select('task_id').single());
+      await must(db.from(other).delete().eq('telegram_user_id',uid).eq('task_id',taskId));
+      if(kind==='none')await must(db.from(strategic).delete().eq('telegram_user_id',uid).eq('task_id',taskId));
+    }
+    return reply({ok:true});
+  }
   if(act==='task_property_fields'){
-   const fields=await must(db.from('os11_task_property_definitions').select('id,name,field_type,options').eq('telegram_user_id',uid).order('position').limit(100));
+   const fields=await must(db.from('os11_task_property_definitions').select('id,name,field_type,options').eq('telegram_user_id',uid).is('slug',null).order('position').limit(100));
    return reply({ok:true,fields});
   }
   if(act==='task_property_define'){
    const name=trimmed(body.name,80),type=String(body.fieldType||'');
    if(!name||!['duration','number','text','checkbox','date','select'].includes(type))return reply({ok:false,error:'Недопустимый тип свойства'},400);
    const choices=type==='select'&&Array.isArray(body.choices)?body.choices.filter((x:unknown)=>typeof x==='string'&&x.length<=80).slice(0,25):[];
-   const existing=await must(db.from('os11_task_property_definitions').select('id').eq('telegram_user_id',uid).limit(101));
+   const existing=await must(db.from('os11_task_property_definitions').select('id').eq('telegram_user_id',uid).is('slug',null).limit(101));
    if(existing.length>=100)return reply({ok:false,error:'Лимит свойств'},413);
-   const field=await must(db.from('os11_task_property_definitions').insert({telegram_user_id:uid,name,field_type:type,options:{choices}}).select('id').single());
+   const icon=iconKeys.includes(String(body.icon||''))?String(body.icon):({duration:'clock',number:'hash',text:'type',checkbox:'check-square',date:'calendar',select:'list'} as Record<string,string>)[type];
+   const field=await must(db.from('os11_task_property_definitions').insert({telegram_user_id:uid,name,field_type:type,options:{choices,icon}}).select('id').single());
    return reply({ok:true,id:field.id});
   }
   if(act==='task_property_values'||act==='task_property_set'){
