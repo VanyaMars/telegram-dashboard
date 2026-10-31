@@ -45,5 +45,7 @@ jobs:
         run: npm run test:integration
       - name: Unified task properties contract
         run: node tests/unified-task-properties.mjs
+      - name: Task polish contracts
+        run: node tests/task-polish.mjs
       - name: Typecheck and build
         run: npm run build

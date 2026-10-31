@@ -16,6 +16,30 @@ async function openSampleTaskPage(page:Page){
  await task.click();
  await expect(page.locator('.os-page-editor')).toBeVisible();
 }
+test('6.11 task cards: emoji persistence, Pipeline progress, grip menu and editor properties',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ const row=page.locator('.buffer-mvp .task-row').filter({hasText:'Идеи для автомобильного блога'});
+ await expect(row).toBeVisible();
+ await expect(row.locator('.task-card-progress')).toContainText('33%');
+ await row.locator('.task-emoji-trigger').click();
+ await row.getByRole('button',{name:'Выбрать 🎨'}).click();
+ await expect(row.locator('.task-emoji-trigger')).toHaveText('🎨');
+ await page.reload();
+ const saved=page.locator('.buffer-mvp .task-row').filter({hasText:'Идеи для автомобильного блога'});
+ await expect(saved.locator('.task-emoji-trigger')).toHaveText('🎨');
+ await saved.locator('.drag-handle').click();
+ await expect(saved.getByRole('button',{name:'Редактировать задачу'})).toBeVisible();
+ await saved.getByRole('button',{name:'Редактировать задачу'}).click();
+ await expect(page.locator('.os-page-editor')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Добавить свойство'})).toBeVisible();
+ await page.getByRole('button',{name:'Добавить свойство'}).click();
+ await expect(page.getByRole('button',{name:'Отмена'})).toBeVisible();
+ await page.getByRole('button',{name:'Отмена'}).click();
+ await expect(page.locator('.os-block-grip').first()).toBeVisible();
+ await expect(page.getByRole('textbox',{name:'Заголовок'}).first()).toBeVisible();
+});
+
 test('guest sign-in, UI actions, local persistence and no Supabase calls',async({page})=>{
  const called:string[]=[];
  page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});

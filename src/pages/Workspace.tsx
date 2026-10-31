@@ -12,7 +12,7 @@ import {TaskCustomProperties} from '../components/TaskCustomProperties';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 
-const icons=['📄','📁','🎯','💼','🧠','📝','🚀','🏡','💰','📚','⚡'];
+const icons=['📋','📄','📁','🎯','💼','🧠','📝','🚀','🏡','💰','📚','⚡'];
 const blockLabels:Record<BlockType,string>={text:'Текст',heading:'Заголовок',checklist:'Чеклист',image:'Изображение',divider:'Разделитель',database:'База данных',pipeline:'Pipeline',page_link:'Ссылка на страницу'};
 const uuidRoute=()=>{const match=window.location.hash.match(/^#\/page\/([0-9a-f-]{36})$/i);return match?.[1]||null};
 export function WorkspacePage({embedded=false}:{embedded?:boolean}){
@@ -53,7 +53,13 @@ type Contents={data:WPageResponse;taskData:Task|null;pages:WPage[];sources:WSour
 function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage,write,refresh}:Contents){
  const {page,blocks}=data,[title,setTitle]=useState(page.title),[icon,setIcon]=useState(page.icon),[type,setType]=useState<BlockType>('text');
  const [sourceId,setSourceId]=useState(sources[0]?.id||''),[sourceName,setSourceName]=useState(''),[linkId,setLinkId]=useState('');
- const [adding,setAdding]=useState(false);
+ const [adding,setAdding]=useState(false);const [blockMenu,setBlockMenu]=useState<string|null>(null);const [blockDrag,setBlockDrag]=useState<string|null>(null);
+ const blockGesture=useRef<{id:string;startX:number;startY:number;active:boolean;target:string|null;timer:number|null}|null>(null);
+ const [blockHover,setBlockHover]=useState<string|null>(null);
+ const blockSkipClick=useRef(false);
+ const cancelBlockGesture=()=>{const g=blockGesture.current;if(g?.timer)window.clearTimeout(g.timer);blockGesture.current=null;setBlockDrag(null);setBlockHover(null)};
+ useEffect(()=>()=>{if(blockGesture.current?.timer)window.clearTimeout(blockGesture.current.timer)},[]);
+
  const [focusChecklistId,setFocusChecklistId]=useState<string|null>(null);
  useEffect(()=>{if(!focusChecklistId||!blocks.some(b=>b.id===focusChecklistId))return;
    const frame=requestAnimationFrame(()=>{document.querySelector<HTMLInputElement>(`[data-checklist-id="${focusChecklistId}"]`)?.focus();setFocusChecklistId(null)});
@@ -75,15 +81,42 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
    if(kind==='page_link'){if(!linkId)return;content={pageId:linkId};}
    await write('block_save',{pageId:page.id,type:kind,content});setAdding(false);await refresh();
  };
- const blockOrder=async(id:string,delta:number)=>{const ids=blocks.map(x=>x.id),i=ids.indexOf(id),j=i+delta;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await write('block_reorder',{pageId:page.id,ids});await refresh()};
+ const moveBlock=async(id:string,target:string)=>{if(id===target)return;const ids=blocks.map(x=>x.id);const a=ids.indexOf(id),b=ids.indexOf(target);if(a<0||b<0)return;ids.splice(a,1);ids.splice(b,0,id);await write('block_reorder',{pageId:page.id,ids});await refresh()};
+  const blockOrder=async(id:string,delta:number)=>{const ids=blocks.map(x=>x.id),i=ids.indexOf(id),j=i+delta;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await write('block_reorder',{pageId:page.id,ids});await refresh()};
+
+ const blockPointerDown=(e:React.PointerEvent<HTMLButtonElement>,id:string)=>{
+  if(e.pointerType!=='touch')return;
+  const g={id,startX:e.clientX,startY:e.clientY,active:false,target:null as string|null,timer:null as number|null};
+  g.timer=window.setTimeout(()=>{g.active=true;setBlockDrag(id)},240);
+  blockGesture.current=g;
+  try{e.currentTarget.setPointerCapture(e.pointerId)}catch{/* browser may deny capture */}
+ };
+ const blockPointerMove=(e:React.PointerEvent<HTMLButtonElement>)=>{
+  const g=blockGesture.current;if(!g)return;
+  if(!g.active){if(Math.abs(e.clientY-g.startY)>10||Math.abs(e.clientX-g.startX)>10)cancelBlockGesture();return}
+  const el=document.elementFromPoint(e.clientX,e.clientY) as HTMLElement|null;
+  g.target=el?.closest<HTMLElement>('[data-block-id]')?.dataset.blockId||null;
+  setBlockHover(g.target);
+ };
+ const blockPointerUp=()=>{
+  const g=blockGesture.current;
+  if(!g){return}
+  const done=g.active,target=g.target,id=g.id;
+  if(done){blockSkipClick.current=true;if(target&&target!==id)void moveBlock(id,target)}
+  cancelBlockGesture();
+ };
  const sub=pages.filter(x=>x.parent_id===page.id);
  return <>
-   <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
+   <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{!icons.includes(icon)&&<option value={icon}>{icon}</option>}{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
    <input className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
    {data.record&&<div className="os-info">Это запись базы данных. Редактируй её поля в представлении базы; здесь можно добавлять любые блоки.</div>}
    {taskData&&<><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh} pipelineProperties={taskPipelineProperties(data)}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<TaskIncomeEditor taskId={taskData.id}/>}</>}
-   <div className="os-blocks">{blocks.map((block,index)=><div className="os-block-shell" key={block.id}><div className="os-block-handles"><button title="Поднять блок" disabled={!index} onClick={()=>void blockOrder(block.id,-1)}>↑</button><button title="Опустить блок" disabled={index===blocks.length-1} onClick={()=>void blockOrder(block.id,1)}>↓</button><button title="Удалить блок" onClick={()=>{if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>×</button></div><PageBlock block={block}onAppendChecklist={appendChecklist}pages={pages}sources={sources}data={data}openPage={onOpen}write={write}refresh={refresh}/></div>)}</div>
-   <div className="os-new-block"><button className="os-btn" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/> Добавить блок</button>{adding&&<div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
+   <div className="os-blocks">{blocks.map(block=><div className={'os-block-shell '+(blockDrag===block.id?'is-block-dragging':'')+(blockHover===block.id&&blockDrag!==block.id?' os-block-hover':'')} key={block.id} data-block-id={block.id} onDragOver={e=>{if(blockDrag)e.preventDefault()}} onDrop={e=>{e.preventDefault();if(blockDrag){void moveBlock(blockDrag,block.id);setBlockDrag(null)}}}>
+ <div className="os-block-control"><button type="button" className="os-block-grip" draggable title="Перетащить блок" aria-label="Переместить блок" onDragStart={e=>{e.dataTransfer.effectAllowed='move';setBlockDrag(block.id)}} onDragEnd={()=>setBlockDrag(null)} onPointerDown={e=>blockPointerDown(e,block.id)} onPointerMove={blockPointerMove} onPointerUp={blockPointerUp} onPointerCancel={cancelBlockGesture} onClick={()=>{if(blockSkipClick.current){blockSkipClick.current=false;return}setBlockMenu(v=>v===block.id?null:block.id)}}><span className="os-four-dot-icon" aria-hidden="true"><i/><i/><i/><i/></span></button>
+ {blockMenu===block.id&&<div className="os-block-context"><button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,-1)}}>Выше</button><button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,1)}}>Ниже</button><button type="button" className="danger" onClick={()=>{setBlockMenu(null);if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>Удалить блок</button></div>}</div>
+ <PageBlock block={block} onAppendChecklist={appendChecklist} pages={pages} sources={sources} data={data} openPage={onOpen} write={write} refresh={refresh}/>
+ </div>)}</div>
+ <div className="os-new-block"><button className="os-add-block-mini" aria-label="Добавить блок" title="Добавить блок" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/></button>{adding&&<div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
      {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{!sourceId&&<input placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
      {type==='page_link'&&<div className="os-block-options"><select value={linkId} onChange={e=>setLinkId(e.target.value)}><option value="">Выбери страницу</option>{pages.filter(p=>p.id!==page.id).map(p=><option key={p.id} value={p.id}>{p.icon} {p.title}</option>)}</select></div>}
      <button className="os-btn os-btn-primary" disabled={(type==='database'&&!sourceId&&!sourceName.trim())||(type==='page_link'&&!linkId)} onClick={()=>void addBlock(type)}>Вставить {blockLabels[type].toLowerCase()}</button>
