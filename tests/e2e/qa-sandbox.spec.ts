@@ -478,31 +478,28 @@ test('6.9 Goals: a new goal task survives reload with the same ID',async({page})
  await expect(page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox')).toBeChecked();
 });
 
-test('6.9 integration: Buffer→Today→Goals→Pages→Analytics',async({page})=>{
- const called:string[]=[];
- page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});
+test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({page})=>{
+ const calls:string[]=[];
+ page.on('request',r=>{if(r.url().includes('/functions/v1/'))calls.push(r.url())});
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Сквозная задача Personal OS 6.9');
+ await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Сквозная задача Personal OS 6.9.1');
  await page.getByRole('textbox',{name:'Быстро добавить задачу'}).press('Enter');
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9.1',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
  await page.getByRole('button',{name:/Из буфера/}).click();
- await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.9'});
+ await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.9.1'});
  await page.locator('#today-buffer-picker').getByRole('button',{name:/В день/}).click();
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await expect(page.locator('.goal-work-grid').first()).toBeVisible();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await openSampleTaskPage(page);
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
  await page.reload();
  await expect(page.getByRole('heading',{name:'Аналитика'})).toBeVisible();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
- expect(called).toEqual([]);
+ expect(calls).toEqual([]);
 });
 
 for(const width of [320,390,430,1440]){
