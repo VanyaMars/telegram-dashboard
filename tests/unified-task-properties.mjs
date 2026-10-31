@@ -9,10 +9,10 @@ for(const [path,source] of [['src/pages/Workspace.tsx',w],['src/components/TaskC
 }
 assert.match(w,/TaskPageProperties key=\{taskData.id\}/);
 assert.match(w,/pipelineProperties=\{taskPipelineProperties\(data\)\}/);
-assert.match(w,/<TaskCustomProperties taskId=\{task.id\} pipelineProperties=\{pipelineProperties\}\s*\/>/,'Custom property editor must be inside TaskPageProperties');
+assert.match(w,/<TaskCustomProperties taskId=\\{task.id\\} pipelineProperties=\\{pipelineProperties\\}/,'Custom property editor must be inside TaskPageProperties');
 for(const label of ['Категория','Приоритет','Дата','Связь с целью','Заметки'])assert.ok(w.includes(label),'Lost native field: '+label);
-assert.match(w,/request\('os9','regular_goal_set'/);
-assert.match(w,/saveTask\(\{id:task.id/);
+assert.match(w,/task_native_patch/);
+assert.match(w,/saveField\('goal'/);
 assert.match(c,/<div className="os-custom-property-add">/);
 assert.doesNotMatch(c,/<form/,'Nested form breaks native task save');
 assert.match(c,/task_property_set/);
