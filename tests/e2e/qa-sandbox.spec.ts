@@ -391,7 +391,7 @@ test('6.9 Goals: strategic numeric goal edit, decreasing progress and reload',as
  await page.reload();
  await expect(page.locator('.goal-detail-hero')).toBeVisible();
 });
-test('6.9 Goals: featured numeric metric, close and reopen persist',async({page})=>{
+test('6.9.1: ordinary and featured indicators persist separately from plain notes',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await page.getByRole('button',{name:'Цель',exact:true}).click();
@@ -399,34 +399,50 @@ test('6.9 Goals: featured numeric metric, close and reopen persist',async({page}
  await dialog.getByRole('textbox',{name:'Название'}).fill('Клиенты в ноябре');
  await dialog.getByRole('button',{name:'Сохранить'}).click();
  await expect(dialog).toHaveCount(0);
- const card=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
- await expect(card).toBeVisible();
- await card.click();
- await page.getByRole('button',{name:'Показатель',exact:true}).click();
- const field=page.locator('.goal-field-editor').first();
- await field.getByRole('textbox',{name:'Название'}).fill('Клиенты');
- await field.getByRole('spinbutton',{name:'Значение'}).fill('1');
- await field.getByRole('spinbutton',{name:'Цель'}).fill('10');
- await field.getByRole('checkbox',{name:'Показывать на карточке'}).check();
- await page.getByRole('button',{name:'Сохранить показатели'}).click();
- await expect(page.locator('.goal-save-status')).toContainText('Изменения сохранены');
+ await page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'}).click();
+ await page.getByRole('button',{name:'Добавить показатель'}).click();
+ const first=page.locator('.goal-field-editor').first();
+ await first.getByRole('textbox',{name:'Название'}).fill('Клиенты');
+ await first.getByRole('spinbutton',{name:'Значение'}).fill('1');
+ await first.getByRole('spinbutton',{name:'Цель'}).fill('10');
+ await first.getByRole('checkbox',{name:'Показывать на карточке'}).check();
+ await page.locator('.goal-fields-actions').getByRole('button',{name:'Добавить показатель'}).click();
+ const second=page.locator('.goal-field-editor').nth(1);
+ await second.getByRole('textbox',{name:'Название'}).fill('Контакт');
+ await second.getByRole('combobox',{name:'Тип'}).selectOption('text');
+ await second.getByRole('textbox',{name:'Значение'}).fill('Анна');
+ await page.getByRole('button',{name:'Сохранить изменения'}).click();
+ await expect(page.locator('.goal-save-status')).toContainText('Показатели и заметки сохранены');
+ await expect(page.locator('.goal-metric-preview')).toHaveCount(2);
+ await expect(page.locator('.goal-featured-tile')).toHaveCount(1);
+ const local=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const d=JSON.parse(localStorage.getItem('personal-os:qa:data:v1:'+session.id)||'{}');
+  const goal=d.regularGoals.find((g:any)=>g.title==='Клиенты в ноябре');
+  return {notes:goal.description,doc:d.goalDocuments['regular:'+goal.id]};
+ });
+ expect(local.notes).not.toContain('PERSONAL_OS_GOAL_DOCUMENT_V1');
+ expect(local.doc.fields).toHaveLength(2);
  await page.reload();
- await expect(page.locator('.goal-field-editor')).toHaveCount(1);
- await expect(page.locator('.goal-field-editor').first().getByRole('textbox',{name:'Название'})).toHaveValue('Клиенты');
+ await expect(page.locator('.goal-metric-preview')).toHaveCount(2);
+ await expect(page.locator('.goal-metric-preview').last()).toContainText('Анна');
+ await page.getByRole('button',{name:'Все цели'}).click();
+ const card=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
+ await expect(card).toContainText('Клиенты');
+ await expect(card).not.toContainText('Анна');
+ await card.click();
  await page.getByRole('button',{name:'Закрыть цель'}).click();
  await expect(page.locator('.goal-detail-state')).toContainText('Закрыта');
  await page.getByRole('button',{name:'Все цели'}).click();
  await page.getByRole('tab',{name:'Закрытые цели'}).click();
- const closed=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
- await expect(closed).toBeVisible();
- await expect(closed).toContainText(/Выполнена за \d+/);
- await expect(closed).toContainText('Клиенты');
- await closed.click();
+ await expect(page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'})).toBeVisible();
+ await page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'}).click();
  await page.getByRole('button',{name:'Вернуть в активные'}).click();
  await page.getByRole('button',{name:'Все цели'}).click();
  await page.getByRole('tab',{name:'Активные'}).click();
  await expect(page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'})).toBeVisible();
 });
+
 test('6.9 Goals: a new goal task survives reload with the same ID',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
