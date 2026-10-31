@@ -9,7 +9,7 @@ async function enter(page:Page,name='QA Проверяющий'){
 }
 async function openSampleTaskPage(page:Page){
  const menu=page.getByRole('button',{name:'Открыть меню'});
- if(await menu.isVisible())await menu.click();
+ if(await menu.isVisible()&&!(await page.locator('.app-sidebar').evaluate(el=>el.classList.contains('is-open'))))await menu.click();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  const task=page.locator('.buffer-mvp .task-copy').filter({hasText:'Идеи для автомобильного блога'});
  await expect(task).toBeVisible();
