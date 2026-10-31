@@ -136,6 +136,7 @@ function TaskPageProperties({task,pageTitle,onSaved,pipelineProperties}:{task:Ta
    <div className="os-property-row os-property-row-long"><label htmlFor="os-prop-notes"><Icon name="list" size={16}/>Заметки</label><textarea id="os-prop-notes" value={notes} rows={2} maxLength={6000} onChange={e=>setNotes(e.target.value)} placeholder="Контекст и ссылки…"/></div>
   </div>
   {error&&<p className="os-error-banner" role="alert">{error} — часть полей могла сохраниться. Обнови страницу перед повтором.</p>}
+   <TaskCustomProperties taskId={task.id} pipelineProperties={pipelineProperties}/>
   <div className="os-property-actions"><span>⌘ / Ctrl + Enter</span><button disabled={busy} className="os-btn os-btn-primary os-property-submit" type="submit"><Icon name={busy?'refresh':'check'} size={17}/>{busy?'Сохраняем…':'Сохранить'}</button></div>
  </form>;
 }
