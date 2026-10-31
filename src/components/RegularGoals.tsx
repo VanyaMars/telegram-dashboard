@@ -4,10 +4,11 @@ import {useApp} from '../AppContext';
 import {Card,Dialog,Empty,ProgressBar} from './UI';
 import {Icon} from './Icons';
 import {GoalValues} from './GoalValues';
+import {readGoalDocument,writeGoalDocument} from '../lib/goalDocument';
 import {dateAdd,mondayOf} from '../lib/date';
 import {useReducedMotion} from 'motion/react';
 import * as m from 'motion/react-m';
-export type RegularGoal={id:string;title:string;description:string;period:'open'|'week'|'month'|'deadline';starts_on:string|null;ends_on:string|null;progress:number;completed:boolean};
+export type RegularGoal={id:string;title:string;description:string;period:'open'|'week'|'month'|'deadline';starts_on:string|null;ends_on:string|null;progress:number;completed:boolean;created_at?:string;updated_at?:string};
 const periodNames={open:'Бессрочная',week:'Недельная',month:'Месячная',deadline:'Со сроком'};
 export type GoalTaskStats=Record<string,{total:number;done:number}>;
 export const goalEvidence=(goal:RegularGoal,stats:GoalTaskStats)=>{const linked=stats[goal.id];return linked&&linked.total>0?{progress:Math.min(100,Math.round(linked.done/linked.total*100)),description:`${linked.done}/${linked.total} задач · автоматически`,automatic:true}:{progress:goal.progress,description:'Ручной прогресс',automatic:false}};
@@ -31,12 +32,12 @@ function initialDate(now:string,period:RegularGoal['period']){
  return {starts_on:null,ends_on:null};
 }
 export function RegularGoalEditor({item,onClose,onSaved}:{item?:RegularGoal|null;onClose:()=>void;onSaved:()=>void}){
- const{today,demo}=useApp();const[title,setTitle]=useState(item?.title||'');const[description,setDescription]=useState(item?.description||'');const[period,setPeriod]=useState<RegularGoal['period']>(item?.period||'open');
+ const{today,demo}=useApp();const[title,setTitle]=useState(item?.title||'');const[description,setDescription]=useState(readGoalDocument(item?.description).body);const[period,setPeriod]=useState<RegularGoal['period']>(item?.period||'open');
  const[starts,setStarts]=useState(item?.starts_on||'');const[ends,setEnds]=useState(item?.ends_on||'');const[progress,setProgress]=useState(item?.progress??0);const[busy,setBusy]=useState(false);const[error,setError]=useState('');
  const changePeriod=(p:RegularGoal['period'])=>{setPeriod(p);const dates=initialDate(today,p);setStarts(dates.starts_on||'');setEnds(dates.ends_on||'');};
- const save=async(e:React.FormEvent)=>{e.preventDefault();if(demo)return;setBusy(true);setError('');try{await request('os8','goal_save',{id:item?.id||null,title,description,period,starts_on:starts||null,ends_on:ends||null,progress});onSaved();onClose();}catch(err:any){setError(err.message)}finally{setBusy(false)}};
+ const save=async(e:React.FormEvent)=>{e.preventDefault();if(demo)return;setBusy(true);setError('');try{const original=readGoalDocument(item?.description);await request('os8','goal_save',{id:item?.id||null,title,description:writeGoalDocument({...original,body:description}),period,starts_on:starts||null,ends_on:ends||null,progress});onSaved();onClose();}catch(err:any){setError(err.message)}finally{setBusy(false)}};
  const remove=async()=>{if(!item||!window.confirm('Удалить эту цель?'))return;setBusy(true);try{await request('os8','goal_delete',{id:item.id});onSaved();onClose();}catch(err:any){setError(err.message)}finally{setBusy(false)}};
- return <Dialog open onClose={onClose} title={item?'Редактировать цель':'Новая обычная цель'}><form className="editor-form" onSubmit={save}>
+ return <Dialog open onClose={onClose} title={item?'Редактировать цель':'Новая цель'}><form className="editor-form" onSubmit={save}>
   <label>Название<input autoFocus required maxLength={180} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Например, улучшить портфолио"/></label>
   <label>Период<select value={period} onChange={e=>changePeriod(e.target.value as RegularGoal['period'])}>{Object.entries(periodNames).map(([k,v])=><option value={k} key={k}>{v}</option>)}</select></label>
   {period!=='open'&&<div className="form-grid"><label>Начало<input type="date" required value={starts} onChange={e=>setStarts(e.target.value)}/></label><label>Окончание<input type="date" required value={ends} onChange={e=>setEnds(e.target.value)}/></label></div>}
@@ -51,7 +52,7 @@ export function RegularGoals({compact=false}:{compact?:boolean}){
  const{open}=useApp();const{goals,goalStats,loading,error,reload}=useRegularGoals();const[editing,setEditing]=useState<RegularGoal|null|undefined>(undefined);
  const reduced=useReducedMotion();
  const changed=()=>{window.dispatchEvent(new Event('os8:goals-changed'));};
- return <div className="regular-goals">{!compact&&<div className="card-title-row"><div><h2>Обычные цели</h2><p className="tiny-note">Бессрочные и с периодом</p></div><button className="btn small accent" onClick={()=>setEditing(null)}><Icon name="plus" size={16}/> Цель</button></div>}
+ return <div className="regular-goals">{!compact&&<div className="card-title-row"><div><h2>Цели</h2><p className="tiny-note">Бессрочные и с периодом</p></div><button className="btn small accent" onClick={()=>setEditing(null)}><Icon name="plus" size={16}/> Цель</button></div>}
    {error&&<p className="os-error-banner">{error} <button onClick={()=>void reload()}>Повторить</button></p>}
    {loading?<p className="tiny-note">Загружаем цели…</p>:goals.length===0?<Empty title="Пока нет обычных целей" description="Создай первую цель с собственным сроком" action={!compact?<button className="btn accent" onClick={()=>setEditing(null)}>Добавить цель</button>:undefined}/>:<div className="regular-goals-grid">{(compact?goals.slice(0,3):goals).map((g,i)=>{const values=regularGoalValues(g,goalStats);return <m.button key={g.id} className="regular-goal-card" initial={reduced?false:{opacity:0,y:10}} animate={{opacity:1,y:0}} whileHover={!reduced?{y:-2}:undefined} whileTap={!reduced?{scale:0.975}:undefined} transition={{duration:reduced?0:0.3,delay:reduced?0:Math.min(i,5)*.04,ease:'easeOut'}} onClick={()=>{if(!compact)setEditing(g);else open('goals')}}>
     <div className="regular-goal-heading"><strong>{g.title}</strong><b>{goalEvidence(g,goalStats).progress}%</b></div><span className="tiny-note">{periodNames[g.period]}{g.ends_on?` · до ${g.ends_on}`:''}</span>

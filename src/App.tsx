@@ -10,7 +10,7 @@ import {useReducedMotion} from 'motion/react';
 import {motionTokens} from './components/motionTokens';
 import {TaskEditor} from './components/Tasks';
 import {HomePage,TodayPage,GoalsPage,GoalEditor,AnalyticsPage} from './pages/CorePages';
-import {CalendarPage,TomorrowPage,FinancePage,SportPage,FocusPage,ChallengesPage,RepeatsPage,ReviewPage,DisciplinePage,CategoriesPage,SettingsPage,HelpPage,EntityEditor} from './pages/ExtraPages';
+import {CalendarPage,TomorrowPage,FinancePage,SportPage,ChallengesPage,ReviewPage,DisciplinePage,CategoriesPage,SettingsPage,HelpPage,EntityEditor} from './pages/ExtraPages';
 import type {Tab} from './types';
 import {telegram} from './lib/telegram';
 import {BufferWorkspacePage} from './pages/BufferWorkspace';
@@ -20,12 +20,12 @@ import {HabitsPage} from './pages/HabitsPage';
 import './styles.css';
 import './premium.css';
 import './shell.css';
+import './goals-workspace.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
-const incomeNav:{id:Tab;label:string;icon:string}={id:'income',label:'Доходы',icon:'wallet'};
 const mobilePrimary=[primary[1],workspaceNav,primary[2]];
-const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Планирование',icon:'calendar-check'},{id:'focus',label:'Фокус-таймер',icon:'timer'},{id:'challenges',label:'Привычки',icon:'check-circle'},{id:'repeats',label:'Повторения',icon:'repeat'}];
-const appNames=Object.fromEntries([...primary,workspaceNav,incomeNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
+const secondary:Array<{id:Tab;label:string;icon:string}>=[{id:'calendar',label:'Календарь',icon:'calendar'},{id:'tomorrow',label:'Планирование',icon:'calendar-check'},{id:'challenges',label:'Привычки',icon:'check-circle'}];
+const appNames=Object.fromEntries([...primary,workspaceNav,...secondary,{id:'settings',label:'Настройки'},{id:'categories',label:'Категории'},{id:'help',label:'Помощь'}].map(x=>[x.id,x.label]));
 function useRouteHash(){
  const [hash,setHash]=useState(()=>window.location.hash);
  useEffect(()=>{const onChange=()=>setHash(window.location.hash);window.addEventListener('hashchange',onChange);return()=>window.removeEventListener('hashchange',onChange)},[]);
@@ -54,7 +54,6 @@ function Sidebar(){
     <span className="sidebar-section-label">ОСНОВНОЕ</span>
     {primary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
     <NavItem {...workspaceNav} routeHash={hash}/>
-    <NavItem {...incomeNav} routeHash={hash}/>
     <span className="sidebar-section-label">ИНСТРУМЕНТЫ</span>
     {secondary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
     <span className="sidebar-section-label">НАСТРОЙКА</span>
@@ -95,7 +94,7 @@ function MoreBottomItem(){
   <Icon name="menu" size={22}/><span>Ещё</span>
  </button>;
 }
-function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'income':return <MvpAnalyticsPage focusIncome/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'focus':return <FocusPage/>;case 'challenges':return <HabitsPage/>;case 'repeats':return <RepeatsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
+function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'challenges':return <HabitsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
 function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   const labels={task:editor.item?'Изменить задачу':'Новая задача',goal:editor.item?'Изменить цель':'Новая цель',finance:'Финансовая запись',workout:'Тренировка',weight:'Замер веса',exercise:'Упражнение',repeat:'Повторение',challenge:'Личный вызов'};
   return <Dialog open onClose={()=>setEditor(null)} title={labels[editor.type]}>

@@ -1,8 +1,8 @@
-export type Tab='home'|'today'|'goals'|'analytics'|'income'|'buffer'|'calendar'|'tomorrow'|'finance'|'sport'|'focus'|'challenges'|'repeats'|'review'|'discipline'|'settings'|'categories'|'help'|'workspace';
+export type Tab='home'|'today'|'goals'|'analytics'|'buffer'|'calendar'|'tomorrow'|'finance'|'sport'|'challenges'|'review'|'discipline'|'settings'|'categories'|'help'|'workspace';
 export type TaskPriority='important'|'extra';
 export type Task={id:string;title:string;notes:string;sphere:string;day:string|null;priority:TaskPriority;completed:boolean;created_at?:string;updated_at?:string;os61_position?:number|null;os61_category_id?:string|null;os6_repeat_id?:string|null};
 export type Category={id:string;name:string;color:string;icon:string;sort_order:number};
-export type Goal={id:string;title:string;notes:string;sphere:string;start_value:number;current_value:number;target_value:number;unit:string;deadline:string|null;updated_at?:string};
+export type Goal={id:string;title:string;notes:string;sphere:string;start_value:number;current_value:number;target_value:number;unit:string;deadline:string|null;created_at?:string;updated_at?:string};
 export type GoalPoint={id:number;goal_id:string;value:number;recorded_at:string};
 export type Settings={tz:string;kpi_cutover:string;target_task:number;target_sale:number;target_sport:number;morning_time:string;evening_time:string;weekly_time:string;reminders_enabled:boolean};
 export type DayMetrics={tasks:number;sales:number;sport:number;important:number;extras:number;done_important:number;done_extras:number};

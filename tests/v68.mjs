@@ -25,6 +25,8 @@ assert.match(read('src/components/MotionNumber.tsx'),/useRef\(target\)/);
 assert.match(read('src/components/UI.tsx'),/initial=\{false\} animate=\{\{scaleX:/);
 assert.match(read('src/components/PlanScore.tsx'),/scaleX:mainPercent\/100/);
 assert.match(read('src/components/PremiumControls.tsx'),/aria-busy/);
+assert.doesNotMatch(read('src/App.tsx'),/label:'Фокус-таймер'|label:'Повторения'|label:'Доходы'/);
+assert.doesNotMatch(read('src/pages/CorePages.tsx'),/open\('focus'\)/);
 assert.match(read('src/components/Tasks.tsx'),/scale:0\.975/);
 assert.match(read('src/pages/HabitsPage.tsx'),/scale:0\.975/);
 console.log('6.8 foundations: tokens, Motion policy, accessible buttons and truthful progress OK');

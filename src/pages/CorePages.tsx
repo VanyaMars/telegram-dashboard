@@ -7,6 +7,8 @@ import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
+import {GoalsWorkspace} from '../components/GoalsWorkspace';
+import {readGoalDocument,writeGoalDocument} from '../lib/goalDocument';
 import {PlanScore} from '../components/PlanScore';
 import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
@@ -19,23 +21,12 @@ function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important'
 }
 
 export function HomePage(){
- const {today,day,setDay,tasks,goals,goalHistory,os6,metrics,open,setEditor,openTaskPage,mutate}=useApp();
- const [startingFocus,setStartingFocus]=useState(false),[focusError,setFocusError]=useState('');
+ const {today,day,setDay,tasks,goals,goalHistory,metrics,open,setEditor,openTaskPage}=useApp();
  useEffect(()=>{if(day!==today)setDay(today)},[today]);
  const k=dayKpi(tasks),dates=weekDates(mondayOf(today)),totals=sums(metrics,dates);
  const nextImportant=tasks.find(t=>t.priority==='important'&&!t.completed);
  const remaining=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
- const activeFocus=os6.focus.some(f=>f.state!=='finished');
  const allDone=k.important>0&&k.doneImportant===k.important;
- const beginFocus=async()=>{
-  if(!nextImportant){open('today');return;}
-  if(activeFocus){open('focus');return;}
-  if(startingFocus)return;
-  setStartingFocus(true);setFocusError('');
-  try{await mutate('os6','focus',{command:'start',title:nextImportant.title,task_id:nextImportant.id});open('focus')}
-  catch(e:any){setFocusError(e?.message||'Не получилось начать фокус. Попробуй снова.')}
-  finally{setStartingFocus(false)}
- };
  return <div className="page-stack home-dashboard">
   <div className="hello-block"><div><p className="eyebrow">ТВОЯ ЛИЧНАЯ СИСТЕМА</p><h1>Добро пожаловать<span className="hello-dot">.</span></h1><p>Действуй точно. Прогресс придёт следом.</p></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
   <div className="home-bento">
@@ -45,12 +36,9 @@ export function HomePage(){
     <h2 className="next-step-title">{nextImportant?nextImportant.title:allDone?'Главное на сегодня сделано':'Выбери главное на сегодня'}</h2>
     <p className="next-step-caption">{nextImportant?'Начни с одной задачи. Не нужно делать всё сразу.':allDone?'Можно перейти к дополнительному или свободно завершить работу.':'Назначь одну важную задачу, чтобы видеть конкретный следующий шаг.'}</p>
     <div className="next-step-actions">
-     <PremiumAction onClick={()=>void beginFocus()} disabled={startingFocus} pending={startingFocus} pendingText="Начинаем…">
-      <Icon name={nextImportant?'play':'calendar-check'} size={18}/>{nextImportant?(activeFocus?'Вернуться в фокус':'Начать фокус'):'Открыть план'}
-     </PremiumAction>
-     {nextImportant?<button className="btn outline" onClick={()=>void openTaskPage(nextImportant)}><Icon name="arrow-up-right" size={16}/> Открыть задачу</button>:<button className="btn subtle" onClick={()=>setEditor({type:'task',day:today,priority:'important'})}><Icon name="plus" size={16}/> Добавить важную</button>}
+     <PremiumAction onClick={()=>{if(nextImportant)void openTaskPage(nextImportant);else open('today')}}><Icon name={nextImportant?'arrow-up-right':'calendar-check'} size={18}/>{nextImportant?'Открыть задачу':'Открыть план'}</PremiumAction>
+     <button className="btn outline" onClick={()=>nextImportant?open('today'):setEditor({type:'task',day:today,priority:'important'})}><Icon name={nextImportant?'calendar':'plus'} size={16}/>{nextImportant?'К плану':'Добавить важную'}</button>
     </div>
-    {focusError&&<p className="next-step-error" role="alert">{focusError}</p>}
     <div className="next-step-score"><div className="next-step-score-heading"><span>РЕЗУЛЬТАТ ДНЯ</span><button onClick={()=>open('today')} aria-label="Открыть план на сегодня">Весь план <Icon name="right" size={15}/></button></div>
      <PlanScore important={k.important} doneImportant={k.doneImportant} extra={k.extra} doneExtra={k.doneExtra}/>
      <div className="hero-sub"><span>Важные <b>{k.doneImportant}/{k.important}</b></span><span>Дополнительные <b>{k.doneExtra}/{k.extra}</b></span></div>
@@ -62,7 +50,6 @@ export function HomePage(){
    <Card className="priority-card"><div className="card-title-row"><div><span className="eyebrow">ПЛАН</span><h2>Важные задачи</h2></div><button className="icon-btn" onClick={()=>setEditor({type:'task',day:today,priority:'important'})} aria-label="Добавить важную задачу"><Icon name="plus"/></button></div>
     {remaining.length?remaining.map(t=><button className="mini-task" key={t.id} onClick={()=>void openTaskPage(t)}><span className="mini-checkbox"/><span>{t.title}</span><Icon name="right" size={17}/></button>):
      <div className="success-spot"><Icon name="check-circle" size={26}/><strong>Главное под контролем</strong><span>{allDone?'Важные задачи выполнены':'Добавь первую важную задачу'}</span></div>}
-    <PremiumAction tone="secondary" onClick={()=>open('focus')}><Icon name="timer" size={16}/> Начать с 5 минут</PremiumAction>
     <button className="link-action" onClick={()=>open('today')}>Весь список <Icon name="arrow-right" size={16}/></button>
    </Card>
    <Card className="week-overview"><div className="card-title-row"><div><span className="eyebrow">АКТИВНОСТЬ</span><h2>Неделя в цифрах</h2></div><button className="icon-btn" onClick={()=>open('analytics')} aria-label="Открыть аналитику"><Icon name="arrow-up-right"/></button></div>
@@ -152,18 +139,7 @@ export function BufferPage(){
  </div>;
 }
 
-export function GoalsPage(){const{goals,goalHistory,setEditor,tasks,buffer,os6,openTaskPage}=useApp();
-  return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ТВОИ ОРИЕНТИРЫ</p><h1>Цели</h1><p>Обычные и амбициозные цели в одном месте</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Амбициозная</button></div>
-    <Card><RegularGoals/></Card><SectionHead title="Амбициозные цели"/><div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
-      return <Card key={g.id} className="goal-full"><div className="goal-full-head"><div><span className="eyebrow">{g.sphere||'ЦЕЛЬ'}</span><h2>{g.title}</h2></div><div className="goal-value">{percent}<small>%</small></div></div>
-        <GoalValues current={Number(g.current_value)} target={Number(g.target_value)} start={Number(g.start_value)} unit={g.unit}/>
-        <ProgressBar value={percent}/>{(()=>{const ids=new Set(os6.links.filter(l=>l.goal_id===g.id).map(l=>l.task_id));const candidate=[...tasks,...buffer].find(t=>ids.has(t.id)&&!t.completed);return candidate?<button className="goal-next-action" onClick={()=>void openTaskPage(candidate)}><Icon name="arrow-right" size={15}/><span>Следующий шаг: <strong>{candidate.title}</strong></span></button>:null})()}<Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
-        <div className="goal-full-footer"><span>Прогресс от старта · {history.length} обновлений</span><button className="btn small outline" onClick={()=>setEditor({type:'goal',item:g})}>Обновить <Icon name="right" size={15}/></button></div>
-      </Card>})}
-      {!goals.length&&<Card><Empty title="Добавь амбициозную цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}
-    </div>
-  </div>;
-}
+export function GoalsPage(){return <GoalsWorkspace/>;}
 export function GoalEditor(){
  const{editor,setEditor,saveGoal,deleteGoal}=useApp();
  const goal=editor?.type==='goal'?editor.item as Goal|undefined:undefined;
@@ -174,14 +150,14 @@ export function GoalEditor(){
  const [current,setCurrent]=useState(String(goal?.current_value??0));
  const [unit,setUnit]=useState(goal?.unit||'');
  const [deadline,setDeadline]=useState(goal?.deadline||'');
- const [notes,setNotes]=useState(goal?.notes||'');
+ const [notes,setNotes]=useState(readGoalDocument(goal?.notes).body);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const finite=(raw:string)=>raw.trim()!==''&&Number.isFinite(Number(raw));
  const valid=finite(start)&&finite(target)&&finite(current)&&Number(start)!==Number(target);
  const save=async(e:React.FormEvent)=>{
   e.preventDefault();if(!valid||busy)return;
   setError('');setBusy(true);
-  try{await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes})}
+  try{const original=readGoalDocument(goal?.notes);await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes:writeGoalDocument({...original,body:notes})})}
   catch(err:any){setError(err?.message||'Не удалось сохранить цель. Данные остались в форме.')}
   finally{setBusy(false)}
  };

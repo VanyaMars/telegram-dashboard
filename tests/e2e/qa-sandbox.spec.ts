@@ -59,7 +59,7 @@ test('F01: regular goal dialog stays above ambitious cards and saves by mouse cl
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await page.getByRole('button',{name:'Цель',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'Новая обычная цель'});
+ const dialog=page.getByRole('dialog',{name:'Новая цель'});
  await expect(dialog).toBeVisible();
  await dialog.getByRole('textbox',{name:'Название'}).fill('QA цель: доступность окна');
  await dialog.getByRole('button',{name:'Сохранить'}).click();
@@ -95,7 +95,7 @@ for(const width of [320,390,430,1440]){
   if(width<=860)await page.getByRole('button',{name:'Открыть меню'}).click();
   await nav.click();
   await page.getByRole('button',{name:'Цель',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Новая обычная цель'});
+  const dialog=page.getByRole('dialog',{name:'Новая цель'});
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Сохранить'})).toBeVisible();
   const dimensions=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,viewport:document.documentElement.clientWidth}));
@@ -125,7 +125,7 @@ test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details'
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.8.1');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.0');
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('#os-workspace-panel')).toBeVisible();
@@ -175,7 +175,7 @@ for(const width of [320,390,430,1440]){
   await enter(page);
   const palette=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--purple').trim());
   expect(palette).toBe('#6658D9');
-  await expect(page.getByRole('button',{name:'Начать с 5 минут'})).toBeVisible();
+  await expect(page.locator('.next-step-title')).toBeVisible();
   for(const route of ['home','today','goals','buffer']){
    await page.goto(entry+'#/tab/'+route);
    await expect(page.locator('main.app-content .motion-route')).toBeVisible();
@@ -199,14 +199,13 @@ test('6.8 foundations: keyboard activation on a goal card and shared selection',
  await expect(page.locator('.premium-nav-selection')).toHaveCount(1);
 });
 
-test('6.8 foundations: reduced motion keeps fast navigation and focus action clickable',async({page})=>{
+test('6.9 foundations: reduced motion keeps Goal page usable',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});
  await enter(page);
- const action=page.getByRole('button',{name:'Начать с 5 минут'});
- await expect(action).toBeVisible();
- await action.click();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Фокус-таймер'})).toHaveAttribute('aria-current','page');
- await expect(page.locator('main.app-content .motion-route')).toBeVisible();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ await expect(page.locator('.goal-work-card').first()).toBeVisible();
+ await page.locator('.goal-work-card').first().click();
+ await expect(page.locator('.goal-detail-hero')).toBeVisible();
  const transform=await page.locator('main.app-content .motion-route').evaluate(el=>getComputedStyle(el).transform);
  expect(transform).toBe('none');
 });
@@ -349,16 +348,11 @@ test('6.8.1 Shell: Pages inside Buffer only, nested editor and old URLs remain a
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
 });
 
-test('6.8 Shell: confirmed task Income has a direct route, never manual Finance data',async({page})=>{
+test('6.9 Shell: removed navigation items and preserved Analytics income',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Доходы'}).click();
- await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/income');
- await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
- await expect(page.locator('.mvp-income-feature')).toBeVisible();
+ for(const name of ['Доходы','Фокус-таймер','Повторения'])await expect(page.locator('.sidebar-scroll').getByRole('button',{name})).toHaveCount(0);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
- await expect(page.locator('.mvp-income-feature')).toContainText('Разные валюты не складываются');
- await page.reload();
- await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
 });
 
 test('6.8.1 Shell: mobile Pages accessible from Buffer, not a sidebar tab',async({page})=>{
@@ -379,28 +373,29 @@ test('6.8.1 Shell: mobile Pages accessible from Buffer, not a sidebar tab',async
  expect(size.doc).toBeLessThanOrEqual(size.client+2);
 });
 
-test('6.8 Goals: regular linked goal has truthful dynamic task target',async({page})=>{
+test('6.9 Goals: linked goal card opens tasks and analytics',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
- const linked=page.locator('.regular-goal-card').filter({hasText:'Собрать работающий MVP'});
- await expect(linked).toBeVisible();
- await expect(linked).toContainText('Сейчас');
- await expect(linked).toContainText('Целевое значение');
- await expect(linked).toContainText('задач');
- await expect(linked).toContainText('Автоматически: связанные задачи');
+ await expect(page.getByRole('heading',{name:'Стратегические цели'})).toBeVisible();
+ const card=page.locator('.goal-work-card').filter({hasText:'Собрать работающий MVP'});
+ await expect(card).toBeVisible();
+ await expect(card).toContainText(/Активна \d+/);
+ await card.click();
+ await expect(page.locator('.goal-detail-hero')).toContainText('Собрать работающий MVP');
+ await page.getByRole('tab',{name:'Задачи'}).click();
+ await expect(page.locator('.goal-task-summary')).toBeVisible();
+ await page.getByRole('tab',{name:'Аналитика'}).click();
+ await expect(page.getByRole('heading',{name:'Аналитика показателей'})).toBeVisible();
+ await page.getByRole('button',{name:'Все цели'}).click();
+ await expect(page.locator('.goal-work-card').filter({hasText:'Собрать работающий MVP'})).toBeVisible();
 });
-
-test('6.8 Goals: decreasing ambitious goal uses current/target with accurate progress',async({page})=>{
+test('6.9 Goals: strategic numeric goal edit, decreasing progress and reload',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
- const weight=page.locator('.goal-full').filter({hasText:'Вес 90 кг'});
- await expect(weight).toBeVisible();
- await expect(weight).toContainText('Сейчас');
- await expect(weight).toContainText('100 кг');
- await expect(weight).toContainText('Целевое значение');
- await expect(weight).toContainText('90 кг');
- await expect(weight).toContainText('41%');
- await weight.getByRole('button',{name:'Обновить'}).click();
+ const card=page.locator('.goal-work-card').filter({hasText:'Вес 90 кг'});
+ await expect(card).toBeVisible();
+ await card.click();
+ await page.getByRole('button',{name:'Свойства'}).click();
  const dialog=page.getByRole('dialog',{name:'Изменить цель'});
  await expect(dialog).toContainText('Снижение');
  await expect(dialog).toContainText('41% пути от старта');
@@ -410,66 +405,97 @@ test('6.8 Goals: decreasing ambitious goal uses current/target with accurate pro
  await dialog.getByRole('button',{name:'Сохранить'}).click();
  await expect(dialog).toHaveCount(0);
  await page.reload();
- await expect(page.locator('.goal-full').filter({hasText:'Вес 90 кг'})).toContainText('Целевое значение');
+ await expect(page.locator('.goal-detail-hero')).toBeVisible();
 });
-
-test('6.8 Goals: manual ordinary goal clearly shows 100-percent target',async({page})=>{
+test('6.9 Goals: featured numeric metric, close and reopen persist',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await page.getByRole('button',{name:'Цель',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'Новая обычная цель'});
- await dialog.getByRole('textbox',{name:'Название'}).fill('Цель без связей 68');
- await expect(dialog).toContainText('Целевое значение: 100%');
+ const dialog=page.getByRole('dialog',{name:'Новая цель'});
+ await dialog.getByRole('textbox',{name:'Название'}).fill('Клиенты в ноябре');
  await dialog.getByRole('button',{name:'Сохранить'}).click();
  await expect(dialog).toHaveCount(0);
- const card=page.locator('.regular-goal-card').filter({hasText:'Цель без связей 68'});
- await expect(card).toContainText('Целевое значение');
- await expect(card).toContainText('100 %');
- await expect(card).toContainText('Ручной процент');
+ const card=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
+ await expect(card).toBeVisible();
+ await card.click();
+ await page.getByRole('button',{name:'Показатель',exact:true}).click();
+ const field=page.locator('.goal-field-editor').first();
+ await field.getByRole('textbox',{name:'Название'}).fill('Клиенты');
+ await field.getByRole('spinbutton',{name:'Значение'}).fill('1');
+ await field.getByRole('spinbutton',{name:'Цель'}).fill('10');
+ await field.getByRole('checkbox',{name:'Показывать на карточке'}).check();
+ await page.getByRole('button',{name:'Сохранить показатели'}).click();
+ await expect(page.locator('.goal-save-status')).toContainText('Изменения сохранены');
+ await page.reload();
+ await expect(page.locator('.goal-field-editor')).toHaveCount(1);
+ await expect(page.locator('.goal-field-editor').first().getByRole('textbox',{name:'Название'})).toHaveValue('Клиенты');
+ await page.getByRole('button',{name:'Закрыть цель'}).click();
+ await expect(page.locator('.goal-detail-state')).toContainText('Закрыта');
+ await page.getByRole('button',{name:'Все цели'}).click();
+ await page.getByRole('tab',{name:'Закрытые цели'}).click();
+ const closed=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
+ await expect(closed).toBeVisible();
+ await expect(closed).toContainText(/Выполнена за \d+/);
+ await expect(closed).toContainText('Клиенты');
+ await closed.click();
+ await page.getByRole('button',{name:'Вернуть в активные'}).click();
+ await page.getByRole('button',{name:'Все цели'}).click();
+ await page.getByRole('tab',{name:'Активные'}).click();
+ await expect(page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'})).toBeVisible();
+});
+test('6.9 Goals: a new goal task survives reload with the same ID',async({page})=>{
+ await enter(page);
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
+ await page.locator('.goal-work-card').filter({hasText:'Собрать работающий MVP'}).click();
+ await page.getByRole('tab',{name:'Задачи'}).click();
+ const input=page.getByRole('textbox',{name:'Новая задача в Буфере'});
+ await input.fill('Новая задача цели 6.9');
+ await page.getByRole('button',{name:'Создать и привязать'}).click();
+ await expect(page.locator('.goal-task-summary')).toContainText('3');
+ await page.reload();
+ await page.getByRole('tab',{name:'Задачи'}).click();
+ await expect(page.locator('.goal-task-open').filter({hasText:'Новая задача цели 6.9'})).toHaveCount(1);
 });
 
-test('6.8 integration: Home to Buffer capture, Today transfer and direct Pages/Income',async({page})=>{
+test('6.9 integration: Buffer→Today→Goals→Pages→Analytics',async({page})=>{
  const called:string[]=[];
  page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});
  await enter(page);
- await expect(page.locator('.next-step-title')).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- const capture=page.getByRole('textbox',{name:'Быстро добавить задачу'});
- await capture.fill('Сквозная задача Personal OS 6.8');
- await capture.press('Enter');
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
+ await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Сквозная задача Personal OS 6.9');
+ await page.getByRole('textbox',{name:'Быстро добавить задачу'}).press('Enter');
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
- const picker=page.getByRole('button',{name:/Из буфера/});
- await picker.click();
- await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.8'});
+ await page.getByRole('button',{name:/Из буфера/}).click();
+ await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.9'});
  await page.locator('#today-buffer-picker').getByRole('button',{name:/В день/}).click();
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
- await expect(page.locator('.goal-values').first()).toBeVisible();
+ await expect(page.locator('.goal-work-grid').first()).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
  await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.buffer-mvp')).toBeVisible();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Доходы'}).click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
  await page.reload();
- await expect(page.getByRole('heading',{name:'Доходы',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Аналитика'})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.8',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
  expect(called).toEqual([]);
 });
 
 for(const width of [320,390,430,1440]){
- test('6.8 integration: Pages and Income routes fit '+width+'px',async({page})=>{
+ test('6.9 integration: Goals/Pages/Analytics fit '+width+'px',async({page})=>{
   await page.setViewportSize({width,height:830});
   await enter(page);
-  for(const route of ['workspace','income']){
-   await page.goto(entry+(route==='workspace'?'#/workspace':'#/tab/income'));
+  for(const route of ['workspace','goals','analytics']){
+   await page.goto(entry+(route==='workspace'?'#/workspace':'#/tab/'+route));
    await expect(page.locator('main.app-content .motion-route')).toBeVisible();
    if(route==='workspace')await expect(page.locator('.os-page-gallery')).toBeVisible();
-   else await expect(page.locator('.mvp-income-feature')).toBeVisible();
+   else if(route==='goals')await expect(page.locator('.goal-work-grid').first()).toBeVisible();
+   else await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
    const dim=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
-   expect(dim.doc,'Document overflow at '+width+'px in '+route).toBeLessThanOrEqual(dim.width+2);
+   expect(dim.doc,'Overflow '+width+'px '+route).toBeLessThanOrEqual(dim.width+2);
   }
  });
 }
@@ -487,14 +513,15 @@ test('6.8.1 integration: mobile Buffer stays active when a nested page is opened
  await expect(page.locator('.buffer-mvp')).toBeVisible();
 });
 
-test('6.8.1 Today: no Focus CTA while Home and Focus timer remain accessible',async({page})=>{
+test('6.9: Focus, Income tab and Repeats are not in the product UI',async({page})=>{
  await enter(page);
- await expect(page.getByRole('button',{name:'Начать с 5 минут'})).toBeVisible();
+ for(const name of ['Фокус-таймер','Доходы','Повторения'])await expect(page.locator('.sidebar-scroll').getByRole('button',{name})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Начать с 5 минут'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Начать фокус'})).toHaveCount(0);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
  await expect(page.locator('.today-task-group--important')).toBeVisible();
  await expect(page.locator('.today-start-focus')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Начать главное — фокус'})).toHaveCount(0);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Фокус-таймер'}).click();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Фокус-таймер'})).toHaveAttribute('aria-current','page');
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
+ await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
 });
 

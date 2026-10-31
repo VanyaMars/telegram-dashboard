@@ -1,4 +1,4 @@
-name: Publish Personal OS 6.8
+name: Publish Personal OS 6.9
 on:
   push:
     branches: [main]
@@ -47,6 +47,8 @@ jobs:
         run: npm run test:shell
       - name: 6.8 Goals compatibility
         run: npm run test:goals-compat
+      - name: 6.9 Goals Workspace
+        run: npm run test:goals-workspace
       - name: 6.8 Integration
         run: npm run test:integration
       - name: Compile and build
