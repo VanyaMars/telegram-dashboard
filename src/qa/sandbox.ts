@@ -176,7 +176,7 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='task_field_appearance'){
    const key=asStr(f.key);const slug='native:'+key;
    const item=db.propertyFields.find(x=>x.slug===slug||x.id===key);
-   if(item){item.name=asStr(f.name);item.options.icon=asStr(f.icon);if(Array.isArray(f.choices))item.options.choices=f.choices as string[]}
+   if(item){item.name=asStr(f.name);item.options.icon=asStr(f.icon);if(Array.isArray(f.choices))item.options.choices=f.choices as string[];if(!item.slug&&f.fieldType)item.field_type=asStr(f.fieldType)}
    else db.propertyFields.push({id:newId(),slug,name:asStr(f.name),field_type:'text',options:{icon:asStr(f.icon)}});
    return ok();
   }
