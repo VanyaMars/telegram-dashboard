@@ -33,6 +33,40 @@ Deno.serve(async(req:Request)=>{
   const body=await req.json();const uid=await verify(String(body?.initData||''));if(!uid)return reply({ok:false,error:'Telegram authorization failed'},401);
   const allowed=Deno.env.get('TG_ALLOWED_USER_ID');if(allowed&&allowed!==String(uid))return reply({ok:false,error:'Access denied'},403);
   const db=admin(),act=String(body.action||'');
+  // Normalized goal properties — authenticated by existing Telegram HMAC above.
+  if(act==='goal_documents_list'){
+   const documents=await must(db.from('os10_goal_documents').select('goal_kind,goal_id,fields,closed_at,updated_at').eq('telegram_user_id',uid).limit(800));
+   return reply({ok:true,documents});
+  }
+  if(act==='goal_document_save'){
+   const kind=body.kind,goalId=body.goalId;
+   if(!['regular','strategic'].includes(kind)||!idOk(goalId))return reply({ok:false,error:'Неверная цель'},400);
+   const table=kind==='regular'?'os8_regular_goals':'ambitious_goals';
+   const owned=await must(db.from(table).select('id').eq('telegram_user_id',uid).eq('id',goalId).maybeSingle());
+   if(!owned)return reply({ok:false,error:'Цель не найдена'},404);
+   const raw=body.fields;
+   if(!Array.isArray(raw)||raw.length>24)return reply({ok:false,error:'Не больше 24 показателей'},400);
+   const kinds=['number','percent','text','checkbox','date','select'],fields=[] as Record<string,unknown>[];
+   let featured=0;
+   for(const f of raw){
+    if(!f||typeof f.id!=='string'||f.id.length>80||typeof f.label!=='string'||f.label.length>100||!kinds.includes(f.type)||typeof f.value!=='string'||f.value.length>400)return reply({ok:false,error:'Некорректный показатель'},400);
+    if(f.featured===true)featured++;
+    fields.push({id:f.id,label:f.label,type:f.type,value:f.value,start:typeof f.start==='string'?f.start.slice(0,60):'',target:typeof f.target==='string'?f.target.slice(0,60):'',unit:typeof f.unit==='string'?f.unit.slice(0,30):'',options:Array.isArray(f.options)?f.options.filter((x:unknown)=>typeof x==='string').slice(0,12).map((x:string)=>x.slice(0,80)):[],featured:f.featured===true});
+   }
+   if(featured>2||JSON.stringify(fields).length>5600)return reply({ok:false,error:'Слишком много ключевых показателей или данных'},400);
+   const change=body.statusChange;
+   if(change!==undefined&&!['close','reopen'].includes(change))return reply({ok:false,error:'Неверный статус'},400);
+   const closedAt=change==='close'?new Date().toISOString():change==='reopen'?null:body.closedAt||null;
+   if(closedAt!==null&&(typeof closedAt!=='string'||Number.isNaN(Date.parse(closedAt))))return reply({ok:false,error:'Неверная дата'},400);
+   if(typeof body.notesBody!=='string'||body.notesBody.length>6000||body.notesBody.includes('[PERSONAL_OS_GOAL_DOCUMENT_V1]'))return reply({ok:false,error:'Не удалось очистить заметки'},400);
+   // Save metadata first. Old notes are cleaned only after persistence succeeds.
+   await must(db.from('os10_goal_documents').upsert({telegram_user_id:uid,goal_kind:kind,goal_id:goalId,fields,closed_at:closedAt,updated_at:new Date().toISOString()},{onConflict:'telegram_user_id,goal_kind,goal_id'}).select('goal_id').single());
+   const values:any={updated_at:new Date().toISOString()};
+   if(kind==='regular'){values.description=body.notesBody;if(change==='close'){values.progress=100;values.completed=true}else if(change==='reopen'){values.progress=0;values.completed=false}}
+   else values.notes=body.notesBody;
+   await must(db.from(table).update(values).eq('telegram_user_id',uid).eq('id',goalId).select('id').single());
+   return reply({ok:true,document:{goal_kind:kind,goal_id:goalId,fields,closed_at:closedAt}});
+  }
   if(act==='goals_list'){
    const goals=await must(db.from('os8_regular_goals').select('*').eq('telegram_user_id',uid).order('updated_at',{ascending:false}).limit(300));
    return reply({ok:true,goals});
