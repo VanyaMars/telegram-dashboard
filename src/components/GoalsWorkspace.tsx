@@ -7,7 +7,7 @@ import {Icon} from './Icons';
 import {Card,Empty,ProgressBar,SectionHead,Sparkline} from './UI';
 import {request} from '../lib/api';
 import {dateAdd,goalProgress} from '../lib/date';
-import {readGoalDocument,writeGoalDocument,goalAgeDays,goalFieldProgress,metricAverage,combinedGoalProgress,formatGoalField,
+import {readGoalDocument,goalAgeDays,goalFieldProgress,metricAverage,combinedGoalProgress,formatGoalField,
  type GoalDocument,type GoalField,type GoalFieldType} from '../lib/goalDocument';
 import type {Goal,GoalPoint,Task} from '../types';
 
@@ -24,30 +24,28 @@ const toGoal=(kind:GoalKind,id:string)=>{window.location.hash='#/goal/'+kind+'/'
 type GoalLike=RegularGoal|Goal;
 function isRegular(goal:GoalLike):goal is RegularGoal{return 'period' in goal}
 function goalRaw(goal:GoalLike){return isRegular(goal)?goal.description:goal.notes}
-function statusOf(goal:GoalLike,kind:GoalKind){
- const doc=readGoalDocument(goalRaw(goal));
+function statusOf(goal:GoalLike,kind:GoalKind,doc:GoalDocument=readGoalDocument(goalRaw(goal))){
  return !!doc.closedAt||(kind==='regular'&&isRegular(goal)&&goal.completed);
 }
-function goalProgressParts(kind:GoalKind,goal:GoalLike,stats:GoalTaskStats,linked:{total:number;done:number}|null){
- const doc=readGoalDocument(goalRaw(goal)),metric=metricAverage(doc.fields);
+function goalProgressParts(kind:GoalKind,goal:GoalLike,stats:GoalTaskStats,linked:{total:number;done:number}|null,doc:GoalDocument=readGoalDocument(goalRaw(goal))){
+ const metric=metricAverage(doc.fields);
  const task=linked&&linked.total>0?Math.round(linked.done/linked.total*100):null;
- const original=kind==='strategic'?goalProgress(goal as Goal):kind==='regular'&&isRegular(goal)&&task===null?goal.progress:null;
+ const original=kind==='strategic'?goalProgress(goal as Goal):null;
  return {percent:combinedGoalProgress([original,task,metric]),task,metric,doc};
 }
-function Duration({goal,closed,today,tz}:{goal:GoalLike;closed:boolean;today:string;tz:string}){
- const doc=readGoalDocument(goalRaw(goal));
+function Duration({goal,closed,today,tz,doc}:{goal:GoalLike;closed:boolean;today:string;tz:string;doc:GoalDocument}){
  const age=goalAgeDays(goal.created_at,doc.closedAt,today,tz);
  if(closed&&!doc.closedAt)return <span className="goal-card-age">Закрыта · дата неизвестна</span>;
  if(age===null)return <span className="goal-card-age">Дата создания неизвестна</span>;
  return <span className="goal-card-age">{closed?'Выполнена за ':'Активна '}{age} {age===1?'день':age<5?'дня':'дней'}</span>;
 }
-function GoalCard({goal,kind,stats,linked,today,tz,onOpen}:{goal:GoalLike;kind:GoalKind;stats:GoalTaskStats;linked:{total:number;done:number}|null;today:string;tz:string;onOpen:()=>void}){
- const reduced=useReducedMotion(),closed=statusOf(goal,kind),{percent,doc}=goalProgressParts(kind,goal,stats,linked);
+function GoalCard({goal,kind,stats,linked,today,tz,doc,onOpen}:{goal:GoalLike;kind:GoalKind;stats:GoalTaskStats;linked:{total:number;done:number}|null;today:string;tz:string;doc:GoalDocument;onOpen:()=>void}){
+ const reduced=useReducedMotion(),closed=statusOf(goal,kind,doc),{percent}=goalProgressParts(kind,goal,stats,linked,doc);
  const featured=doc.fields.filter(f=>f.featured).slice(0,2);
  return <m.button className={'goal-work-card '+(closed?'goal-work-card--done':'')} type="button" onClick={onOpen}
   whileTap={reduced?undefined:{scale:.985}} whileHover={reduced?undefined:{y:-2}}
   transition={reduced?{duration:0}:{duration:.2,ease:'easeOut'}}>
-  <div className="goal-work-card-top"><h3>{goal.title}</h3><Duration goal={goal} closed={closed} today={today} tz={tz}/></div>
+  <div className="goal-work-card-top"><h3>{goal.title}</h3><Duration goal={goal} closed={closed} today={today} tz={tz} doc={doc}/></div>
   <div className="goal-work-card-middle">
    <span><Icon name="list-checks" size={15}/>{linked?linked.done:0}/{linked?linked.total:0} задач</span>
    <span className="goal-work-card-percent">{percent}%</span>
@@ -62,16 +60,32 @@ export function GoalsWorkspace(){
  const [selected,setSelected]=useState<Selected|null>(fromHash);
  const [view,setView]=useState<'active'|'closed'>('active');
  const [regularEdit,setRegularEdit]=useState<RegularGoal|null|undefined>(undefined);
+ const [documents,setDocuments]=useState<Record<string,{fields:GoalField[];closedAt:string|null}>>({});
+ const [documentsError,setDocumentsError]=useState('');
+ const loadDocuments=async()=>{
+  try{
+   const r=await request<{documents:Array<{goal_kind:GoalKind;goal_id:string;fields:GoalField[];closed_at:string|null}>}>('os8','goal_documents_list');
+   setDocuments(Object.fromEntries((r.documents||[]).map(d=>[d.goal_kind+':'+d.goal_id,{fields:d.fields,closedAt:d.closed_at}])));
+   setDocumentsError('');
+  }catch(e:any){setDocumentsError('Хранилище показателей ещё недоступно. Для сохранения требуется обновление сервера.');}
+ };
+ useEffect(()=>{void loadDocuments()},[]);
+ const documentFor=(g:GoalLike,kind:GoalKind):GoalDocument=>{
+  const legacy=readGoalDocument(goalRaw(g));
+  const current=documents[kind+':'+g.id];
+  return current?{...legacy,fields:current.fields,closedAt:current.closedAt}:legacy;
+ };
+
  useEffect(()=>{const sync=()=>setSelected(fromHash());window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync)},[]);
- const afterSave=()=>{window.dispatchEvent(new Event('os8:goals-changed'));void reload()};
+ const afterSave=()=>{window.dispatchEvent(new Event('os8:goals-changed'));void reload();void loadDocuments()};
  const strategic=app.goals;
- const allRegular=(view==='active'?regular.filter(g=>!statusOf(g,'regular')):regular.filter(g=>statusOf(g,'regular')));
- const allStrategic=(view==='active'?strategic.filter(g=>!statusOf(g,'strategic')):strategic.filter(g=>statusOf(g,'strategic')));
+ const allRegular=(view==='active'?regular.filter(g=>!statusOf(g,'regular',documentFor(g,'regular'))):regular.filter(g=>statusOf(g,'regular',documentFor(g,'regular'))));
+ const allStrategic=(view==='active'?strategic.filter(g=>!statusOf(g,'strategic',documentFor(g,'strategic'))):strategic.filter(g=>statusOf(g,'strategic',documentFor(g,'strategic'))));
  const open=(kind:GoalKind,id:string)=>toGoal(kind,id);
  if(selected){
   const goal=selected.kind==='regular'?regular.find(g=>g.id===selected.id):strategic.find(g=>g.id===selected.id);
   if(!goal)return <div className="page-stack goals-workspace"><button className="goal-back" onClick={toList}><Icon name="arrow-left" size={17}/> Ко всем целям</button><Card>{loading?<p>Загружаем цель…</p>:<Empty title="Цель не найдена" description="Возможно, её уже удалили."/>}</Card></div>;
-  return <GoalDetail key={selected.kind+selected.id} kind={selected.kind} goal={goal} stats={goalStats}
+  return <GoalDetail key={selected.kind+selected.id} kind={selected.kind} goal={goal} stats={goalStats} storedDocument={documentFor(goal,selected.kind)}
    onBack={toList} onEdit={()=>selected.kind==='regular'?setRegularEdit(goal as RegularGoal):app.setEditor({type:'goal',item:goal})} onUpdated={afterSave}
    editOverlay={regularEdit!==undefined&&selected.kind==='regular'?<RegularGoalEditor item={regularEdit} onClose={()=>setRegularEdit(undefined)} onSaved={afterSave}/>:null}/>;
  }
@@ -81,7 +95,7 @@ export function GoalsWorkspace(){
    const visible=[...app.tasks,...app.buffer].filter(x=>ids.has(x.id));
    return {total:ids.size,done:visible.filter(x=>x.completed).length};
   })();
-  return <GoalCard key={goal.id} goal={goal} kind={kind} stats={goalStats} linked={linked} today={app.today} tz={app.tz} onOpen={()=>open(kind,goal.id)}/>;
+  return <GoalCard key={goal.id} goal={goal} kind={kind} stats={goalStats} linked={linked} today={app.today} tz={app.tz} doc={documentFor(goal,kind)} onOpen={()=>open(kind,goal.id)}/>;
  })}{!goals.length&&<div className="goal-work-empty">{view==='closed'?'Нет закрытых целей':'Здесь пока нет целей'}.</div>}</div>;
  return <div className="page-stack goals-workspace">
   <div className="page-heading goals-work-header"><div><span className="eyebrow">ОРИЕНТИРЫ И ДЕЙСТВИЯ</span><h1>Цели</h1><p>От намерения к измеримому результату.</p></div></div>
@@ -90,6 +104,7 @@ export function GoalsWorkspace(){
    <button type="button" role="tab" aria-selected={view==='closed'} className={view==='closed'?'active':''} onClick={()=>setView('closed')}>Закрытые цели</button>
   </div>
   {error&&<p className="os-error-banner" role="alert">{error}<button onClick={()=>void reload()}>Повторить</button></p>}
+  {documentsError&&<p className="goal-doc-warning" role="status">{documentsError}</p>}
   <section className="goal-work-section"><SectionHead title="Цели" caption="Повседневные и проектные"
    action={<button className="btn small accent" onClick={()=>setRegularEdit(null)}><Icon name="plus" size={15}/> Цель</button>}/>
    {loading?<p className="tiny-note">Загрузка…</p>:cards('regular',allRegular)}
@@ -101,18 +116,19 @@ export function GoalsWorkspace(){
   {regularEdit!==undefined&&<RegularGoalEditor item={regularEdit} onClose={()=>setRegularEdit(undefined)} onSaved={afterSave}/>}
  </div>;
 }
-type DetailProps={kind:GoalKind;goal:GoalLike;stats:GoalTaskStats;onBack:()=>void;onEdit:()=>void;onUpdated:()=>void;editOverlay:React.ReactNode};
-function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:DetailProps){
- const app=useApp(),regular=isRegular(goal),full=readGoalDocument(goalRaw(goal));
+type DetailProps={kind:GoalKind;goal:GoalLike;stats:GoalTaskStats;storedDocument:GoalDocument;onBack:()=>void;onEdit:()=>void;onUpdated:()=>void;editOverlay:React.ReactNode};
+function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,editOverlay}:DetailProps){
+ const app=useApp(),regular=isRegular(goal);
  const [tab,setTab]=useState<'overview'|'tasks'|'analytics'>('overview');
- const [doc,setDoc]=useState<GoalDocument>(full);
+ const [doc,setDoc]=useState<GoalDocument>(storedDocument);
+ const [localClosed,setLocalClosed]=useState<boolean|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState('');
  const [allTasks,setAllTasks]=useState<Task[]>([]),[linkedIds,setLinkedIds]=useState<string[]>([]),[linkLoading,setLinkLoading]=useState(false),[linkError,setLinkError]=useState('');
  const [freshStats,setFreshStats]=useState<{total:number;done:number}|null>(null);
  const [taskDraft,setTaskDraft]=useState(''),[draftId,setDraftId]=useState<string|null>(null),[linkExisting,setLinkExisting]=useState(''),[taskSaving,setTaskSaving]=useState(false);
  const saveLock=useRef(false),taskLock=useRef(false);
  const storedRaw=goalRaw(goal);
- useEffect(()=>{setDoc(readGoalDocument(storedRaw));},[storedRaw]);
+ useEffect(()=>{setDoc(storedDocument);},[goal.id,storedRaw,JSON.stringify(storedDocument.fields),storedDocument.closedAt]);
  const loadTasks=async()=>{
   setLinkLoading(true);setLinkError('');
   const periods=[[dateAdd(app.today,-60),app.today],[dateAdd(app.today,1),dateAdd(app.today,61)]];
@@ -145,33 +161,26 @@ function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:Detail
  const linked=allTasks.filter(t=>linkedIds.includes(t.id));
  const missing=kind==='strategic'?Math.max(0,linkedIds.length-linked.length):Math.max(0,(stats[goal.id]?.total||0)-linked.length);
  const counts=kind==='regular'?freshStats||stats[goal.id]||{total:0,done:0}:{total:linkedIds.length,done:linked.filter(t=>t.completed).length};
- const {percent,metric,task}=goalProgressParts(kind,goal,stats,counts);
- const closed=statusOf(goal,kind);
+ const {percent,metric,task}=goalProgressParts(kind,goal,stats,counts,doc);
+ const closed=localClosed??statusOf(goal,kind,doc);
  const measured=doc.fields.map(goalFieldProgress).filter((x):x is number=>x!==null);
  const featured=doc.fields.filter(f=>f.featured);
  const updateField=(id:string,patch:Partial<GoalField>)=>setDoc(old=>({...old,fields:old.fields.map(f=>f.id===id?{...f,...patch}:f)}));
- const saveDoc=async(nextDoc:GoalDocument,closing?:boolean)=>{
+ const saveDoc=async(nextDoc:GoalDocument,statusChange?:'close'|'reopen')=>{
   if(saveLock.current)return;
   try{
    saveLock.current=true;setBusy(true);setError('');setSaved('');
-   const payload=writeGoalDocument(nextDoc);
-   if(kind==='regular'&&regular){
-    await request('os8','goal_save',{id:goal.id,title:goal.title,description:payload,
-     period:goal.period,starts_on:goal.starts_on,ends_on:goal.ends_on,
-     progress:closing===true?100:closing===false?(nextDoc.previousProgress??0):goal.progress});
-    window.dispatchEvent(new Event('os8:goals-changed'));onUpdated();
-   }else{
-    const g=goal as Goal;
-    await request('dashboard','goal_save',{id:g.id,goal:{
-     title:g.title,notes:payload,sphere:g.sphere,start_value:Number(g.start_value),
-     current_value:Number(g.current_value),target_value:Number(g.target_value),unit:g.unit,deadline:g.deadline}});
-    await app.refresh();
-   }
-   setDoc(nextDoc);setSaved('Изменения сохранены');
-  }catch(e:any){setError(e?.message||'Не удалось сохранить показатели. Изменения остались на экране.')}
+   const r=await request<{document:{closed_at:string|null;fields:GoalField[]}}>('os8','goal_document_save',{
+    kind,goalId:goal.id,fields:nextDoc.fields,closedAt:nextDoc.closedAt,notesBody:nextDoc.body,statusChange
+   });
+   setDoc({...nextDoc,fields:r.document.fields,closedAt:r.document.closed_at});
+   if(statusChange)setLocalClosed(statusChange==='close');
+   setSaved(statusChange==='close'?'Цель закрыта':statusChange==='reopen'?'Цель снова активна':'Показатели и заметки сохранены');
+   onUpdated();if(kind==='strategic')void app.refresh();
+  }catch(e:any){setError((e?.message||'Не удалось сохранить цель')+'. Введённые значения остались на экране.')}
   finally{saveLock.current=false;setBusy(false)}
  };
- const complete=()=>{const next={...doc,closedAt:closed?null:new Date().toISOString(),previousProgress:closed?doc.previousProgress:regular?(goal as RegularGoal).progress:undefined};void saveDoc(next,!closed)};
+ const complete=()=>{void saveDoc({...doc,closedAt:closed?null:new Date().toISOString()},closed?'reopen':'close')};
  const createTask=async(e:React.FormEvent)=>{
   e.preventDefault();if(taskLock.current||!taskDraft.trim())return;
   taskLock.current=true;setTaskSaving(true);setLinkError('');setSaved('');
@@ -240,7 +249,7 @@ function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:Detail
   </div>
   <div className="goal-detail-hero"><span className="eyebrow">{kindLabel(kind)}</span>
    <div className="goal-detail-title-row"><h1>{goal.title}</h1><button className="btn outline" onClick={onEdit}><Icon name="edit" size={16}/> Свойства</button></div>
-   <div className="goal-detail-meta"><Duration goal={goal} closed={closed} today={app.today} tz={app.tz}/><span>{counts.done}/{counts.total} связанных задач</span>
+   <div className="goal-detail-meta"><Duration goal={goal} closed={closed} today={app.today} tz={app.tz} doc={doc}/><span>{counts.done}/{counts.total} связанных задач</span>
     {duration!==null&&<span>{closed?'На выполнение':'В работе'}: {duration} дн.</span>}
    </div>
    <div className="goal-detail-progress"><ProgressBar value={percent}/><strong>{percent}%</strong></div>
