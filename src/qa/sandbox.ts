@@ -158,7 +158,15 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='entity_delete'){const k=({finance:'finance',workout:'workouts',weight:'weight',exercise:'exercises',repeat:'repeats',challenge:'challenges'} as Record<string,keyof OS6Data>)[asStr(f.entity)];if(!k)throw Error('Неизвестная запись');(db.os6 as any)[k]=(db.os6 as any)[k].filter((x:{id:string})=>x.id!==id);return ok()}
  }
  if(fn==='os8'){
-  if(action==='goal_documents_list')return ok({documents:Object.values(db.goalDocuments||{})});
+  if(action==='goal_tasks_list'){
+    const kind=asStr(f.kind),goalId=asStr(f.goalId);
+    const goal=kind==='regular'?db.regularGoals.find(g=>g.id===goalId):db.goals.find(g=>g.id===goalId);
+    if(!goal)throw Error('Цель не найдена');
+    const ids=kind==='regular'?Object.entries(db.regularLinks).filter(([,id])=>id===goalId).map(([id])=>id):db.os6.links.filter(link=>link.goal_id===goalId).map(link=>link.task_id);
+    const tasks=db.tasks.filter(task=>ids.includes(task.id));
+    return ok({tasks,count:{total:tasks.length,done:tasks.filter(task=>task.completed).length}});
+   }
+   if(action==='goal_documents_list')return ok({documents:Object.values(db.goalDocuments||{})});
    if(action==='goal_document_save'){
     const kind=asStr(f.kind) as 'regular'|'strategic',goalId=asStr(f.goalId);
     const goal=kind==='regular'?db.regularGoals.find(x=>x.id===goalId):kind==='strategic'?db.goals.find(x=>x.id===goalId):null;

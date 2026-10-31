@@ -8,3 +8,6 @@ PROPOSED, **not executed**. The deployed os8 source was confirmed byte-for-byte 
 - Future deletion cleanup should check ownership and dependent documents; no destructive cleanup in this PR.
 
 Required release gates (separate authorization): restorable backup, staging migration and staged os8 deploy; happy-path, legacy data, denied foreign goal, expired/bad HMAC, linked tasks, errors and retries; explicit approval for production migration and Edge deployment; finally frontend merge. Never publish frontend with new API before backend is ready. Roll back frontend/Edge first, preserve the additive table and data.
+
+## Bulk task loading
+An authenticated os8.goal_tasks_list endpoint verifies goal ownership and lists up to 1000 linked task IDs via os9_regular_goal_tasks / os6_task_goal, then fetches owned personal_tasks, including those with day=null. No N+1 requests, no 60-day window. Browser QA mock implements the same contract. Never publish frontend until new os8 is deployed and staging-tested.
