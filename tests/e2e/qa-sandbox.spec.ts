@@ -135,9 +135,7 @@ test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({pag
 
 test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const row=page.locator('.os-workflow-row').filter({hasText:'Подготовить макеты'});
  await row.getByRole('button',{name:'Изменить действие: Подготовить макеты'}).click();
  await page.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Не сохранять отмену');
@@ -153,9 +151,7 @@ test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save'
 
 test('6.7.2 F06: a record without date stays accessible in Calendar',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const db=page.locator('.os-database');
  await db.getByRole('button',{name:'Запись',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Запись базы'});
@@ -281,9 +277,7 @@ test('6.8 Action Flow: planning keeps the linked goal and task ID',async({page})
 
 test('6.8 Pipeline: stage reorder saves and survives reload',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const stages=page.locator('.os-pipeline-premium .os-split');
  await expect(stages).toHaveCount(2);
  await expect(stages.first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Планирование');
@@ -296,9 +290,7 @@ test('6.8 Pipeline: stage reorder saves and survives reload',async({page})=>{
 
 test('6.8 Pipeline: Workflow reorder is persisted without changing split',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const stage=page.locator('.os-pipeline-premium .os-split').first();
  const rows=stage.locator('.os-workflow-row');
  await expect(rows).toHaveCount(2);
@@ -313,9 +305,7 @@ test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({pag
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  await page.getByRole('button',{name:'Открыть меню'}).click();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const stages=page.locator('.os-pipeline-premium .os-split');
  await expect(stages).toHaveCount(2);
  await expect(stages.first().locator('.os-split-body')).toBeVisible();
