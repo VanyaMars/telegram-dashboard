@@ -7,7 +7,7 @@ export function tabFromHash(hash:string):Tab{
  const match=/^#\/tab\/([a-z]+)$/.exec(hash);
  return match&&allowed.includes(match[1] as Tab)?match[1] as Tab:'home';
 }
-export function hashForTab(tab:Tab){return tab==='workspace'?'#/workspace':`#/tab/${tab}`;}
+export function hashForTab(tab:Tab){return `#/tab/${tab==='workspace'?'buffer':tab}`;}
 const selectedDayKey=()=>new URLSearchParams(location.search).get('qa')==='1'?'personal-os:qa:selected-day:v1':'personal-os:selected-day:v1';
 const pattern=/^\d{4}-\d{2}-\d{2}$/;
 export function loadSelectedDay(today:string){
