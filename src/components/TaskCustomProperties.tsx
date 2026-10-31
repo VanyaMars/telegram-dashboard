@@ -26,7 +26,7 @@ export function TaskCustomProperties({taskId,pipelineProperties=[]}:{taskId:stri
   catch(e:any){setError(e.message||'Не удалось создать свойство')}finally{setBusy(false)}
  };
  return <div className="os-custom-properties os-custom-properties--embedded" aria-label="Дополнительные свойства задачи">
-  <div className="os-custom-properties-head"><strong>Свойства задачи</strong><button type="button" className="os-btn" onClick={()=>setAdding(x=>!x)}>+ Add property</button></div>
+  
   {error&&<p role="alert" className="os-inline-error">{error}</p>}
   {status&&<p role="status" className="os-inline-hint">{status}</p>}
   {pipelineProperties.map(p=><div className="os-custom-property-row os-computed-progress" key={p.blockId}>
@@ -42,11 +42,12 @@ export function TaskCustomProperties({taskId,pipelineProperties=[]}:{taskId:stri
    :<input id={'property-'+f.id} key={f.id+'-'+(values[f.id]||'')} defaultValue={values[f.id]||''} disabled={busy} type={f.field_type==='duration'||f.field_type==='number'?'number':f.field_type==='date'?'date':'text'} min={f.field_type==='duration'?0:undefined} step={f.field_type==='duration'?1:'any'} placeholder={f.field_type==='duration'?'Минуты':'—'} onBlur={e=>{if(e.target.value!==(values[f.id]||''))void save(f,e.target.value)}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>}
    {f.field_type==='duration'&&<small>{formatMinutes(Number(values[f.id]||0))}</small>}
   </div>)}
+  <button type="button" className="os-add-property-inline" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить свойство</button>
   {adding&&<div className="os-custom-property-add">
    <label>Название<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Например, Время работы"/></label>
    <label>Тип<select value={type} onChange={e=>setType(e.target.value as TaskField['field_type'])}>{Object.entries(types).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
    {type==='select'&&<label>Варианты через запятую<input value={choices} onChange={e=>setChoices(e.target.value)}/></label>}
-   <button type="button" className="os-btn os-btn-primary" onClick={e=>void create(e)} disabled={busy||!name.trim()}>Создать свойство</button>
+   <div className="os-add-property-actions"><button type="button" className="os-btn os-btn-primary" onClick={e=>void create(e)} disabled={busy||!name.trim()}>Создать свойство</button><button type="button" className="os-btn" onClick={()=>{setAdding(false);setName("");setChoices("");setError("")}} disabled={busy}>Отмена</button></div>
   </div>}
  </div>;
 }
