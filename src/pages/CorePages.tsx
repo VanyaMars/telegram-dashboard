@@ -8,7 +8,7 @@ import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDate
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
 import {GoalsWorkspace} from '../components/GoalsWorkspace';
-import {readGoalDocument,writeGoalDocument} from '../lib/goalDocument';
+import {readGoalDocument} from '../lib/goalDocument';
 import {PlanScore} from '../components/PlanScore';
 import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
@@ -157,7 +157,13 @@ export function GoalEditor(){
  const save=async(e:React.FormEvent)=>{
   e.preventDefault();if(!valid||busy)return;
   setError('');setBusy(true);
-  try{const original=readGoalDocument(goal?.notes);await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes:writeGoalDocument({...original,body:notes})})}
+  try{
+   const legacy=readGoalDocument(goal?.notes);
+   // Old v1 metadata must be migrated before the notes are cleaned.
+   if(goal?.id&&(legacy.fields.length||legacy.closedAt))
+    await request('os8','goal_document_save',{kind:'strategic',goalId:goal.id,fields:legacy.fields,closedAt:legacy.closedAt,notesBody:notes});
+   await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes});
+  }
   catch(err:any){setError(err?.message||'Не удалось сохранить цель. Данные остались в форме.')}
   finally{setBusy(false)}
  };

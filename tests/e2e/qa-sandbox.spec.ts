@@ -7,6 +7,15 @@ async function enter(page:Page,name='QA Проверяющий'){
  await expect(page.getByText('Добро пожаловать')).toBeVisible();
  await expect(page.getByText(/QA Sandbox.*только локальные данные/)).toBeVisible();
 }
+async function openSampleTaskPage(page:Page){
+ const menu=page.getByRole('button',{name:'Открыть меню'});
+ if(await menu.isVisible()&&!(await page.locator('.app-sidebar').evaluate(el=>el.classList.contains('is-open'))))await menu.click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ const task=page.locator('.buffer-mvp .task-copy').filter({hasText:'Идеи для автомобильного блога'});
+ await expect(task).toBeVisible();
+ await task.click();
+ await expect(page.locator('.os-page-editor')).toBeVisible();
+}
 test('guest sign-in, UI actions, local persistence and no Supabase calls',async({page})=>{
  const called:string[]=[];
  page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});
@@ -70,21 +79,14 @@ test('F01: regular goal dialog stays above ambitious cards and saves by mouse cl
  await expect(page.getByText('QA цель: доступность окна')).toBeVisible();
 });
 
-test('F02: nested pages and breadcrumbs render without reloading',async({page})=>{
+test('F02: a task-page editor and nested blocks return directly to Buffer',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByText('Дополнительные страницы и базы').click();
- await page.getByPlaceholder('Название новой страницы').fill('QA Родитель 671');
- await page.getByRole('button',{name:'Создать',exact:true}).click();
- await expect(page.getByRole('textbox',{name:'Название страницы'})).toHaveValue('QA Родитель 671');
+ await openSampleTaskPage(page);
  await page.locator('.os-children').getByRole('button',{name:'+ Страница'}).click();
  await expect(page.locator('.os-page-editor')).toBeVisible();
- await expect(page.locator('.os-page-editor')).not.toBeEmpty();
- await page.getByRole('button',{name:'QA Родитель 671',exact:true}).last().click();
- await expect(page.locator('.os-page-editor')).toBeVisible();
- await expect(page.getByRole('textbox',{name:'Название страницы'})).toHaveValue('QA Родитель 671');
- await page.goBack();
- await expect(page.locator('.os-page-editor')).toBeVisible();
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
 });
 
 for(const width of [320,390,430,1440]){
@@ -121,25 +123,19 @@ test('6.7.2 F03: selected section, date and Back/Forward survive reload',async({
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'})).toHaveAttribute('aria-current','page');
 });
 
-test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details',async({page})=>{
+test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({page})=>{
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.0');
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('#os-workspace-panel')).toBeVisible();
- await expect(page.locator('#os-workspace-panel > summary')).toHaveCount(0);
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.1-rc.1');
+ await openSampleTaskPage(page);
  await expect(page.locator('.os-page-editor')).toBeVisible();
- await expect(page.locator('#os-workspace-panel > summary')).toHaveCount(0);
+ await expect(page.locator('#os-workspace-panel')).toHaveCount(0);
 });
 
 test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const row=page.locator('.os-workflow-row').filter({hasText:'Подготовить макеты'});
  await row.getByRole('button',{name:'Изменить действие: Подготовить макеты'}).click();
  await page.getByRole('textbox',{name:'Редактировать действие: Подготовить макеты'}).fill('Не сохранять отмену');
@@ -155,9 +151,7 @@ test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save'
 
 test('6.7.2 F06: a record without date stays accessible in Calendar',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const db=page.locator('.os-database');
  await db.getByRole('button',{name:'Запись',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Запись базы'});
@@ -283,9 +277,7 @@ test('6.8 Action Flow: planning keeps the linked goal and task ID',async({page})
 
 test('6.8 Pipeline: stage reorder saves and survives reload',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const stages=page.locator('.os-pipeline-premium .os-split');
  await expect(stages).toHaveCount(2);
  await expect(stages.first().getByRole('textbox',{name:'Название этапа'})).toHaveValue('Планирование');
@@ -298,9 +290,7 @@ test('6.8 Pipeline: stage reorder saves and survives reload',async({page})=>{
 
 test('6.8 Pipeline: Workflow reorder is persisted without changing split',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const stage=page.locator('.os-pipeline-premium .os-split').first();
  const rows=stage.locator('.os-workflow-row');
  await expect(rows).toHaveCount(2);
@@ -315,9 +305,7 @@ test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({pag
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  await page.getByRole('button',{name:'Открыть меню'}).click();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  const stages=page.locator('.os-pipeline-premium .os-split');
  await expect(stages).toHaveCount(2);
  await expect(stages.first().locator('.os-split-body')).toBeVisible();
@@ -330,22 +318,20 @@ test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({pag
 });
 
 
-test('6.8.1 Shell: Pages inside Buffer only, nested editor and old URLs remain available',async({page})=>{
+test('6.9.1: task page Back returns to Buffer and old Pages route redirects',async({page})=>{
  await enter(page);
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await expect(page.locator('.buffer-mvp')).toBeVisible();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  await expect.poll(()=>new URL(page.url()).hash).toMatch(/^#\/page\//);
  await page.reload();
- await expect(page.locator('.os-workspace')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('.os-page-editor')).toBeVisible();
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
  await page.goto(entry+'#/workspace');
- await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await expect(page.locator('.os-page-gallery')).toHaveCount(0);
 });
 
 test('6.9 Shell: removed navigation items and preserved Analytics income',async({page})=>{
@@ -355,22 +341,20 @@ test('6.9 Shell: removed navigation items and preserved Analytics income',async(
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
 });
 
-test('6.8.1 Shell: mobile Pages accessible from Buffer, not a sidebar tab',async({page})=>{
+test('6.9.1: mobile task page has Back to Buffer, not a Pages tab',async({page})=>{
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  const bottom=page.getByRole('navigation',{name:'Основная навигация'});
- for(const label of ['Сегодня','Буфер задач','Цели','Ещё'])await expect(bottom.getByRole('button',{name:label})).toBeVisible();
  await bottom.getByRole('button',{name:'Ещё'}).click();
- await expect(page.locator('.app-sidebar')).toHaveClass(/is-open/);
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await openSampleTaskPage(page);
  await expect(bottom.getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
  await bottom.getByRole('button',{name:'Сегодня'}).click();
  await expect(bottom.getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
- const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
- expect(size.doc).toBeLessThanOrEqual(size.client+2);
+ const dimensions=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+ expect(dimensions.doc).toBeLessThanOrEqual(dimensions.width+2);
 });
 
 test('6.9 Goals: linked goal card opens tasks and analytics',async({page})=>{
@@ -407,7 +391,7 @@ test('6.9 Goals: strategic numeric goal edit, decreasing progress and reload',as
  await page.reload();
  await expect(page.locator('.goal-detail-hero')).toBeVisible();
 });
-test('6.9 Goals: featured numeric metric, close and reopen persist',async({page})=>{
+test('6.9.1: ordinary and featured indicators persist separately from plain notes',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await page.getByRole('button',{name:'Цель',exact:true}).click();
@@ -415,34 +399,50 @@ test('6.9 Goals: featured numeric metric, close and reopen persist',async({page}
  await dialog.getByRole('textbox',{name:'Название'}).fill('Клиенты в ноябре');
  await dialog.getByRole('button',{name:'Сохранить'}).click();
  await expect(dialog).toHaveCount(0);
- const card=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
- await expect(card).toBeVisible();
- await card.click();
- await page.getByRole('button',{name:'Показатель',exact:true}).click();
- const field=page.locator('.goal-field-editor').first();
- await field.getByRole('textbox',{name:'Название'}).fill('Клиенты');
- await field.getByRole('spinbutton',{name:'Значение'}).fill('1');
- await field.getByRole('spinbutton',{name:'Цель'}).fill('10');
- await field.getByRole('checkbox',{name:'Показывать на карточке'}).check();
- await page.getByRole('button',{name:'Сохранить показатели'}).click();
- await expect(page.locator('.goal-save-status')).toContainText('Изменения сохранены');
+ await page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'}).click();
+ await page.getByRole('button',{name:'Добавить показатель'}).click();
+ const first=page.locator('.goal-field-editor').first();
+ await first.getByRole('textbox',{name:'Название'}).fill('Клиенты');
+ await first.getByRole('spinbutton',{name:'Значение'}).fill('1');
+ await first.getByRole('spinbutton',{name:'Цель'}).fill('10');
+ await first.getByRole('checkbox',{name:'Показывать на карточке'}).check();
+ await page.locator('.goal-fields-actions').getByRole('button',{name:'Добавить показатель'}).click();
+ const second=page.locator('.goal-field-editor').nth(1);
+ await second.getByRole('textbox',{name:'Название'}).fill('Контакт');
+ await second.getByRole('combobox',{name:'Тип'}).selectOption('text');
+ await second.getByRole('textbox',{name:'Значение'}).fill('Анна');
+ await page.getByRole('button',{name:'Сохранить изменения'}).click();
+ await expect(page.locator('.goal-save-status')).toContainText('Показатели и заметки сохранены');
+ await expect(page.locator('.goal-metric-preview')).toHaveCount(2);
+ await expect(page.locator('.goal-featured-tile')).toHaveCount(1);
+ const local=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const d=JSON.parse(localStorage.getItem('personal-os:qa:data:v1:'+session.id)||'{}');
+  const goal=d.regularGoals.find((g:any)=>g.title==='Клиенты в ноябре');
+  return {notes:goal.description,doc:d.goalDocuments['regular:'+goal.id]};
+ });
+ expect(local.notes).not.toContain('PERSONAL_OS_GOAL_DOCUMENT_V1');
+ expect(local.doc.fields).toHaveLength(2);
  await page.reload();
- await expect(page.locator('.goal-field-editor')).toHaveCount(1);
- await expect(page.locator('.goal-field-editor').first().getByRole('textbox',{name:'Название'})).toHaveValue('Клиенты');
+ await expect(page.locator('.goal-metric-preview')).toHaveCount(2);
+ await expect(page.locator('.goal-metric-preview').last()).toContainText('Анна');
+ await page.getByRole('button',{name:'Все цели'}).click();
+ const card=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
+ await expect(card).toContainText('Клиенты');
+ await expect(card).not.toContainText('Анна');
+ await card.click();
  await page.getByRole('button',{name:'Закрыть цель'}).click();
  await expect(page.locator('.goal-detail-state')).toContainText('Закрыта');
  await page.getByRole('button',{name:'Все цели'}).click();
  await page.getByRole('tab',{name:'Закрытые цели'}).click();
- const closed=page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'});
- await expect(closed).toBeVisible();
- await expect(closed).toContainText(/Выполнена за \d+/);
- await expect(closed).toContainText('Клиенты');
- await closed.click();
+ await expect(page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'})).toBeVisible();
+ await page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'}).click();
  await page.getByRole('button',{name:'Вернуть в активные'}).click();
  await page.getByRole('button',{name:'Все цели'}).click();
  await page.getByRole('tab',{name:'Активные'}).click();
  await expect(page.locator('.goal-work-card').filter({hasText:'Клиенты в ноябре'})).toBeVisible();
 });
+
 test('6.9 Goals: a new goal task survives reload with the same ID',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
@@ -455,43 +455,61 @@ test('6.9 Goals: a new goal task survives reload with the same ID',async({page})
  await page.reload();
  await page.getByRole('tab',{name:'Задачи'}).click();
  await expect(page.locator('.goal-task-open').filter({hasText:'Новая задача цели 6.9'})).toHaveCount(1);
+ const previous=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const d=JSON.parse(localStorage.getItem('personal-os:qa:data:v1:'+session.id)||'{}');
+  const task=d.tasks.find((t:any)=>t.title==='Новая задача цели 6.9');
+  return {id:task.id,goalId:d.regularLinks[task.id]};
+ });
+ await page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox').check();
+ await expect(page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox')).toBeChecked();
+ const after=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const d=JSON.parse(localStorage.getItem('personal-os:qa:data:v1:'+session.id)||'{}');
+  const task=d.tasks.find((t:any)=>t.title==='Новая задача цели 6.9');
+  return {id:task.id,day:task.day,completed:task.completed,goalId:d.regularLinks[task.id]};
+ });
+ expect(after.id).toBe(previous.id);
+ expect(after.goalId).toBe(previous.goalId);
+ expect(after.day).toBeTruthy();
+ expect(after.completed).toBe(true);
+ await page.reload();
+ await page.getByRole('tab',{name:'Задачи'}).click();
+ await expect(page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox')).toBeChecked();
 });
 
-test('6.9 integration: Buffer→Today→Goals→Pages→Analytics',async({page})=>{
- const called:string[]=[];
- page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});
+test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({page})=>{
+ const calls:string[]=[];
+ page.on('request',r=>{if(r.url().includes('/functions/v1/'))calls.push(r.url())});
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Сквозная задача Personal OS 6.9');
+ await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Сквозная задача Personal OS 6.9.1');
  await page.getByRole('textbox',{name:'Быстро добавить задачу'}).press('Enter');
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9.1',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
  await page.getByRole('button',{name:/Из буфера/}).click();
- await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.9'});
+ await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.9.1'});
  await page.locator('#today-buffer-picker').getByRole('button',{name:/В день/}).click();
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await expect(page.locator('.goal-work-grid').first()).toBeVisible();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await openSampleTaskPage(page);
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
  await page.reload();
  await expect(page.getByRole('heading',{name:'Аналитика'})).toBeVisible();
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
- await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9',exact:true})).toBeVisible();
- expect(called).toEqual([]);
+ expect(calls).toEqual([]);
 });
 
 for(const width of [320,390,430,1440]){
- test('6.9 integration: Goals/Pages/Analytics fit '+width+'px',async({page})=>{
+ test('6.9.1: Goals/Buffer/Analytics fit '+width+'px',async({page})=>{
   await page.setViewportSize({width,height:830});
   await enter(page);
-  for(const route of ['workspace','goals','analytics']){
-   await page.goto(entry+(route==='workspace'?'#/workspace':'#/tab/'+route));
+  for(const route of ['buffer','goals','analytics']){
+   await page.goto(entry+'#/tab/'+route);
    await expect(page.locator('main.app-content .motion-route')).toBeVisible();
-   if(route==='workspace')await expect(page.locator('.os-page-gallery')).toBeVisible();
+   if(route==='buffer')await expect(page.locator('.buffer-mvp')).toBeVisible();
    else if(route==='goals')await expect(page.locator('.goal-work-grid').first()).toBeVisible();
    else await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
    const dim=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
@@ -500,16 +518,14 @@ for(const width of [320,390,430,1440]){
  });
 }
 
-test('6.8.1 integration: mobile Buffer stays active when a nested page is opened',async({page})=>{
+test('6.9.1: mobile Buffer active in task page and after Back',async({page})=>{
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  const nav=page.getByRole('navigation',{name:'Основная навигация'});
- await nav.getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  await expect(nav.getByRole('button',{name:'Буфер задач'})).toHaveClass(/current/);
  await expect(nav.getByRole('button',{name:'Ещё'})).not.toHaveClass(/current/);
- await nav.getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
 });
 

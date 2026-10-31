@@ -69,10 +69,10 @@ export function MvpAnalyticsPage(){
   <Card><div className="card-title-row"><div><span className="eyebrow">ЛИЧНЫЕ ВЫЗОВЫ</span><h2>Прогресс вызовов</h2></div><button className="btn text" onClick={()=>open('challenges')}>Все вызовы <Icon name="right" size={16}/></button></div>
    {!challenges.length?<p className="mvp-muted">Пока нет активных вызовов. Можно начать с небольшого ежедневного действия.</p>:<div className="mvp-challenge-grid">{challenges.map(c=><div key={c.id} className="mvp-challenge"><div><strong>{c.title}</strong><span>{c.days}/{c.target} дней</span></div><ProgressBar value={progress(c.days,c.target)}/></div>)}</div>}
   </Card>
-    <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Если у обычной цели есть связанные задачи, её процент рассчитывается автоматически. Для остальных сохраняется ручной прогресс. Историю из одного значения не строим.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=>{const measure=regularGoalValues(g,goalStats);return <div key={g.id}>
+    <Card><SectionHead title="Цели и связь с действиями"/><p className="mvp-muted">Если у обычной цели есть связанные задачи, её процент рассчитывается автоматически. Показатели с целевыми значениями и задачи формируют прогресс автоматически. Историю из одного значения не строим.</p><div className="mvp-goals-list">{regularGoals.slice(0,5).map(g=>{const measure=regularGoalValues(g,goalStats);return <div key={g.id}>
  <span>{g.title}{goalLinks[g.id]?.total?` · ${goalLinks[g.id].done}/${goalLinks[g.id].total} связанных задач`:''}</span>
  <strong>{goalEvidence(g,goalStats).progress}%</strong>
- <GoalValues current={measure.current} target={measure.target} unit={measure.unit} compact/>
+ {measure.target>0&&<GoalValues current={measure.current} target={measure.target} unit={measure.unit} compact/>}
  <ProgressBar value={goalEvidence(g,goalStats).progress}/><small>{measure.source}</small>
  </div>})}</div><button className="btn text" onClick={()=>open('goals')}>Управлять целями <Icon name="right" size={16}/></button></Card>
  </div>;

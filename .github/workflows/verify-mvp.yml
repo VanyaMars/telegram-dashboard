@@ -39,6 +39,8 @@ jobs:
         run: npm run test:goals-compat
       - name: 6.9 Goals Workspace
         run: npm run test:goals-workspace
+      - name: 6.9.1 goal and Buffer regressions
+        run: npm run test:goals-691
       - name: 6.8 Integration
         run: npm run test:integration
       - name: Typecheck and build

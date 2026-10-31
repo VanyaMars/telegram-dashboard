@@ -94,7 +94,7 @@ function MoreBottomItem(){
   <Icon name="menu" size={22}/><span>Ещё</span>
  </button>;
 }
-function Route(){const{tab}=useApp();switch(tab){case 'workspace':return <BufferWorkspacePage/>;case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'challenges':return <HabitsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
+function Route(){const{tab}=useApp();switch(tab){case 'home':return <HomePage/>;case 'today':return <TodayPage/>;case 'buffer':return <BufferWorkspacePage/>;case 'goals':return <GoalsPage/>;case 'analytics':return <MvpAnalyticsPage/>;case 'calendar':return <CalendarPage/>;case 'tomorrow':return <PlanningPage/>;case 'finance':return <FinancePage/>;case 'sport':return <SportPage/>;case 'challenges':return <HabitsPage/>;case 'review':return <ReviewPage/>;case 'discipline':return <HabitsPage/>;case 'categories':return <CategoriesPage/>;case 'settings':return <SettingsPage/>;default:return <HelpPage/>;}}
 function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   const labels={task:editor.item?'Изменить задачу':'Новая задача',goal:editor.item?'Изменить цель':'Новая цель',finance:'Финансовая запись',workout:'Тренировка',weight:'Замер веса',exercise:'Упражнение',repeat:'Повторение',challenge:'Личный вызов'};
   return <Dialog open onClose={()=>setEditor(null)} title={labels[editor.type]}>

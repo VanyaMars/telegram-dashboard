@@ -20,7 +20,7 @@ export function WorkspacePage({embedded=false}:{embedded?:boolean}){
  const [error,setError]=useState(''),[recordPageIds,setRecordPageIds]=useState<string[]>([]),[newTitle,setNewTitle]=useState(''),[working,setWorking]=useState(false),[taskData,setTaskData]=useState<Task|null>(null);
  const pageRequest=useRef(0);
  const openPage=useCallback((id:string)=>{window.location.hash=pageLink(id);window.scrollTo({top:0,behavior:'smooth'})},[]);
- const home=()=>{window.location.hash='#/workspace'};
+ const home=()=>{window.location.hash='#/tab/buffer'};
  const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const [data,taskPages,archives]=await Promise.all([workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap'),request<{pageIds:string[]}>('os8','task_page_links'),request<{pageIds:string[]}>('os9','archived_pages').catch((): {pageIds:string[]}=>({pageIds:[]}))]);setPages((data.pages||[]).filter(page=>!archives.pageIds.includes(page.id)));setSources(data.sources||[]);setRecordPageIds([...new Set([...(data.recordPageIds||[]),...(taskPages.pageIds||[])])]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
  const loadPage=useCallback(async(id:string)=>{if(demo)return;const version=++pageRequest.current;setWorking(true);setError('');try{const [data,linked]=await Promise.all([workspaceRequest<WPageResponse>('page_get',{id}),request<{task:Task|null}>('os8','task_page_find',{pageId:id})]);if(version!==pageRequest.current)return;setDetails(data);setTaskData(linked.task||null);setError('')}catch(e:any){if(version!==pageRequest.current)return;setError(e.message||'Страница не загрузилась');setDetails(null);setTaskData(null)}finally{if(version===pageRequest.current)setWorking(false)}},[demo]);
  const refresh=useCallback(async()=>{await loadList();if(selectedId)await loadPage(selectedId)},[loadList,loadPage,selectedId]);
@@ -36,25 +36,17 @@ export function WorkspacePage({embedded=false}:{embedded?:boolean}){
  const deletePage=async(page:WPage)=>{if(taskData&&page.id===details?.page.id){setError('Это страница задачи: удаляй задачу через её меню, чтобы не потерять свойства.');return;}if(!window.confirm(`Удалить страницу «${page.title}» вместе со всеми вложенными блоками?`))return;await run('page_delete',{id:page.id});home();await loadList()};
  const parents=useMemo(()=>{const out:WPage[]=[];let at=details?.page.parent_id||null;for(let i=0;at&&i<50;i++){const p=pages.find(x=>x.id===at);if(!p)break;out.unshift(p);at=p.parent_id}return out},[details,pages]);
  return <div className="os-workspace">
-  <div className="os-workspace-top" style={selectedId?{display:"none"}:undefined}><div><span className="os-kicker">{embedded?'ПРОЕКТЫ И СТРАНИЦЫ':'PERSONAL OS · ПРОСТРАНСТВО'}</span><h1>{embedded?'Пространство':'Страницы'}</h1><p>Документы, базы и Pipeline внутри задач или отдельных страниц.</p></div><button className="os-btn os-btn-primary" onClick={()=>void createPage('Новая страница')} disabled={working||demo}><Icon name="plus" size={17}/> Страница</button></div>
   {error&&<div role="alert" className="os-error-banner">{error}<button onClick={()=>void refresh()}>Повторить</button></div>}
-  {demo&&<div className="os-info">В демо-режиме создание и облачное сохранение страниц недоступны. Открой Mini App через Telegram, чтобы работать с настоящими данными.</div>}
-  <div className={"os-workspace-layout "+(selectedId?"os-page-focused":"")}><aside className="os-page-rail" aria-label="Дерево страниц"><button className={!selectedId?'active':''} onClick={home}><Icon name="folder" size={17}/> Все страницы</button>{pages.filter(p=>!p.parent_id&&!recordPageIds.includes(p.id)).map(p=><PageTree key={p.id} page={p}all={pages}selected={selectedId}onOpen={openPage}level={0}/>)}</aside>
-   <div className="os-workspace-main">
-   {!selectedId?<div className="os-page-directory"><div className="os-surface"><h2>Мои страницы</h2><p className="os-muted">Создай страницу для проекта, направления или цели. Внутри можно собирать блоки, чеклисты и Pipeline.</p>
-      <form className="os-add-form" onSubmit={e=>{e.preventDefault();void createPage(newTitle)}}><input value={newTitle} onChange={e=>setNewTitle(e.target.value)} maxLength={180} placeholder="Название новой страницы"/><button className="os-btn os-btn-primary" type="submit" disabled={!newTitle.trim()||working||demo}>Создать</button></form>
-      {loading?<p className="os-muted">Загружаем…</p>:pages.length===0?<div className="os-empty">Здесь пока нет страниц. Создай первую.</div>:<div className="os-page-gallery">{pages.filter(p=>!p.parent_id&&!recordPageIds.includes(p.id)).map(p=><button key={p.id} onClick={()=>openPage(p.id)}><span className="os-page-emoji">{p.icon}</span><strong>{p.title}</strong><small>Открыть страницу</small></button>)}</div>}
-     </div><div className="os-surface"><h3>Как устроено</h3><p>Страница содержит блоки. Блок «База данных» показывает одну коллекцию в таблице, доске, списке или календаре. Pipeline показывает этапы и чеклисты выполнения.</p></div></div>
-   :working&&!details?<p className="os-muted" role="status">Открываем страницу…</p>
-   :!details?<div className="os-empty" role="status">{error?<>Страница не загрузилась. <button className="os-btn" type="button" onClick={()=>void refresh()}>Повторить</button></>:'Открываем страницу…'}</div>
-   :details&&<div className="os-page-editor" key={details.page.id}><button className="os-back-to-buffer" onClick={home}><Icon name="left" size={18}/> Назад в буфер задач</button><div className="os-breadcrumbs"><button onClick={home}>Страницы</button>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>
-      <PageContents data={details}taskData={taskData}pages={pages}sources={sources}onOpen={openPage}onAddPage={createPage}onDeletePage={deletePage}write={run}refresh={refresh}/>
-    </div>}
-   </div></div>
+  <div className="os-task-page-only">
+   <div className="os-page-editor-navigation"><button className="os-back-to-buffer" type="button" onClick={home}><Icon name="left" size={18}/> Назад в буфер задач</button>
+    {selectedId&&<div className="os-breadcrumbs"><span>Буфер задач</span>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>}
+   </div>
+   {!selectedId?<p className="os-muted">Эта страница больше не используется. <button type="button" className="os-btn" onClick={home}>Открыть Буфер</button></p>
+   :working&&!details?<p className="os-muted" role="status">Открываем задачу…</p>
+   :!details?<div className="os-empty" role="status">{error?<>Не удалось загрузить задачу. <button className="os-btn" type="button" onClick={()=>void refresh()}>Повторить</button></>:'Загрузка…'}</div>
+   :<div className="os-page-editor" key={details.page.id}><PageContents data={details} taskData={taskData} pages={pages} sources={sources} onOpen={openPage} onAddPage={createPage} onDeletePage={deletePage} write={run} refresh={refresh}/></div>}
+  </div>
  </div>;
-}
-function PageTree({page,all,selected,onOpen,level}:{page:WPage;all:WPage[];selected:string|null;onOpen:(id:string)=>void;level:number}){
- return <div><button style={{paddingLeft:`${10+Math.min(level,6)*13}px`}} className={selected===page.id?'active':''} onClick={()=>onOpen(page.id)}><span>{page.icon}</span><span className="os-ellipsis">{page.title}</span></button>{level<8&&all.filter(x=>x.parent_id===page.id).map(p=><PageTree key={p.id} page={p}all={all}selected={selected}onOpen={onOpen}level={level+1}/>)}</div>;
 }
 type Contents={data:WPageResponse;taskData:Task|null;pages:WPage[];sources:WSource[];onOpen:(id:string)=>void;onAddPage:(title:string,parentId:string|null)=>Promise<any>;onDeletePage:(p:WPage)=>Promise<void>;write:(action:string,body:Record<string,unknown>)=>Promise<any>;refresh:()=>Promise<void>};
 function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage,write,refresh}:Contents){

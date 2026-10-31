@@ -1,7 +1,7 @@
 {
   "name": "personal-os-premium",
   "private": true,
-  "version": "6.9.0",
+  "version": "6.9.1-rc.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -21,7 +21,8 @@
     "test:shell": "node tests/shell.mjs",
     "test:goals-compat": "node tests/goals-compat.mjs",
     "test:integration": "node tests/integration.mjs",
-    "test:goals-workspace": "node tests/goals-workspace.mjs"
+    "test:goals-workspace": "node tests/goals-workspace.mjs",
+    "test:goals-691": "node tests/goals-691.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",

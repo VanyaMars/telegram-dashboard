@@ -2,22 +2,20 @@ import React,{useEffect,useState} from 'react';
 import {BufferPage} from './CorePages';
 import {WorkspacePage} from './Workspace';
 
-/** Keep one mounted WorkspacePage while switching between directory and page route. */
+/** Buffer is the only directory. Task pages are editors, never a separate Pages section. */
 export function BufferWorkspacePage(){
- const [editingPage,setEditingPage]=useState(()=>window.location.hash.startsWith('#/page/'));
- const [workspaceMode,setWorkspaceMode]=useState(()=>window.location.hash==='#/workspace');
- const [showPages,setShowPages]=useState(()=>window.location.hash.startsWith('#/page/')||window.location.hash==='#/workspace');
+ const [taskPage,setTaskPage]=useState(()=>window.location.hash.startsWith('#/page/'));
  useEffect(()=>{
-  const sync=()=>{const hash=window.location.hash;setEditingPage(hash.startsWith('#/page/'));setWorkspaceMode(hash==='#/workspace');if(hash.startsWith('#/page/')||hash==='#/workspace')setShowPages(true);else if(hash==='#/tab/buffer')setShowPages(false)};
-  window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync);
+  const route=()=>{
+   if(window.location.hash==='#/workspace'){
+    window.history.replaceState(null,'',window.location.pathname+window.location.search+'#/tab/buffer');
+   }
+   setTaskPage(window.location.hash.startsWith('#/page/'));
+  };
+  route();window.addEventListener('hashchange',route);
+  return()=>window.removeEventListener('hashchange',route);
  },[]);
  return <div className="unified-buffer">
-  {!editingPage&&!workspaceMode&&<BufferPage/>}
-  {!editingPage&&!workspaceMode&&<button type="button" className="mvp-pages-toggle" aria-controls="os-workspace-panel" aria-expanded={showPages} onClick={()=>setShowPages(value=>!value)}>
-   {showPages?'Скрыть дополнительные страницы и базы':'Дополнительные страницы и базы'}
-  </button>}
-  <section id="os-workspace-panel" className="mvp-advanced-pages" hidden={!editingPage&&!workspaceMode&&!showPages}>
-   <WorkspacePage embedded/>
-  </section>
+  {taskPage?<WorkspacePage embedded/>:<BufferPage/>}
  </div>;
 }
