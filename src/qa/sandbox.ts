@@ -40,7 +40,7 @@ const ok=(x:Record<string,unknown>={})=>({ok:true,...x});
 function seed():QAState{
  const today=dayToday();
  const tasks=copy(demoTasks).map(t=>({...t,id:newId(),day:t.day?today:null}));
- const goals=copy(demoGoals).map(g=>({...g,id:newId()}));
+ const goals=copy(demoGoals).map(g=>({...g,id:newId(),created_at:now()}));
  const history=copy(demoGoalHistory).map(h=>({...h,goal_id:goals[0].id}));
  const os6=copy(demoOS6);
  os6.settings.tz=initialTimezone();
@@ -60,7 +60,7 @@ function seed():QAState{
  const items:WItem[]=[{id:newId(),split_id:splitA,title:'Разбить работу на задачи',completed:true,position:1000},{id:newId(),split_id:splitA,title:'Подготовить макеты',completed:false,position:2000},{id:newId(),split_id:splitB,title:'Проверить мобильную версию',completed:false,position:1000}];
  const fields:WField[]=[{id:newId(),source_id:sourceId,name:'Статус',field_type:'status',options:{choices:['К работе','В процессе','Готово']},position:1000},{id:newId(),source_id:sourceId,name:'Дата',field_type:'date',options:{},position:2000}];
  const views:WView[]=['table','board','list','calendar'].map((v,i)=>({id:newId(),source_id:sourceId,name:({table:'Таблица',board:'Доска',list:'Список',calendar:'Календарь'} as Record<string,string>)[v],view_type:v as WView['view_type'],config:{},position:(i+1)*1000}));
- const regularGoals:RegularGoal[]=[{id:newId(),title:'Собрать работающий MVP',description:'Пример связанной с задачами цели',period:'open',starts_on:null,ends_on:null,progress:20,completed:false}];
+ const regularGoals:RegularGoal[]=[{id:newId(),title:'Собрать работающий MVP',description:'Пример связанной с задачами цели',period:'open',starts_on:null,ends_on:null,progress:20,completed:false,created_at:now(),updated_at:now()}];
  return {tasks,goals,history,categories:copy(demoCategories),os6,regularGoals,regularLinks:{[tasks[0].id]:regularGoals[0].id,[tasks[1].id]:regularGoals[0].id},incomes:{},
  pages,blocks,splits,items,sources:[{id:sourceId,name:'Тестовые проекты',updated_at:now()}],fields,views,records:[],taskPages:{},trash:{}};
 }
@@ -110,7 +110,7 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='task_toggle'){const t=db.tasks.find(t=>t.id===id);if(!t)throw Error('Задача не найдена');t.completed=f.completed===true;return ok()}
   if(action==='task_delete'){const task=db.tasks.find(t=>t.id===id);if(!task)throw Error('Задача не найдена');db.trash[id]=copy(task);db.tasks=db.tasks.filter(t=>t.id!==id);return ok()}
   if(action==='task_restore'){const old=db.trash[id];if(!old)throw Error('Удалённая задача не найдена');db.tasks.push({...old,...(f.task as object),completed:f.completed===true});delete db.trash[id];return ok()}
-  if(action==='goal_save'){const data=f.goal as Record<string,any>;if(!data)throw Error('Нет данных цели');const old=db.goals.find(g=>g.id===id);const next={...(old||{}),...data,id:old?.id||newId()} as Goal;db.goals=old?db.goals.map(g=>g.id===id?next:g):[...db.goals,next];db.history.push({id:db.history.length+1,goal_id:next.id,value:Number(next.current_value),recorded_at:dayToday()});return ok({id:next.id})}
+  if(action==='goal_save'){const data=f.goal as Record<string,any>;if(!data)throw Error('Нет данных цели');const old=db.goals.find(g=>g.id===id);const next={...(old||{}),...data,id:old?.id||newId(),created_at:old?.created_at||now(),updated_at:now()} as Goal;db.goals=old?db.goals.map(g=>g.id===id?next:g):[...db.goals,next];db.history.push({id:db.history.length+1,goal_id:next.id,value:Number(next.current_value),recorded_at:dayToday()});return ok({id:next.id})}
   if(action==='goal_delete'){db.goals=db.goals.filter(g=>g.id!==id);db.history=db.history.filter(x=>x.goal_id!==id);db.os6.links=db.os6.links.filter(x=>x.goal_id!==id);return ok()}
  }
  if(fn==='os61'){
@@ -156,7 +156,7 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
  }
  if(fn==='os8'){
   if(action==='goals_list')return ok({goals:db.regularGoals});
-  if(action==='goal_save'){const old=db.regularGoals.find(x=>x.id===id);const g:RegularGoal={id:old?.id||newId(),title:asStr(f.title).slice(0,180),description:asStr(f.description),period:(asStr(f.period)||'open') as RegularGoal['period'],starts_on:asStr(f.starts_on)||null,ends_on:asStr(f.ends_on)||null,progress:Math.max(0,Math.min(100,Number(f.progress)||0)),completed:false};db.regularGoals=old?db.regularGoals.map(x=>x.id===id?g:x):[...db.regularGoals,g];return ok({id:g.id})}
+  if(action==='goal_save'){const old=db.regularGoals.find(x=>x.id===id);const g:RegularGoal={id:old?.id||newId(),title:asStr(f.title).slice(0,180),description:asStr(f.description),period:(asStr(f.period)||'open') as RegularGoal['period'],starts_on:asStr(f.starts_on)||null,ends_on:asStr(f.ends_on)||null,progress:Math.max(0,Math.min(100,Number(f.progress)||0)),completed:Number(f.progress)===100,created_at:old?.created_at||now(),updated_at:now()};db.regularGoals=old?db.regularGoals.map(x=>x.id===id?g:x):[...db.regularGoals,g];return ok({id:g.id})}
   if(action==='goal_delete'){db.regularGoals=db.regularGoals.filter(x=>x.id!==id);for(const [task,g] of Object.entries(db.regularLinks))if(g===id)delete db.regularLinks[task];return ok()}
   if(action==='task_page_links')return ok({pageIds:Object.values(db.taskPages)});
   if(action==='task_page_ensure'){if(!db.tasks.some(t=>t.id===taskId))throw Error('Задача не найдена');

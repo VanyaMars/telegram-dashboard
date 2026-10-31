@@ -5,6 +5,7 @@
  * ownership-protected os8/dashboard writes, without SQL migrations.
  * Invalid/legacy descriptions are always returned verbatim, never discarded.
  */
+import {dateInZone} from './date';
 export type GoalFieldType='number'|'percent'|'text'|'checkbox'|'date'|'select';
 export type GoalField={
  id:string;label:string;type:GoalFieldType;value:string;
@@ -68,7 +69,7 @@ export function combinedGoalProgress(parts:Array<number|null|undefined>,fallback
 export function goalAgeDays(createdAt:string|undefined,endedAt:string|null,today:string,tz:string){
  if(!createdAt)return null;
  const local=(value:string)=>{try{
-  return new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
+  return dateInZone(new Date(value),tz);
  }catch{return value.slice(0,10)}};
  const first=local(createdAt),last=endedAt?local(endedAt):today;
  const start=Date.parse(first+'T12:00:00Z'),end=Date.parse(last+'T12:00:00Z');

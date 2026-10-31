@@ -7,6 +7,8 @@ import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
+import {GoalsWorkspace} from '../components/GoalsWorkspace';
+import {readGoalDocument,writeGoalDocument} from '../lib/goalDocument';
 import {PlanScore} from '../components/PlanScore';
 import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
@@ -137,18 +139,7 @@ export function BufferPage(){
  </div>;
 }
 
-export function GoalsPage(){const{goals,goalHistory,setEditor,tasks,buffer,os6,openTaskPage}=useApp();
-  return <div className="page-stack"><div className="page-heading"><div><p className="eyebrow">ТВОИ ОРИЕНТИРЫ</p><h1>Цели</h1><p>Обычные и амбициозные цели в одном месте</p></div><button className="btn accent" onClick={()=>setEditor({type:'goal'})}><Icon name="plus" size={18}/> Амбициозная</button></div>
-    <Card><RegularGoals/></Card><SectionHead title="Амбициозные цели"/><div className="goals-grid">{goals.map(g=>{const percent=goalProgress(g),history=goalHistory.filter(p=>p.goal_id===g.id).sort((a,b)=>a.recorded_at.localeCompare(b.recorded_at));
-      return <Card key={g.id} className="goal-full"><div className="goal-full-head"><div><span className="eyebrow">{g.sphere||'ЦЕЛЬ'}</span><h2>{g.title}</h2></div><div className="goal-value">{percent}<small>%</small></div></div>
-        <GoalValues current={Number(g.current_value)} target={Number(g.target_value)} start={Number(g.start_value)} unit={g.unit}/>
-        <ProgressBar value={percent}/>{(()=>{const ids=new Set(os6.links.filter(l=>l.goal_id===g.id).map(l=>l.task_id));const candidate=[...tasks,...buffer].find(t=>ids.has(t.id)&&!t.completed);return candidate?<button className="goal-next-action" onClick={()=>void openTaskPage(candidate)}><Icon name="arrow-right" size={15}/><span>Следующий шаг: <strong>{candidate.title}</strong></span></button>:null})()}<Sparkline values={history.length?history.map(p=>Number(p.value)):[Number(g.start_value),Number(g.current_value)]}/>
-        <div className="goal-full-footer"><span>Прогресс от старта · {history.length} обновлений</span><button className="btn small outline" onClick={()=>setEditor({type:'goal',item:g})}>Обновить <Icon name="right" size={15}/></button></div>
-      </Card>})}
-      {!goals.length&&<Card><Empty title="Добавь амбициозную цель" action={<button className="btn accent" onClick={()=>setEditor({type:'goal'})}>Создать цель</button>}/></Card>}
-    </div>
-  </div>;
-}
+export function GoalsPage(){return <GoalsWorkspace/>;}
 export function GoalEditor(){
  const{editor,setEditor,saveGoal,deleteGoal}=useApp();
  const goal=editor?.type==='goal'?editor.item as Goal|undefined:undefined;
@@ -159,14 +150,14 @@ export function GoalEditor(){
  const [current,setCurrent]=useState(String(goal?.current_value??0));
  const [unit,setUnit]=useState(goal?.unit||'');
  const [deadline,setDeadline]=useState(goal?.deadline||'');
- const [notes,setNotes]=useState(goal?.notes||'');
+ const [notes,setNotes]=useState(readGoalDocument(goal?.notes).body);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const finite=(raw:string)=>raw.trim()!==''&&Number.isFinite(Number(raw));
  const valid=finite(start)&&finite(target)&&finite(current)&&Number(start)!==Number(target);
  const save=async(e:React.FormEvent)=>{
   e.preventDefault();if(!valid||busy)return;
   setError('');setBusy(true);
-  try{await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes})}
+  try{const original=readGoalDocument(goal?.notes);await saveGoal({id:goal?.id,title,sphere,start_value:start,target_value:target,current_value:current,unit,deadline,notes:writeGoalDocument({...original,body:notes})})}
   catch(err:any){setError(err?.message||'Не удалось сохранить цель. Данные остались в форме.')}
   finally{setBusy(false)}
  };

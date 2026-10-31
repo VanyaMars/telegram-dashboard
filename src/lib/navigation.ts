@@ -3,6 +3,7 @@ const allowed:readonly Tab[]=['home','today','goals','analytics','buffer','calen
 /** Pages retain their existing hash URL, top-level screens use #/tab/{tab}. */
 export function tabFromHash(hash:string):Tab{
  if(hash.startsWith('#/page/')||hash==='#/workspace')return 'buffer';
+ if(/^#\/goal\/(regular|strategic)\/[0-9a-f-]{36}$/i.test(hash))return 'goals';
  const match=/^#\/tab\/([a-z]+)$/.exec(hash);
  return match&&allowed.includes(match[1] as Tab)?match[1] as Tab:'home';
 }
