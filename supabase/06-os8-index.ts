@@ -54,14 +54,20 @@ Deno.serve(async(req:Request)=>{
     if(!idOk(key))return reply({ok:false,error:'Неверное свойство'},400);
     const field=await must(db.from('os11_task_property_definitions').select('id,field_type,options').eq('telegram_user_id',uid).eq('id',key).is('slug',null).maybeSingle());
     if(!field)return reply({ok:false,error:'Свойство не найдено'},404);
-    const choices=field.field_type==='select'&&Array.isArray(body.choices)
+    const requestedType=body.fieldType===undefined?field.field_type:String(body.fieldType);
+    if(!['duration','number','text','checkbox','date','select'].includes(requestedType))return reply({ok:false,error:'Неверный тип свойства'},400);
+    if(requestedType!==field.field_type){
+      const used=await must(db.from('os11_task_property_values').select('task_id').eq('telegram_user_id',uid).eq('property_id',key).neq('value','').limit(1));
+      if(used.length)return reply({ok:false,error:'Тип заполненного свойства менять нельзя: сначала сохрани его данные и очисти значения'},400);
+    }
+    const choices=requestedType==='select'&&Array.isArray(body.choices)
       ?body.choices.filter((x:unknown)=>typeof x==='string'&&x.trim().length>0&&x.length<=80).slice(0,25)
       :field.options?.choices||[];
-    if(field.field_type==='select'){
+    if(requestedType==='select'){
       const rows=await must(db.from('os11_task_property_values').select('value').eq('telegram_user_id',uid).eq('property_id',key).neq('value','').limit(3000));
       if(rows.some((r:any)=>!choices.includes(r.value)))return reply({ok:false,error:'Нельзя удалить вариант, уже используемый в задачах'},400);
     }
-    await must(db.from('os11_task_property_definitions').update({name,options:{...field.options,icon,choices}}).eq('telegram_user_id',uid).eq('id',key).select('id').single());
+    await must(db.from('os11_task_property_definitions').update({name,field_type:requestedType,options:{...field.options,icon,choices}}).eq('telegram_user_id',uid).eq('id',key).select('id').single());
     return reply({ok:true});
   }
   if(act==='task_native_patch'){
