@@ -184,7 +184,7 @@ Deno.serve(async(req:Request)=>{
    const pages=await must(db.from('os7_pages').select('id,icon').eq('telegram_user_id',uid).in('id',links.map((l:any)=>l.page_id)));
    const blocks=await must(db.from('os7_blocks').select('id,page_id').eq('telegram_user_id',uid).eq('type','pipeline').in('page_id',links.map((l:any)=>l.page_id)).limit(1000));
    const splits=blocks.length?await must(db.from('os7_splits').select('id,block_id').eq('telegram_user_id',uid).in('block_id',blocks.map((b:any)=>b.id)).limit(3000)):[];
-   const items=splits.length?await must(db.from('os7_items').select('split_id,completed').eq('telegram_user_id',uid).in('split_id',splits.map((x:any)=>x.id)).limit(8000)):[];
+   const items=splits.length?await must(db.from('os7_workflow_items').select('split_id,completed').eq('telegram_user_id',uid).in('split_id',splits.map((x:any)=>x.id)).limit(8000)):[];
    for(const l of links){
     const icon=pages.find((p:any)=>p.id===l.page_id)?.icon;
     const pipelines=blocks.filter((b:any)=>b.page_id===l.page_id);
