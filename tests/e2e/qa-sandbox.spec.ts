@@ -518,16 +518,14 @@ for(const width of [320,390,430,1440]){
  });
 }
 
-test('6.8.1 integration: mobile Buffer stays active when a nested page is opened',async({page})=>{
+test('6.9.1: mobile Buffer active in task page and after Back',async({page})=>{
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  const nav=page.getByRole('navigation',{name:'Основная навигация'});
- await nav.getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  await expect(nav.getByRole('button',{name:'Буфер задач'})).toHaveClass(/current/);
  await expect(nav.getByRole('button',{name:'Ещё'})).not.toHaveClass(/current/);
- await nav.getByRole('button',{name:'Буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
 });
 
