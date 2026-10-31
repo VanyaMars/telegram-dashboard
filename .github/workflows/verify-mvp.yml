@@ -47,5 +47,7 @@ jobs:
         run: node tests/unified-task-properties.mjs
       - name: Task polish contracts
         run: node tests/task-polish.mjs
+      - name: Task autosave and appearance contracts
+        run: node tests/task-property-autosave.mjs
       - name: Typecheck and build
         run: npm run build
