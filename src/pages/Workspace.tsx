@@ -12,7 +12,7 @@ import {TaskCustomProperties} from '../components/TaskCustomProperties';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 
-const icons=['📄','📁','🎯','💼','🧠','📝','🚀','🏡','💰','📚','⚡'];
+const icons=['📋','📄','📁','🎯','💼','🧠','📝','🚀','🏡','💰','📚','⚡'];
 const blockLabels:Record<BlockType,string>={text:'Текст',heading:'Заголовок',checklist:'Чеклист',image:'Изображение',divider:'Разделитель',database:'База данных',pipeline:'Pipeline',page_link:'Ссылка на страницу'};
 const uuidRoute=()=>{const match=window.location.hash.match(/^#\/page\/([0-9a-f-]{36})$/i);return match?.[1]||null};
 export function WorkspacePage({embedded=false}:{embedded?:boolean}){
@@ -79,7 +79,7 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
   const blockOrder=async(id:string,delta:number)=>{const ids=blocks.map(x=>x.id),i=ids.indexOf(id),j=i+delta;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await write('block_reorder',{pageId:page.id,ids});await refresh()};
  const sub=pages.filter(x=>x.parent_id===page.id);
  return <>
-   <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
+   <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{!icons.includes(icon)&&<option value={icon}>{icon}</option>}{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
    <input className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
    {data.record&&<div className="os-info">Это запись базы данных. Редактируй её поля в представлении базы; здесь можно добавлять любые блоки.</div>}
    {taskData&&<><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh} pipelineProperties={taskPipelineProperties(data)}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<TaskIncomeEditor taskId={taskData.id}/>}</>}
