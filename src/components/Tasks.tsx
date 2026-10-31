@@ -3,13 +3,15 @@ import {useApp} from '../AppContext';
 import type {Task} from '../types';
 import {Icon} from './Icons';
 import {Empty} from './UI';
+import {request} from '../lib/api';
+import {TaskEmojiPicker,useTaskCardMeta,type TaskCardMeta} from './TaskCardMeta';
 import {useReducedMotion} from 'motion/react';
 import {motionTokens} from './motionTokens';
 import * as m from 'motion/react-m';
 
 type Zone='important'|'extra'|'buffer';
 export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone;label?:string;emptyMessage?:string}){
-  const {reorder}=useApp();const [drag,setDrag]=useState<{id:string;over:string|null;section:Zone}|null>(null);
+  const {reorder}=useApp();const meta=useTaskCardMeta(items.map(x=>x.id));const [drag,setDrag]=useState<{id:string;over:string|null;section:Zone}|null>(null);
   const gesture=useRef<{id:string;active:boolean;timer:number|null;over:string|null;section:Zone;startY:number;startX:number;pointerType:string;moved:boolean}|null>(null);
   const stop=()=>{const g=gesture.current;if(g?.timer)window.clearTimeout(g.timer);gesture.current=null;setDrag(null);};
   const down=(e:React.PointerEvent<HTMLButtonElement>,id:string)=>{
@@ -44,38 +46,32 @@ export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone
   return <div className={'task-list '+(drag?'is-dragging':'')} data-drop-zone={zone}>
     {label&&<div className="task-zone-head">{label}<small>{items.length}</small></div>}
     {items.length===0?<div className="task-zone-empty">{emptyMessage||'Задач пока нет'}</div>:
-    items.map(item=><TaskRow key={item.id} task={item} zone={zone} dragging={drag?.id===item.id} targeted={drag?.over===item.id&&drag.id!==item.id} dragProps={{
+    items.map(item=><TaskRow key={item.id} task={item} zone={zone} meta={meta[item.id]} dragging={drag?.id===item.id} targeted={drag?.over===item.id&&drag.id!==item.id} dragProps={{
       onPointerDown:(e:React.PointerEvent<HTMLButtonElement>)=>down(e,item.id),
       onPointerMove:move,onPointerUp:up,onPointerCancel:stop,
       onKeyDown:(e:React.KeyboardEvent)=>keyboard(e,item.id)
     }}/>) }
   </div>;
 }
-function TaskRow({task,zone,dragging,targeted,dragProps}:{task:Task;zone:Zone;dragging:boolean;targeted:boolean;dragProps:any}){
-  const {categories,toggleTask,setEditor,reorder,deleteTask,os6,goals,openTaskPage}=useApp();const [menu,setMenu]=useState(false);
+function TaskRow({task,zone,meta,dragging,targeted,dragProps}:{task:Task;zone:Zone;meta?:TaskCardMeta;dragging:boolean;targeted:boolean;dragProps:any}){
+  const {categories,toggleTask,setEditor,reorder,deleteTask,os6,goals,openTaskPage}=useApp();const [menu,setMenu]=useState(false),[emojiMenu,setEmojiMenu]=useState(false),[emoji,setEmoji]=useState('📋');
+ React.useEffect(()=>setEmoji(meta?.emoji||'📋'),[meta?.emoji]);
   const reduced=useReducedMotion();
   const category=categories.find(c=>c.id===task.os61_category_id)||categories.find(c=>c.name===task.sphere);
   const goalID=os6.links.find(x=>x.task_id===task.id)?.goal_id;
   const goal=goals.find(g=>g.id===goalID);
+ const chooseEmoji=async(v:string)=>{setEmojiMenu(false);setEmoji(v);try{await request('os8','task_emoji_set',{taskId:task.id,emoji:v})}catch{setEmoji(meta?.emoji||'📋')}};
   return <article className={'task-row '+(task.completed?'is-done ':'')+(dragging?'task-moving ':'')+(targeted?'task-drop-target':'')} data-task-id={task.id}>
-    {zone!=='buffer'?<m.button whileTap={!reduced?{scale:0.975}:undefined} transition={reduced?{duration:0}:motionTokens.press} className={'task-checkbox '+(task.completed?'checked':'')} onClick={()=>void toggleTask(task)} aria-label={`${task.completed?'Снять выполнение':'Выполнить'}: ${task.title}`}>
-      {task.completed&&<m.span initial={reduced?false:{scale:0.82,opacity:0}} animate={{scale:1,opacity:1}} transition={{type:'spring',stiffness:500,damping:25}}><Icon name="check" size={15}/></m.span>}</m.button>:<div className="task-dot"/>}
+    <div className="task-leading-actions"><button className="drag-handle" aria-label={`Действия с задачей ${task.title}`} aria-expanded={menu} title="Нажать или удерживать" {...dragProps} onClick={()=>{if(!dragging)setMenu(v=>!v)}}><Icon name="grip" size={16}/></button>
+    {menu&&<div className="task-popover" role="menu"><button onClick={()=>{setMenu(false);void openTaskPage(task)}}>Редактировать задачу</button><button onClick={()=>{setMenu(false);void reorder(task.id,'important',null)}}>В важное</button><button onClick={()=>{setMenu(false);void reorder(task.id,'extra',null)}}>В дополнительное</button><button onClick={()=>{setMenu(false);void openTaskPage(task)}}>Привязать к цели</button><button className="danger" onClick={()=>{setMenu(false);void deleteTask(task)}}>Удалить задачу</button></div>}</div>
+    {zone!=='buffer'?<m.button className={'task-checkbox '+(task.completed?'checked':'')} onClick={()=>void toggleTask(task)} aria-label={`${task.completed?'Снять выполнение':'Выполнить'}: ${task.title}`}>{task.completed&&<Icon name="check" size={15}/>}</m.button>:null}
+    <div className="task-emoji-holder"><button className="task-emoji-trigger" aria-label="Выбрать эмодзи" onClick={()=>setEmojiMenu(x=>!x)}>{emoji}</button>{emojiMenu&&<TaskEmojiPicker value={emoji} onSelect={v=>void chooseEmoji(v)} onClose={()=>setEmojiMenu(false)}/>}</div>
     <button className="task-copy" onClick={()=>void openTaskPage(task)} title="Открыть страницу задачи"><span className="task-text">{task.title}</span><span className="task-labels">
       {category&&<span className="task-category"><i style={{background:category.color}}/>{category.name}</span>}{goal&&<span className="linked-goal"><Icon name="target" size={11}/>{goal.title}</span>}
       {zone==='buffer'&&task.notes&&<span className="task-notes">{task.notes.slice(0,64)}</span>}
     </span></button>
-    <div className="task-actions">
-      <button className="drag-handle" title="Перетащить задачу. Клавиши ↑ и ↓ также меняют порядок." aria-label={`Перетащить ${task.title}`} {...dragProps}><Icon name="grip" size={19}/></button>
-      <button className="more-btn" aria-label={`Действия с задачей ${task.title}`} aria-expanded={menu} onClick={()=>setMenu(!menu)}><Icon name="more" size={18}/></button>
-      {menu&&<div className="task-popover" role="menu">
-        <button onClick={()=>{setMenu(false);setEditor({type:'task',item:task})}}><Icon name="edit" size={16}/> Изменить свойства</button>
-        {zone!=='important'&&<button onClick={()=>{setMenu(false);void reorder(task.id,'important',null)}}><Icon name="target" size={16}/> В важные</button>}
-        {zone!=='extra'&&<button onClick={()=>{setMenu(false);void reorder(task.id,'extra',null)}}><Icon name="zap" size={16}/> В дополнительные</button>}
-        {zone!=='buffer'&&<button onClick={()=>{setMenu(false);void reorder(task.id,'buffer',null)}}><Icon name="inbox" size={16}/> В буфер</button>}
-        <button className="danger" onClick={()=>{setMenu(false);void deleteTask(task)}}><Icon name="trash" size={16}/> Удалить</button>
-      </div>}
-    </div>
-  </article>;
+    {typeof meta?.progress==='number'&&<div className="task-card-progress"><div className="task-card-progress-track"><span style={{width:meta.progress+'%'}}/></div><small>{meta.progress}%</small></div>}
+   </article>;
 }
 
 export function TaskEditor(){const{editor,setEditor,categories,goals,os6,day,saveTask}=useApp();
