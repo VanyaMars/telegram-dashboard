@@ -122,6 +122,7 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
  const [tab,setTab]=useState<'overview'|'tasks'|'analytics'>('overview');
  const [doc,setDoc]=useState<GoalDocument>(storedDocument);
  const [localClosed,setLocalClosed]=useState<boolean|null>(null);
+ const [editingFields,setEditingFields]=useState(false),[draftBaseline,setDraftBaseline]=useState<GoalDocument|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState('');
  const [allTasks,setAllTasks]=useState<Task[]>([]),[linkedIds,setLinkedIds]=useState<string[]>([]),[linkLoading,setLinkLoading]=useState(false),[linkError,setLinkError]=useState('');
  const [freshStats,setFreshStats]=useState<{total:number;done:number}|null>(null);
@@ -174,6 +175,7 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
     kind,goalId:goal.id,fields:nextDoc.fields,closedAt:nextDoc.closedAt,notesBody:nextDoc.body,statusChange
    });
    setDoc({...nextDoc,fields:r.document.fields,closedAt:r.document.closed_at});
+   setEditingFields(false);setDraftBaseline(null);
    if(statusChange)setLocalClosed(statusChange==='close');
    setSaved(statusChange==='close'?'Цель закрыта':statusChange==='reopen'?'Цель снова активна':'Показатели и заметки сохранены');
    onUpdated();if(kind==='strategic')void app.refresh();
@@ -181,6 +183,13 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
   finally{saveLock.current=false;setBusy(false)}
  };
  const complete=()=>{void saveDoc({...doc,closedAt:closed?null:new Date().toISOString()},closed?'reopen':'close')};
+ const startEditing=(add=false)=>{
+  setDraftBaseline({...doc,fields:doc.fields.map(f=>({...f}))});
+  if(add)setDoc(previous=>({...previous,fields:[...previous.fields,newField()]}));
+  setEditingFields(true);setError('');setSaved('');
+ };
+ const cancelEditing=()=>{if(busy)return;if(draftBaseline)setDoc(draftBaseline);setEditingFields(false);setDraftBaseline(null)};
+
  const createTask=async(e:React.FormEvent)=>{
   e.preventDefault();if(taskLock.current||!taskDraft.trim())return;
   taskLock.current=true;setTaskSaving(true);setLinkError('');setSaved('');
@@ -253,7 +262,8 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
     {duration!==null&&<span>{closed?'На выполнение':'В работе'}: {duration} дн.</span>}
    </div>
    <div className="goal-detail-progress"><ProgressBar value={percent}/><strong>{percent}%</strong></div>
-   <p className="goal-progress-explainer">Прогресс — среднее по доступным числовым показателям и связанным задачам{kind==='strategic'?', включая основное значение цели':''}. Данные без цели не влияют на процент.</p>
+   <p className="goal-progress-explainer">Автоматический прогресс по задачам и измеримым показателям{kind==='strategic'?', включая основное значение цели':''}.</p>
+   {featured.length>0&&<div className="goal-featured-overview" aria-label="Ключевые показатели">{featured.map(f=><div className="goal-featured-tile" key={f.id}><span>{f.label||'Показатель'}</span><strong>{formatGoalField(f)}</strong></div>)}</div>}
   </div>
   <div className="goal-detail-nav" role="tablist" aria-label="Разделы цели">
    {[['overview','Обзор'],['tasks','Задачи'],['analytics','Аналитика']].map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} className={tab===id?'active':''} onClick={()=>setTab(id as typeof tab)}>{label}</button>)}
@@ -262,7 +272,18 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
   {saved&&<p className="goal-save-status" role="status"><Icon name="check-circle" size={16}/>{saved}</p>}
   {tab==='overview'&&<div className="goal-detail-panels">
    <Card className="goal-editor-panel">
-    <SectionHead title="Показатели" caption="Типы данных как свойства страницы. До двух — на карточке."/>
+    <SectionHead title="Показатели" caption="Все свойства цели — независимо от выбранных ключевых показателей."
+     action={!editingFields?<button type="button" className="btn outline goal-edit-metrics" onClick={()=>startEditing()}><Icon name="edit" size={16}/> Настроить</button>:undefined}/>
+    {!editingFields&&<div className="goal-metrics-overview">
+     {doc.fields.length?doc.fields.map(f=><div key={f.id} className="goal-metric-preview">
+      <div className="goal-metric-title"><span>{f.label||'Новый показатель'}</span>{f.featured&&<small className="goal-metric-featured">Ключевой</small>}</div>
+      <strong>{formatGoalField(f)}</strong>
+      {goalFieldProgress(f)!==null&&<div className="goal-metric-mini-progress"><ProgressBar value={goalFieldProgress(f)||0}/></div>}
+     </div>):<div className="goal-metric-empty"><Icon name="sliders-horizontal" size={22}/><strong>Добавь первый показатель</strong><span>Доход, вес, количество действий, статус — всё в одном месте.</span></div>}
+     <button type="button" className="goal-add-metric" onClick={()=>startEditing(true)}><Icon name="plus" size={16}/> Добавить показатель</button>
+    </div>}
+    {editingFields&&<>
+     <p className="goal-edit-help">Выбери тип, укажи значение. До двух показателей можно закрепить на карточке цели.</p>
     <div className="goal-field-grid">{doc.fields.map((field,i)=><div className="goal-field-editor" key={field.id}>
      <div className="goal-field-line"><label className="goal-field-title">Название<input value={field.label} maxLength={100} placeholder="Например, Выручка" onChange={e=>updateField(field.id,{label:e.target.value})}/></label>
       <label>Тип<select value={field.type} onChange={e=>updateField(field.id,{type:e.target.value as GoalFieldType,value:'',start:'0',target:''})}>
@@ -281,11 +302,17 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
       <label className="goal-feature-label"><input type="checkbox" checked={!!field.featured} disabled={!field.featured&&featured.length>=2} onChange={e=>updateField(field.id,{featured:e.target.checked})}/> Показывать на карточке</label>
      </div>
     </div>)}</div>
-    <div className="goal-fields-actions"><button type="button" className="btn outline" disabled={doc.fields.length>=24} onClick={()=>setDoc(d=>({...d,fields:[...d.fields,newField()]}))}><Icon name="plus" size={16}/> Показатель</button>
+    <div className="goal-fields-actions"><button type="button" className="btn outline" disabled={doc.fields.length>=24} onClick={()=>setDoc(d=>({...d,fields:[...d.fields,newField()]}))}><Icon name="plus" size={16}/> Добавить показатель</button>
      <span className="tiny-note">{featured.length} из 2 ключевых показателей</span></div>
     <label className="goal-notes-label">Описание и заметки<textarea rows={4} value={doc.body} maxLength={3500} onChange={e=>setDoc(d=>({...d,body:e.target.value}))} placeholder="Зачем нужна эта цель? Какой результат будет считаться успехом?"/></label>
-    <div className="goal-panel-actions"><button className="btn accent" disabled={busy} onClick={()=>void saveDoc(doc)}>{busy?'Сохраняем…':'Сохранить показатели'}</button>
-     <button className={'btn '+(closed?'outline':'subtle')} disabled={busy} onClick={complete}>{closed?'Вернуть в активные':'Закрыть цель'}</button></div>
+
+     <label className="goal-notes-label">Описание и заметки<textarea rows={4} value={doc.body} maxLength={3500} onChange={e=>setDoc(d=>({...d,body:e.target.value}))} placeholder="Зачем нужна эта цель? Как понять, что результат достигнут?"/></label>
+     <div className="goal-panel-actions"><button className="btn accent" disabled={busy} onClick={()=>void saveDoc(doc)}>{busy?'Сохраняем…':'Сохранить изменения'}</button>
+      <button type="button" className="btn outline" disabled={busy} onClick={cancelEditing}>Отмена</button></div>
+    </>}
+    {!editingFields&&<div className="goal-description-preview"><span className="eyebrow">ЗАМЕТКИ</span><p>{doc.body||'Здесь можно записать смысл цели и важный контекст.'}</p>
+      <button type="button" onClick={()=>startEditing()} className="goal-note-edit"><Icon name="edit" size={15}/> Изменить заметки</button></div>}
+    {!editingFields&&<div className="goal-panel-actions goal-panel-actions--close"><button className={'btn '+(closed?'outline':'subtle')} disabled={busy} onClick={complete}>{closed?'Вернуть в активные':'Закрыть цель'}</button></div>}
    </Card>
   </div>}
   {tab==='tasks'&&<div className="goal-detail-panels">
