@@ -79,21 +79,14 @@ test('F01: regular goal dialog stays above ambitious cards and saves by mouse cl
  await expect(page.getByText('QA цель: доступность окна')).toBeVisible();
 });
 
-test('F02: nested pages and breadcrumbs render without reloading',async({page})=>{
+test('F02: a task-page editor and nested blocks return directly to Buffer',async({page})=>{
  await enter(page);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByText('Дополнительные страницы и базы').click();
- await page.getByPlaceholder('Название новой страницы').fill('QA Родитель 671');
- await page.getByRole('button',{name:'Создать',exact:true}).click();
- await expect(page.getByRole('textbox',{name:'Название страницы'})).toHaveValue('QA Родитель 671');
+ await openSampleTaskPage(page);
  await page.locator('.os-children').getByRole('button',{name:'+ Страница'}).click();
  await expect(page.locator('.os-page-editor')).toBeVisible();
- await expect(page.locator('.os-page-editor')).not.toBeEmpty();
- await page.getByRole('button',{name:'QA Родитель 671',exact:true}).last().click();
- await expect(page.locator('.os-page-editor')).toBeVisible();
- await expect(page.getByRole('textbox',{name:'Название страницы'})).toHaveValue('QA Родитель 671');
- await page.goBack();
- await expect(page.locator('.os-page-editor')).toBeVisible();
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
 });
 
 for(const width of [320,390,430,1440]){
