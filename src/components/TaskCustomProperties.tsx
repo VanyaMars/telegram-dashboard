@@ -31,7 +31,7 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
   {error&&<p role="alert" className="os-inline-error">{error}</p>}
   {status&&<p role="status" className="os-inline-hint">{status}</p>}
   {pipelineProperties.map(p=><div className="os-custom-property-row os-computed-progress" key={p.blockId}>
-   <TaskPropertyAppearance fieldKey="progress" name={pipelineProperties.length===1?progressAppearance.name:p.label} icon={progressAppearance.icon} onChange={onProgressAppearance}/><div className="os-computed-progress-value">
+   <TaskPropertyAppearance fieldKey="progress" name={pipelineProperties.length===1?progressAppearance.name:p.label.replace(/^Прогресс/,progressAppearance.name)} icon={progressAppearance.icon} onChange={onProgressAppearance}/><div className="os-computed-progress-value">
     <div className="os-computed-progress-track" role="progressbar" aria-label={p.label} aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100}><span style={{width:p.percent+'%'}}/></div>
     <strong>{p.percent}%</strong><small>{p.done} из {p.total} действий · автоматически</small>
    </div>
