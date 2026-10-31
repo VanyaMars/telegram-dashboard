@@ -455,6 +455,27 @@ test('6.9 Goals: a new goal task survives reload with the same ID',async({page})
  await page.reload();
  await page.getByRole('tab',{name:'Задачи'}).click();
  await expect(page.locator('.goal-task-open').filter({hasText:'Новая задача цели 6.9'})).toHaveCount(1);
+ const previous=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const d=JSON.parse(localStorage.getItem('personal-os:qa:data:v1:'+session.id)||'{}');
+  const task=d.tasks.find((t:any)=>t.title==='Новая задача цели 6.9');
+  return {id:task.id,goalId:d.regularLinks[task.id]};
+ });
+ await page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox').check();
+ await expect(page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox')).toBeChecked();
+ const after=await page.evaluate(()=>{
+  const session=JSON.parse(localStorage.getItem('personal-os:qa:session:v1')||'{}');
+  const d=JSON.parse(localStorage.getItem('personal-os:qa:data:v1:'+session.id)||'{}');
+  const task=d.tasks.find((t:any)=>t.title==='Новая задача цели 6.9');
+  return {id:task.id,day:task.day,completed:task.completed,goalId:d.regularLinks[task.id]};
+ });
+ expect(after.id).toBe(previous.id);
+ expect(after.goalId).toBe(previous.goalId);
+ expect(after.day).toBeTruthy();
+ expect(after.completed).toBe(true);
+ await page.reload();
+ await page.getByRole('tab',{name:'Задачи'}).click();
+ await expect(page.locator('.goal-task-row').filter({hasText:'Новая задача цели 6.9'}).getByRole('checkbox')).toBeChecked();
 });
 
 test('6.9 integration: Buffer→Today→Goals→Pages→Analytics',async({page})=>{
