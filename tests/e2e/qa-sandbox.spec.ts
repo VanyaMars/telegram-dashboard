@@ -425,7 +425,7 @@ test('6.9 Goals: featured numeric metric, close and reopen persist',async({page}
  await field.getByRole('spinbutton',{name:'Цель'}).fill('10');
  await field.getByRole('checkbox',{name:'Показывать на карточке'}).check();
  await page.getByRole('button',{name:'Сохранить показатели'}).click();
- await expect(page.getByRole('status')).toContainText('Изменения сохранены');
+ await expect(page.locator('.goal-save-status')).toContainText('Изменения сохранены');
  await page.reload();
  await expect(page.locator('.goal-field-editor')).toHaveCount(1);
  await expect(page.locator('.goal-field-editor').first().getByRole('textbox',{name:'Название'})).toHaveValue('Клиенты');
