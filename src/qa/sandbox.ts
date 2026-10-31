@@ -186,9 +186,28 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
    if(action==='goals_list')return ok({goals:db.regularGoals});
   if(action==='goal_save'){const old=db.regularGoals.find(x=>x.id===id);const g:RegularGoal={id:old?.id||newId(),title:asStr(f.title).slice(0,180),description:asStr(f.description),period:(asStr(f.period)||'open') as RegularGoal['period'],starts_on:asStr(f.starts_on)||null,ends_on:asStr(f.ends_on)||null,progress:Math.max(0,Math.min(100,Number(f.progress)||0)),completed:Number(f.progress)===100,created_at:old?.created_at||now(),updated_at:now()};db.regularGoals=old?db.regularGoals.map(x=>x.id===id?g:x):[...db.regularGoals,g];return ok({id:g.id})}
   if(action==='goal_delete'){db.regularGoals=db.regularGoals.filter(x=>x.id!==id);for(const [task,g] of Object.entries(db.regularLinks))if(g===id)delete db.regularLinks[task];return ok()}
+  if(action==='task_cards_meta'){
+   const cards:Record<string,{emoji:string;progress:number|null}>={};
+   for(const id of (Array.isArray(f.taskIds)?f.taskIds:[]) as string[]){
+    if(!db.tasks.some(t=>t.id===id))continue;
+    const p=db.pages.find(x=>x.id===db.taskPages[id]);
+    const pipes=db.blocks.filter(x=>x.page_id===p?.id&&x.type==='pipeline');
+    const splitIds=new Set(db.splits.filter(x=>pipes.some(b=>b.id===x.block_id)).map(x=>x.id));
+    const items=db.items.filter(x=>splitIds.has(x.split_id));
+    cards[id]={emoji:p?.icon&&!['📝','📄'].includes(p.icon)?p.icon:'📋',progress:pipes.length?(items.length?Math.round(items.filter(x=>x.completed).length/items.length*100):0):null};
+   }
+   return ok({cards});
+  }
+  if(action==='task_emoji_set'){
+   const task=db.tasks.find(t=>t.id===taskId);if(!task)throw Error('Задача не найдена');
+   let p=db.pages.find(x=>x.id===db.taskPages[taskId]);
+   if(!p){p={id:newId(),parent_id:null,title:task.title,icon:'📋',updated_at:now()};db.pages.push(p);db.taskPages[taskId]=p.id}
+   p.icon=asStr(f.emoji);return ok({emoji:p.icon});
+  }
   if(action==='task_page_links')return ok({pageIds:Object.values(db.taskPages)});
   if(action==='task_page_ensure'){if(!db.tasks.some(t=>t.id===taskId))throw Error('Задача не найдена');
-   let pageId=db.taskPages[taskId];if(!pageId){pageId=newId();const task=db.tasks.find(t=>t.id===taskId)!;db.pages.push({id:pageId,parent_id:null,title:task.title,icon:'📄',updated_at:now()});db.taskPages[taskId]=pageId;}
+   let pageId=db.taskPages[taskId];if(!pageId){pageId=newId();const task=db.tasks.find(t=>t.id===taskId)!;db.pages.push({id:pageId,parent_id:null,title:task.title,icon:'📋',updated_at:now()});db.taskPages[taskId]=pageId;}
+   if(!db.blocks.some(b=>b.page_id===pageId&&b.type==='heading'))db.blocks.push({id:newId(),page_id:pageId,type:'heading',position:0,content:{text:''}});
    return ok({pageId});
   }
   if(action==='task_page_find'){const found=Object.entries(db.taskPages).find(([,v])=>v===asStr(f.pageId));return ok({task:found?db.tasks.find(x=>x.id===found[0])||null:null})}
