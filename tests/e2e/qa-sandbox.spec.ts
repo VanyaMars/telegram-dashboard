@@ -123,18 +123,14 @@ test('6.7.2 F03: selected section, date and Back/Forward survive reload',async({
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'})).toHaveAttribute('aria-current','page');
 });
 
-test('6.7.2 F04 and N01: local-only status and accessible workspace, no Details',async({page})=>{
+test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({page})=>{
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.0');
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('#os-workspace-panel')).toBeVisible();
- await expect(page.locator('#os-workspace-panel > summary')).toHaveCount(0);
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.9.1-rc.1');
+ await openSampleTaskPage(page);
  await expect(page.locator('.os-page-editor')).toBeVisible();
- await expect(page.locator('#os-workspace-panel > summary')).toHaveCount(0);
+ await expect(page.locator('#os-workspace-panel')).toHaveCount(0);
 });
 
 test('6.7.2 F07: keyboard Workflow edit with Escape cancellation and Enter save',async({page})=>{
