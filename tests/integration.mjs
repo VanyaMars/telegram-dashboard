@@ -11,11 +11,13 @@ assert.doesNotMatch(app,/label:'Страницы'/);assert.match(app,/mobilePrim
 assert.doesNotMatch(core,/today-start-focus/);
 assert.doesNotMatch(core,/Начать фокус|Начать с 5 минут|open\('focus'\)/);
 assert.doesNotMatch(analytics,/focusIncome|Фокус по задачам/);assert.match(analytics,/GoalValues/);assert.match(analytics,/regularGoalValues/);
-assert.match(pages,/workspaceMode/);assert.match(pages,/!editingPage&&!workspaceMode&&<BufferPage/);
+assert.doesNotMatch(pages,/workspaceMode|showPages|mvp-pages-toggle/);
+assert.match(pages,/taskPage/);
 assert.match(pipeline,/LayoutGroup/);assert.match(pipeline,/useReducedMotion/);
-assert.match(read('package.json'),/6\.9\.0/);
+assert.match(read('package.json'),/6\.9\.1-rc\.1/);
 assert.ok(!read('src/lib/api.ts').includes('goal_target_mode'),'No invented backend contract');
 console.log('6.8 integrated static checks: Home, Goals, Pages, Income, Pipeline and build label OK');
 
 assert.match(read('src/components/WorkspacePipeline.tsx'),/let committed=false/);
-assert.match(read('src/pages/BufferWorkspace.tsx'),/setShowPages\(false\)/);
+assert.match(read('src/pages/Workspace.tsx'),/Назад в буфер задач/);
+assert.doesNotMatch(read('src/components/RegularGoals.tsx'),/Ручной прогресс|Ручной процент/);

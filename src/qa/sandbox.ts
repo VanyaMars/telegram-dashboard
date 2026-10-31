@@ -64,7 +64,7 @@ function seed():QAState{
  const views:WView[]=['table','board','list','calendar'].map((v,i)=>({id:newId(),source_id:sourceId,name:({table:'Таблица',board:'Доска',list:'Список',calendar:'Календарь'} as Record<string,string>)[v],view_type:v as WView['view_type'],config:{},position:(i+1)*1000}));
  const regularGoals:RegularGoal[]=[{id:newId(),title:'Собрать работающий MVP',description:'Пример связанной с задачами цели',period:'open',starts_on:null,ends_on:null,progress:20,completed:false,created_at:now(),updated_at:now()}];
  return {tasks,goals,history,categories:copy(demoCategories),os6,regularGoals,regularLinks:{[tasks[0].id]:regularGoals[0].id,[tasks[1].id]:regularGoals[0].id},incomes:{},goalDocuments:{},
- pages,blocks,splits,items,sources:[{id:sourceId,name:'Тестовые проекты',updated_at:now()}],fields,views,records:[],taskPages:{},trash:{}};
+ pages,blocks,splits,items,sources:[{id:sourceId,name:'Тестовые проекты',updated_at:now()}],fields,views,records:[],taskPages:{[tasks[6].id]:pageId},trash:{}};
 }
 function load():QAState{
  const s=readQASession();if(!isQAMode()||!s)throw new Error('QA Sandbox: сначала создай гостевую сессию');

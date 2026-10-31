@@ -8,7 +8,7 @@ for(const path of files){
  assert.equal(script.parseDiagnostics.length,0,'TypeScript parsing: '+path);
 }
 const goals=read('src/components/GoalsWorkspace.tsx'),doc=read('src/lib/goalDocument.ts'),routes=read('src/lib/navigation.ts'),shell=read('src/App.tsx');
-for(const heading of ['Закрытые цели','Стратегические цели','Показатели','Задачи','Аналитика','Сохранить показатели','Создать и привязать','Вернуть в активные']){
+for(const heading of ['Закрытые цели','Стратегические цели','Показатели','Задачи','Аналитика','Сохранить изменения','Создать и привязать','Вернуть в активные']){
  assert.ok(goals.includes(heading),'Goal UX: '+heading);
 }
 for(const type of ['number','percent','text','checkbox','date','select'])assert.ok(doc.includes(type),'Field type: '+type);
@@ -17,6 +17,11 @@ assert.match(doc,/featured\.length>2/);
 assert.match(doc,/result\.length>5900/);
 assert.match(goals,/regular_goal_set/);
 assert.match(goals,/task_save_and_link/);
+assert.match(goals,/task_reschedule/);
+assert.match(goals,/goal_documents_list/);
+assert.match(goals,/goal_document_save/);
+assert.doesNotMatch(goals,/writeGoalDocument/);
+assert.match(read('supabase/06-os8-index.ts'),/goal_document_save/);
 assert.match(goals,/goalFieldProgress/);
 assert.match(routes,/#\\\/goal/);
 for(const text of ["Фокус-таймер","Повторения","label:'Доходы'"])assert.ok(!shell.includes(text),'Removed nav: '+text);

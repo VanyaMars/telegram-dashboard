@@ -304,8 +304,6 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
     </div>)}</div>
     <div className="goal-fields-actions"><button type="button" className="btn outline" disabled={doc.fields.length>=24} onClick={()=>setDoc(d=>({...d,fields:[...d.fields,newField()]}))}><Icon name="plus" size={16}/> Добавить показатель</button>
      <span className="tiny-note">{featured.length} из 2 ключевых показателей</span></div>
-    <label className="goal-notes-label">Описание и заметки<textarea rows={4} value={doc.body} maxLength={3500} onChange={e=>setDoc(d=>({...d,body:e.target.value}))} placeholder="Зачем нужна эта цель? Какой результат будет считаться успехом?"/></label>
-
      <label className="goal-notes-label">Описание и заметки<textarea rows={4} value={doc.body} maxLength={3500} onChange={e=>setDoc(d=>({...d,body:e.target.value}))} placeholder="Зачем нужна эта цель? Как понять, что результат достигнут?"/></label>
      <div className="goal-panel-actions"><button className="btn accent" disabled={busy} onClick={()=>void saveDoc(doc)}>{busy?'Сохраняем…':'Сохранить изменения'}</button>
       <button type="button" className="btn outline" disabled={busy} onClick={cancelEditing}>Отмена</button></div>

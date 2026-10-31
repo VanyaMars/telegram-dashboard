@@ -9,7 +9,9 @@ for(const file of ['src/App.tsx','src/pages/MvpAnalytics.tsx','src/lib/navigatio
 const app=read('src/App.tsx'),an=read('src/pages/MvpAnalytics.tsx'),navigation=read('src/lib/navigation.ts');
 assert.doesNotMatch(app,/label:'Страницы'/,'Pages must not be a separate sidebar item');
 assert.match(app,/label:'Буфер задач'/);
-assert.match(read('src/pages/BufferWorkspace.tsx'),/Дополнительные страницы и базы/);
+assert.doesNotMatch(read('src/pages/BufferWorkspace.tsx'),/Дополнительные страницы и базы|os-workspace-panel/);
+assert.match(read('src/pages/BufferWorkspace.tsx'),/taskPage/);
+assert.match(read('src/pages/Workspace.tsx'),/Назад в буфер задач/);
 assert.doesNotMatch(app,/label:'Доходы'/);
 assert.doesNotMatch(app,/label:'Фокус-таймер'|label:'Повторения'/);
 assert.match(app,/case 'analytics':return <MvpAnalyticsPage\/>/);

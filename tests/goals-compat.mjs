@@ -10,9 +10,9 @@ for(const path of ['src/components/GoalValues.tsx','src/components/RegularGoals.
 const date=read('src/lib/date.ts'),goals=read('src/components/RegularGoals.tsx'),core=read('src/pages/CorePages.tsx');
 assert.match(date,/export const goalProgress/);
 assert.match(goals,/regularGoalValues/);
-assert.match(goals,/Целевое значение: 100%/);
-assert.match(goals,/Автоматически: связанные задачи/);
-assert.match(goals,/Ручной процент/);
+assert.doesNotMatch(goals,/Целевое значение: 100%/);
+assert.match(goals,/автоматически/);
+assert.doesNotMatch(goals,/Ручной процент|Ручной прогресс/);
 assert.match(core,/GoalSnapshot/);
 assert.match(core,/GoalsWorkspace/);
 assert.match(read('src/components/GoalsWorkspace.tsx'),/Закрытые цели/);
