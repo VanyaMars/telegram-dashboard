@@ -25,3 +25,16 @@ export function calendarDays(year:number,month:number):Array<string|null>{
   const first=(new Date(year,month,1).getDay()+6)%7;const days=new Date(year,month+1,0).getDate();
   return [...Array(first).fill(null),...Array.from({length:days},(_,i)=>localDate(new Date(year,month,i+1)))];
 }
+/** Derived read-only properties: one progress field per Pipeline on a task Page.
+ * Uses the exact same completed/items calculation as SplitPipeline; empty pipelines are 0%.
+ * No separate percentage snapshot is stored, so Undo, edits and deletes cannot leave stale data.
+ */
+export function taskPipelineProperties(data:Pick<WPageResponse,'blocks'|'splits'|'items'>){
+ const pipelines=data.blocks.filter(b=>b.type==='pipeline');
+ return pipelines.map((block,index)=>{
+  const splits=data.splits.filter(s=>s.block_id===block.id);
+  const ids=new Set(splits.map(s=>s.id));
+  const items=data.items.filter(item=>ids.has(item.split_id));
+  return {blockId:block.id,label:pipelines.length===1?'Прогресс':`Прогресс · Pipeline ${index+1}`,percent:pipelineProgress(splits,items),done:items.filter(item=>item.completed).length,total:items.length};
+ });
+}
