@@ -9,7 +9,7 @@ for(const [path,source] of [['src/pages/Workspace.tsx',w],['src/components/TaskC
 }
 assert.match(w,/TaskPageProperties key=\{taskData.id\}/);
 assert.match(w,/pipelineProperties=\{taskPipelineProperties\(data\)\}/);
-assert.match(w,/<TaskCustomProperties taskId=\{task.id\}/);
+assert.match(w,/<TaskCustomProperties taskId=\{task.id\} pipelineProperties=\{pipelineProperties\}\s*\/>/,'Custom property editor must be inside TaskPageProperties');
 for(const label of ['Категория','Приоритет','Дата','Связь с целью','Заметки'])assert.ok(w.includes(label),'Lost native field: '+label);
 assert.match(w,/request\('os9','regular_goal_set'/);
 assert.match(w,/saveTask\(\{id:task.id/);
