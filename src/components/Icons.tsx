@@ -6,7 +6,7 @@ import {House,Menu,Cloud,CloudOff,HelpCircle,Check,CheckCircle2,MoreHorizontal,P
   Search,Filter,Edit3,Trash2,MoveRight,ArrowUp,ArrowDown,Save,AlertCircle,RefreshCw,CheckCircle,
   RotateCcw,Bell,Info,ArrowRight,Focus,TrendingUp,TrendingDown,CircleHelp,Sun,ShieldCheck,
   ListChecks,LayoutDashboard,Calendar,Lightbulb,Zap,Lock,Play,Pause,Square,CheckSquare,
-  type LucideIcon} from 'lucide-react';
+  Tag,Hash,Type,Flag,Star,Clock3,type LucideIcon} from 'lucide-react';
 const icons:Record<string,LucideIcon>={home:House,menu:Menu,cloud:Cloud,'cloud-check':Cloud,'cloud-off':CloudOff,
   help:HelpCircle,check:Check,'check-circle':CheckCircle2,more:MoreHorizontal,plus:Plus,right:ChevronRight,
   left:ChevronLeft,down:ChevronDown,up:ChevronUp,x:X,grip:GripVertical,inbox:Inbox,target:Target,
@@ -20,7 +20,7 @@ const icons:Record<string,LucideIcon>={home:House,menu:Menu,cloud:Cloud,'cloud-c
   undo:RotateCcw,bell:Bell,info:Info,'arrow-right':ArrowRight,focus:Focus,trend:TrendingUp,
   'trend-down':TrendingDown,'circle-help':CircleHelp,sun:Sun,shield:ShieldCheck,
   list:ListChecks,dashboard:LayoutDashboard,'calendar-small':Calendar,idea:Lightbulb,zap:Zap,lock:Lock,
-  play:Play,pause:Pause,stop:Square,'check-square':CheckSquare};
+  play:Play,pause:Pause,stop:Square,'check-square':CheckSquare,tag:Tag,hash:Hash,type:Type,flag:Flag,star:Star,'clock-3':Clock3};
 export const Icon=({name,size=19,className,strokeWidth=1.85}:{name:string;size?:number;className?:string;strokeWidth?:number})=>{
   const Comp=icons[name]||Folder;return <Comp size={size} strokeWidth={strokeWidth} className={className} aria-hidden="true"/>;
 };

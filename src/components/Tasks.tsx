@@ -81,7 +81,7 @@ function TaskRow({task,zone,meta,dragging,targeted,dragProps}:{task:Task;zone:Zo
 
 export function TaskEditor(){const{editor,setEditor,categories,goals,os6,day,saveTask}=useApp();
   const task=editor?.type==='task'?editor.item as Task|undefined:undefined;
-  const [title,setTitle]=useState(task?.title||'');const [categoryId,setCategory]=useState(task?.os61_category_id||categories.find(c=>c.name===task?.sphere)?.id||categories[0]?.id||'');
+  const [title,setTitle]=useState(task?.title||'');const [categoryId,setCategory]=useState(task?.os61_category_id||categories.find(c=>c.name===task?.sphere)?.id||'');
   const [priority,setPriority]=useState<'important'|'extra'>(task?.priority||(editor?.type==='task'?editor.priority:undefined)||'extra');
   const [dayValue,setDayValue]=useState<string>(task?.day||(editor?.type==='task'?editor.day:undefined)||day);const [buffer,setBuffer]=useState(task?.day===null||(editor?.type==='task'&&editor.day===null));
   const [notes,setNotes]=useState(task?.notes||'');const [goalId,setGoalId]=useState(os6.links.find(l=>l.task_id===task?.id)?.goal_id||'');

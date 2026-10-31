@@ -31,6 +31,8 @@ type QAState={
  pages:WPage[];blocks:WBlock[];splits:WSplit[];items:WItem[];
  sources:WSource[];fields:WField[];views:WView[];records:WRecord[];
  taskPages:Record<string,string>;trash:Record<string,Task>;
+ propertyFields?:Array<{id:string;slug?:string|null;name:string;field_type:string;options:{icon?:string;choices?:string[]}}>;
+ propertyValues?:Record<string,Record<string,string>>;
 };
 const now=()=>new Date().toISOString();
 const newId=()=>crypto.randomUUID();
@@ -69,7 +71,7 @@ function seed():QAState{
 function load():QAState{
  const s=readQASession();if(!isQAMode()||!s)throw new Error('QA Sandbox: сначала создай гостевую сессию');
  const k=keyFor(s);const raw=localStorage.getItem(k);
- if(raw){try{const data=JSON.parse(raw) as QAState;if(Array.isArray(data.tasks)&&Array.isArray(data.pages)&&Array.isArray(data.regularGoals)){data.goalDocuments||={};return data}}catch{/* corrupted local sample */}}
+ if(raw){try{const data=JSON.parse(raw) as QAState;if(Array.isArray(data.tasks)&&Array.isArray(data.pages)&&Array.isArray(data.regularGoals)){data.goalDocuments||={};data.propertyFields||=[];data.propertyValues||={};return data}}catch{/* corrupted local sample */}}
  const initial=seed();localStorage.setItem(k,JSON.stringify(initial));return initial;
 }
 function persist(data:QAState){
@@ -158,6 +160,42 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='entity_delete'){const k=({finance:'finance',workout:'workouts',weight:'weight',exercise:'exercises',repeat:'repeats',challenge:'challenges'} as Record<string,keyof OS6Data>)[asStr(f.entity)];if(!k)throw Error('Неизвестная запись');(db.os6 as any)[k]=(db.os6 as any)[k].filter((x:{id:string})=>x.id!==id);return ok()}
  }
  if(fn==='os8'){
+  db.propertyFields||=[];db.propertyValues||={};
+  if(action==='task_native_fields'){
+   return ok({fields:Object.fromEntries(db.propertyFields.filter(x=>x.slug?.startsWith('native:')).map(x=>[x.slug!.slice(7),{name:x.name,icon:x.options.icon}]))});
+  }
+  if(action==='task_property_fields')return ok({fields:db.propertyFields.filter(x=>!x.slug)});
+  if(action==='task_property_values')return ok({values:db.propertyValues[taskId]||{}});
+  if(action==='task_property_define'){
+   const created={id:newId(),slug:null,name:asStr(f.name),field_type:asStr(f.fieldType),options:{icon:asStr(f.icon),choices:Array.isArray(f.choices)?f.choices as string[]:[]}};
+   db.propertyFields.push(created);return ok({id:created.id});
+  }
+  if(action==='task_property_set'){
+   db.propertyValues[taskId]||={};db.propertyValues[taskId][asStr(f.propertyId)]=asStr(f.value);return ok();
+  }
+  if(action==='task_field_appearance'){
+   const key=asStr(f.key);const slug='native:'+key;
+   const item=db.propertyFields.find(x=>x.slug===slug||x.id===key);
+   if(item){item.name=asStr(f.name);item.options.icon=asStr(f.icon);if(Array.isArray(f.choices))item.options.choices=f.choices as string[];if(!item.slug&&f.fieldType)item.field_type=asStr(f.fieldType)}
+   else db.propertyFields.push({id:newId(),slug,name:asStr(f.name),field_type:'text',options:{icon:asStr(f.icon)}});
+   return ok();
+  }
+  if(action==='task_native_patch'){
+   const task=db.tasks.find(t=>t.id===taskId);if(!task)throw new Error('Задача не найдена');
+   const key=asStr(f.key),value=f.value;
+   if(key==='category'){
+    const c=db.categories.find(x=>x.id===value);task.os61_category_id=c?.id||null;task.sphere=c?.name||'Без категории';
+   }else if(key==='priority'){if(value!=='important'&&value!=='extra')throw Error('Некорректный приоритет');task.priority=value}
+   else if(key==='day')task.day=asStr(value)||null;
+   else if(key==='notes')task.notes=asStr(value);
+   else if(key==='goal'){
+    db.os6.links=db.os6.links.filter(x=>x.task_id!==taskId);delete db.regularLinks[taskId];
+    if(f.kind==='regular'&&value)db.regularLinks[taskId]=asStr(value);
+    if(f.kind==='strategic'&&value)db.os6.links.push({task_id:taskId,goal_id:asStr(value)});
+   }
+   return ok();
+  }
+
   if(action==='goal_tasks_list'){
     const kind=asStr(f.kind),goalId=asStr(f.goalId);
     const goal=kind==='regular'?db.regularGoals.find(g=>g.id===goalId):db.goals.find(g=>g.id===goalId);

@@ -40,6 +40,39 @@ test('6.11 task cards: emoji persistence, Pipeline progress, grip menu and edito
  await expect(page.getByRole('textbox',{name:'Заголовок'}).first()).toBeVisible();
 });
 
+test('task properties autosave: category, notes and icon/title persist',async({page})=>{
+ await enter(page);
+ await openSampleTaskPage(page);
+ const panel=page.locator('.os-task-properties');
+ await expect(panel).toBeVisible();
+ await expect(panel.getByRole('button',{name:'Сохранить',exact:true})).toHaveCount(0);
+ await expect(panel.getByText('Ctrl + Enter')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Выбрать категорию'}).click();
+ await expect(panel.getByRole('button',{name:'Добавить категорию'})).toBeVisible();
+ await panel.getByRole('button',{name:'Добавить категорию'}).click();
+ await panel.getByRole('textbox',{name:'Название новой категории'}).fill('Новая QA категория');
+ await panel.getByRole('button',{name:'Создать',exact:true}).click();
+ await expect(panel.getByRole('button',{name:'Выбрать категорию'})).toContainText('Новая QA категория');
+ await panel.getByRole('button',{name:'Выбрать категорию'}).click();
+ await panel.locator('.os-category-menu').getByRole('button',{name:'Без категории'}).click();
+ await expect(panel.getByRole('button',{name:'Выбрать категорию'})).toContainText('Без категории');
+ const notes=panel.getByRole('textbox',{name:'Заметки'});
+ await notes.fill('Заметки сохраняются автоматически');
+ await notes.blur();
+ await expect(panel.getByRole('status').filter({hasText:'Сохранено'})).toBeVisible();
+ await page.reload();
+ await expect(page.locator('.os-task-properties').getByRole('textbox',{name:'Заметки'})).toHaveValue('Заметки сохраняются автоматически');
+ const configure=page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Приоритет'});
+ await configure.click();
+ const modal=page.locator('.os-property-settings').filter({hasText:'Настроить свойство'});
+ await modal.getByRole('textbox',{name:'Название'}).fill('Важность');
+ await modal.getByRole('button',{name:'Иконка star'}).click();
+ await modal.getByRole('button',{name:'Готово'}).click();
+ await expect(page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
+ await page.reload();
+ await expect(page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
+});
+
 test('guest sign-in, UI actions, local persistence and no Supabase calls',async({page})=>{
  const called:string[]=[];
  page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});

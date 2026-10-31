@@ -7,7 +7,7 @@ import {WPage,WBlock,WSource,WPageResponse,BlockType,workspaceRequest,pageLink,t
 import {request} from '../lib/api';
 import type {Task} from '../types';
 import {TaskIncomeEditor} from '../components/TaskIncome';
-import {QuickCategory} from '../components/QuickCategory';
+import {TaskPropertyAppearance,DEFAULT_NATIVE_PROPERTIES,type PropertyAppearance} from '../components/TaskPropertyAppearance';
 import {TaskCustomProperties} from '../components/TaskCustomProperties';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
@@ -148,28 +148,62 @@ function PageBlock({block,onAppendChecklist,pages,sources,data,openPage,write,re
   {saveStatus!=='saved'&&<div className={'os-autosave-status '+saveStatus} role={saveStatus==='error'?'alert':'status'}>{saveStatus==='typing'?'Есть изменения…':saveStatus==='saving'?'Сохраняется…':<><span>Не сохранилось</span><button onClick={()=>commit()} type="button">Повторить</button></>}</div>}
  </div>;
 }
-function TaskPageProperties({task,pageTitle,onSaved,pipelineProperties}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>;pipelineProperties:ReturnType<typeof taskPipelineProperties>}){
- const {categories,saveTask,goals,os6,mutate,open}=useApp();const {goals:regularGoals}=useRegularGoals();
- const [day,setDay]=useState(task.day||''),[priority,setPriority]=useState<'important'|'extra'>(task.priority),[categoryId,setCategory]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||''),[notes,setNotes]=useState(task.notes||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>;pipelineProperties:ReturnType<typeof taskPipelineProperties>}){
+ const {categories,saveCategory,goals,os6}=useApp();const {goals:regularGoals}=useRegularGoals();
+ const [day,setDay]=useState(task.day||''),[priority,setPriority]=useState<'important'|'extra'>(task.priority);
+ const [categoryId,setCategoryId]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||'');
+ const [notes,setNotes]=useState(task.notes||''),[categoryOpen,setCategoryOpen]=useState(false),[addingCategory,setAddingCategory]=useState(false),[categoryName,setCategoryName]=useState(''),[categoryBusy,setCategoryBusy]=useState(false);
  const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';
  const [goalId,setGoalId]=useState(link?'amb:'+link:'');
- useEffect(()=>{let active=true;void request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id}).then(r=>{
-   if(active&&r.goalId)setGoalId('reg:'+r.goalId);
- }).catch(()=>{});return()=>{active=false}},[task.id]);
-
- const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{await saveTask({id:task.id,title:pageTitle.trim()||task.title,notes,day:day||null,priority,categoryId,sphere:categories.find(c=>c.id===categoryId)?.name||task.sphere,goalId:goalId.startsWith('amb:')?goalId.slice(4):''});
- await request('os9','regular_goal_set',{taskId:task.id,goalId:goalId.startsWith('reg:')?goalId.slice(4):null});await onSaved();}catch(err:any){setError(err.message||'Не удалось сохранить свойства')}finally{setBusy(false)}};
- return <form className="os-task-properties os-properties-v67" onSubmit={save} onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();e.currentTarget.requestSubmit()}}}>
-  <div className="os-property-head"><h3>Свойства задачи</h3><span>Основные поля — по кнопке «Сохранить», дополнительные — автоматически</span></div>
+ const [appearance,setAppearance]=useState<Record<string,PropertyAppearance>>(DEFAULT_NATIVE_PROPERTIES);
+ const [status,setStatus]=useState<'idle'|'saving'|'saved'|'error'>('idle'),[error,setError]=useState('');
+ const [lastFailed,setLastFailed]=useState<{key:string;value:any;kind?:string}|null>(null);
+ const queue=useRef<Promise<void>>(Promise.resolve()),pending=useRef(0),notesTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const notesCurrent=useRef(notes),notesSent=useRef(task.notes||'');
+ const names=(key:string)=>appearance[key]||DEFAULT_NATIVE_PROPERTIES[key];
+ useEffect(()=>{let active=true;request<{fields:Record<string,PropertyAppearance>}>('os8','task_native_fields').then(r=>{if(active)setAppearance({...DEFAULT_NATIVE_PROPERTIES,...r.fields})}).catch(e=>{if(active)setError(e.message||'Не удалось загрузить настройки свойств')});return()=>{active=false}},[task.id]);
+ useEffect(()=>{let active=true;void request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id}).then(r=>{if(active&&r.goalId)setGoalId('reg:'+r.goalId)}).catch(()=>{});return()=>{active=false}},[task.id]);
+ const saveField=(key:string,value:any,kind?:string)=>{
+  const patch={key,value,kind};pending.current+=1;setStatus('saving');setError('');
+  queue.current=queue.current.catch(()=>{}).then(async()=>{
+   await request('os8','task_native_patch',{taskId:task.id,...patch});
+   if(key==='notes')notesSent.current=String(value);
+   if(key==='goal')window.dispatchEvent(new Event('os8:goals-changed'));
+   await onSaved();
+  }).then(()=>{pending.current=Math.max(0,pending.current-1);if(pending.current===0){setStatus('saved');setLastFailed(null)}})
+   .catch((e:any)=>{pending.current=Math.max(0,pending.current-1);setStatus('error');setError(e.message||'Не удалось сохранить изменение');setLastFailed(patch)});
+ };
+ const flushNotes=()=>{if(notesTimer.current){clearTimeout(notesTimer.current);notesTimer.current=null}if(notesCurrent.current!==notesSent.current)saveField('notes',notesCurrent.current)};
+ const onNotesChange=(text:string)=>{setNotes(text);notesCurrent.current=text;if(notesTimer.current)clearTimeout(notesTimer.current);notesTimer.current=setTimeout(flushNotes,750)};
+ useEffect(()=>()=>{if(notesTimer.current)clearTimeout(notesTimer.current);if(notesCurrent.current!==notesSent.current){const latest=notesCurrent.current;queue.current=queue.current.catch(()=>{}).then(async()=>{await request('os8','task_native_patch',{taskId:task.id,key:'notes',value:latest})}).catch(()=>{})}},[task.id]);
+ const chooseCategory=(id:string)=>{setCategoryId(id);setCategoryOpen(false);setAddingCategory(false);saveField('category',id||null)};
+ const createCategory=async(e:React.FormEvent)=>{e.preventDefault();if(!categoryName.trim()||categoryBusy)return;setCategoryBusy(true);setError('');
+  try{const res=await saveCategory({name:categoryName.trim(),color:'#8B84ED',icon:'folder'});const id=String((res as any)?.id||'');if(!id)throw new Error('Категория создана, но не получен ID. Открой список повторно.');chooseCategory(id);setCategoryName('')}
+  catch(e:any){setError(e.message||'Не удалось добавить категорию')}
+  finally{setCategoryBusy(false)}
+ };
+ const changeAppearance=(key:string,name:string,icon:string)=>setAppearance(old=>({...old,[key]:{name,icon}}));
+ return <section className="os-task-properties os-properties-v67" aria-label="Свойства задачи">
+  <div className="os-property-head"><h3>Свойства задачи</h3>{status!=='idle'&&<small role={status==='error'?'alert':'status'} className={'os-auto-status '+status}>{status==='saving'?'Сохраняется…':status==='saved'?'Сохранено':'Не удалось сохранить'}</small>}</div>
   <div className="os-property-rows">
-   <div className="os-property-row"><label htmlFor="os-prop-category"><Icon name="folder" size={16}/>Категория</label><div className="os-property-value"><select id="os-prop-category" value={categoryId} onChange={e=>setCategory(e.target.value)}><option value="">Без категории</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><QuickCategory/></div></div>
-   <div className="os-property-row"><label htmlFor="os-prop-priority"><Icon name="flag" size={16}/>Приоритет</label><select id="os-prop-priority" value={priority} onChange={e=>setPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select></div>
-   <div className="os-property-row"><label htmlFor="os-prop-day"><Icon name="calendar" size={16}/>Дата</label><div className="os-property-value"><input id="os-prop-day" type="date" value={day} onChange={e=>setDay(e.target.value)}/>{day&&<button type="button" className="os-property-clear" onClick={()=>setDay('')}>В буфер</button>}</div></div>
-   <div className="os-property-row"><label htmlFor="os-prop-goal"><Icon name="target" size={16}/>Связь с целью</label><select id="os-prop-goal" value={goalId} onChange={e=>setGoalId(e.target.value)}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></div>
-   <div className="os-property-row os-property-row-long"><label htmlFor="os-prop-notes"><Icon name="list" size={16}/>Заметки</label><textarea id="os-prop-notes" value={notes} rows={2} maxLength={6000} onChange={e=>setNotes(e.target.value)} placeholder="Контекст и ссылки…"/></div>
+   <div className="os-property-row"><TaskPropertyAppearance fieldKey="category" {...names('category')} onChange={(name,icon)=>changeAppearance('category',name,icon)}/>
+    <div className="os-category-control" onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setCategoryOpen(false)}}>
+     <button type="button" className="os-category-trigger" aria-label="Выбрать категорию" aria-expanded={categoryOpen} onClick={()=>setCategoryOpen(v=>!v)}>{categories.find(c=>c.id===categoryId)?.name||'Без категории'} <Icon name="down" size={15}/></button>
+     {categoryOpen&&<div className="os-category-menu">
+      <button type="button" onClick={()=>chooseCategory('')}>Без категории</button>
+      {categories.map(c=><button type="button" key={c.id} onClick={()=>chooseCategory(c.id)}><span className="os-category-swatch" style={{background:c.color}}/>{c.name}</button>)}
+      <div className="os-category-menu-divider"/>
+      {!addingCategory?<button type="button" className="os-category-add" onClick={()=>setAddingCategory(true)}><Icon name="plus" size={15}/> Добавить категорию</button>
+      :<form className="os-category-create" onSubmit={e=>void createCategory(e)}><input autoFocus aria-label="Название новой категории" value={categoryName} maxLength={60} onChange={e=>setCategoryName(e.target.value)} placeholder="Новая категория"/><div><button type="submit" disabled={!categoryName.trim()||categoryBusy}>Создать</button><button type="button" onClick={()=>setAddingCategory(false)}>Отмена</button></div></form>}
+     </div>}
+    </div>
+   </div>
+   <div className="os-property-row"><TaskPropertyAppearance fieldKey="priority" {...names('priority')} onChange={(name,icon)=>changeAppearance('priority',name,icon)}/><select aria-label={names('priority').name} value={priority} onChange={e=>{const v=e.target.value as 'important'|'extra';setPriority(v);saveField('priority',v)}}><option value="important">Важная</option><option value="extra">Дополнительная</option></select></div>
+   <div className="os-property-row"><TaskPropertyAppearance fieldKey="day" {...names('day')} onChange={(name,icon)=>changeAppearance('day',name,icon)}/><div className="os-property-value"><input aria-label={names('day').name} type="date" value={day} onChange={e=>{const v=e.target.value;setDay(v);saveField('day',v||null)}}/>{day&&<button type="button" className="os-property-clear" onClick={()=>{setDay('');saveField('day',null)}}>В буфер</button>}</div></div>
+   <div className="os-property-row"><TaskPropertyAppearance fieldKey="goal" {...names('goal')} onChange={(name,icon)=>changeAppearance('goal',name,icon)}/><select aria-label={names('goal').name} value={goalId} onChange={e=>{const v=e.target.value;setGoalId(v);saveField('goal',v?v.slice(4):null,v.startsWith('amb:')?'strategic':v.startsWith('reg:')?'regular':'none')}}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></div>
+   <div className="os-property-row os-property-row-long"><TaskPropertyAppearance fieldKey="notes" {...names('notes')} onChange={(name,icon)=>changeAppearance('notes',name,icon)}/><textarea aria-label={names('notes').name} value={notes} rows={2} maxLength={6000} onChange={e=>onNotesChange(e.target.value)} onBlur={flushNotes} placeholder="Контекст и ссылки…"/></div>
   </div>
-  {error&&<p className="os-error-banner" role="alert">{error} — часть полей могла сохраниться. Обнови страницу перед повтором.</p>}
-   <TaskCustomProperties taskId={task.id} pipelineProperties={pipelineProperties}/>
-  <div className="os-property-actions"><span>⌘ / Ctrl + Enter</span><button disabled={busy} className="os-btn os-btn-primary os-property-submit" type="submit"><Icon name={busy?'refresh':'check'} size={17}/>{busy?'Сохраняем…':'Сохранить'}</button></div>
- </form>;
+  <TaskCustomProperties taskId={task.id} pipelineProperties={pipelineProperties} progressAppearance={names('progress')} onProgressAppearance={(name,icon)=>changeAppearance('progress',name,icon)}/>
+  {error&&<div className="os-inline-error" role="alert">{error}{lastFailed&&<button type="button" onClick={()=>saveField(lastFailed.key,lastFailed.value,lastFailed.kind)}>Повторить</button>}</div>}
+ </section>;
 }

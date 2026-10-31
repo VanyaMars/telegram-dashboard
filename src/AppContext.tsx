@@ -17,7 +17,7 @@ type AppContextValue={
   openTaskPage:(task:Task)=>Promise<void>;refresh:()=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
   reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
-  saveCategory:(form:any)=>Promise<void>;deleteCategory:(cat:Category)=>Promise<void>;
+  saveCategory:(form:any)=>Promise<{id:string}|undefined>;deleteCategory:(cat:Category)=>Promise<void>;
   mutate:(fn:'os6'|'os61'|'dashboard',action:string,data?:Record<string,unknown>)=>Promise<any>;
   calendarTasks:Task[];getCalendar:(start:string,end:string)=>Promise<void>;
 };
@@ -180,8 +180,8 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const saveGoal=async(form:any)=>{if(demo){notify('Демо: изменение цели');setEditor(null);return;}
     await mutate('dashboard','goal_save',{id:form.id||null,goal:{title:form.title,notes:form.notes||'',sphere:form.sphere||'Личное',start_value:Number(form.start_value),current_value:Number(form.current_value),target_value:Number(form.target_value),unit:form.unit||'',deadline:form.deadline||null}});setEditor(null);notify('Цель обновлена');};
   const deleteGoal=async(goal:Goal)=>{if(!window.confirm('Удалить цель вместе с историей?'))return;if(demo){setGoals(x=>x.filter(g=>g.id!==goal.id));return;}await mutate('dashboard','goal_delete',{id:goal.id});};
-  const saveCategory=async(form:any)=>{if(demo){const c={...form,id:form.id||`cat-${Date.now()}`,sort_order:categories.length*100};setCategories(x=>[...x.filter(y=>y.id!==c.id),c]);notify('Категория сохранена (демо)');return;}
-    await mutate('os61','category_save',form);notify('Категория сохранена');};
+  const saveCategory=async(form:any)=>{if(demo){const c={...form,id:form.id||`cat-${Date.now()}`,sort_order:categories.length*100};setCategories(x=>[...x.filter(y=>y.id!==c.id),c]);notify('Категория сохранена (демо)');return {id:c.id};}
+    const result=await mutate('os61','category_save',form);notify('Категория сохранена');return {id:String(result.id)};};
   const deleteCategory=async(cat:Category)=>{if(!window.confirm(`Удалить «${cat.name}»? Задачи останутся в «Без категории».`))return;
     if(demo){setCategories(x=>x.filter(c=>c.id!==cat.id));return;}await mutate('os61','category_delete',{id:cat.id});notify('Категория удалена, задачи сохранены');};
   const getCalendar=async(start:string,end:string)=>{
