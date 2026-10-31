@@ -171,18 +171,64 @@ Deno.serve(async(req:Request)=>{
    if(!idOk(body.id))return reply({ok:false,error:'Неверный ID'},400);
    await must(db.from('os8_regular_goals').delete().eq('telegram_user_id',uid).eq('id',body.id));return reply({ok:true});
   }
+
+  if(act==='task_cards_meta'){
+   const ids=Array.isArray(body.taskIds)?[...new Set(body.taskIds.filter(idOk))].slice(0,120):[];
+   if(!ids.length)return reply({ok:true,cards:{}});
+   const owned=await must(db.from('personal_tasks').select('id').eq('telegram_user_id',uid).in('id',ids));
+   const cards:Record<string,{emoji:string;progress:number|null}>={};
+   for(const t of owned)cards[t.id]={emoji:'📋',progress:null};
+   if(!owned.length)return reply({ok:true,cards});
+   const links=await must(db.from('os8_task_pages').select('task_id,page_id').eq('telegram_user_id',uid).in('task_id',owned.map((t:any)=>t.id)));
+   if(!links.length)return reply({ok:true,cards});
+   const pages=await must(db.from('os7_pages').select('id,icon').eq('telegram_user_id',uid).in('id',links.map((l:any)=>l.page_id)));
+   const blocks=await must(db.from('os7_blocks').select('id,page_id').eq('telegram_user_id',uid).eq('type','pipeline').in('page_id',links.map((l:any)=>l.page_id)).limit(1000));
+   const splits=blocks.length?await must(db.from('os7_splits').select('id,block_id').eq('telegram_user_id',uid).in('block_id',blocks.map((b:any)=>b.id)).limit(3000)):[];
+   const items=splits.length?await must(db.from('os7_items').select('split_id,completed').eq('telegram_user_id',uid).in('split_id',splits.map((x:any)=>x.id)).limit(8000)):[];
+   for(const l of links){
+    const icon=pages.find((p:any)=>p.id===l.page_id)?.icon;
+    const pipelines=blocks.filter((b:any)=>b.page_id===l.page_id);
+    const splitIds=new Set(splits.filter((x:any)=>pipelines.some((b:any)=>b.id===x.block_id)).map((x:any)=>x.id));
+    const relevant=items.filter((x:any)=>splitIds.has(x.split_id));
+    cards[l.task_id]={emoji:icon&&icon!=='📝'&&icon!=='📄'?icon:'📋',progress:pipelines.length?(relevant.length?Math.round(relevant.filter((x:any)=>x.completed).length/relevant.length*100):0):null};
+   }
+   return reply({ok:true,cards});
+  }
+  if(act==='task_emoji_set'){
+   if(!idOk(body.taskId))return reply({ok:false,error:'Неверная задача'},400);
+   const emoji=trimmed(body.emoji,24);
+   if(!emoji||Array.from(emoji).length>8||/[<>]/.test(emoji))return reply({ok:false,error:'Некорректный эмодзи'},400);
+   const task=await must(db.from('personal_tasks').select('id,title').eq('id',body.taskId).eq('telegram_user_id',uid).maybeSingle());
+   if(!task)return reply({ok:false,error:'Задача не найдена'},404);
+   let link=await must(db.from('os8_task_pages').select('page_id').eq('task_id',body.taskId).eq('telegram_user_id',uid).maybeSingle());
+   if(!link){
+    const page=await must(db.from('os7_pages').insert({telegram_user_id:uid,title:task.title,icon:emoji}).select('id').single());
+    const created=await db.from('os8_task_pages').insert({telegram_user_id:uid,task_id:task.id,page_id:page.id});
+    if(created.error){
+     await db.from('os7_pages').delete().eq('telegram_user_id',uid).eq('id',page.id);
+     link=await must(db.from('os8_task_pages').select('page_id').eq('telegram_user_id',uid).eq('task_id',task.id).maybeSingle());
+     if(!link)throw created.error;
+    }else link={page_id:page.id};
+   }
+   await must(db.from('os7_pages').update({icon:emoji,updated_at:new Date().toISOString()}).eq('telegram_user_id',uid).eq('id',link.page_id).select('id').single());
+   return reply({ok:true,emoji});
+  }
   if(act==='task_page_ensure'){
    if(!idOk(body.taskId))return reply({ok:false,error:'Неверный ID задачи'},400);
    const task=await must(db.from('personal_tasks').select('id,title').eq('telegram_user_id',uid).eq('id',body.taskId).maybeSingle());
    if(!task)return reply({ok:false,error:'Задача не найдена'},404);
    const old=await must(db.from('os8_task_pages').select('page_id').eq('telegram_user_id',uid).eq('task_id',task.id).maybeSingle());
-   if(old){await must(db.from('os7_pages').update({title:task.title,updated_at:new Date().toISOString()}).eq('id',old.page_id).eq('telegram_user_id',uid));return reply({ok:true,pageId:old.page_id});}
-   const page=await must(db.from('os7_pages').insert({telegram_user_id:uid,title:task.title,icon:'📝'}).select('id').single());
+   if(old){await must(db.from('os7_pages').update({title:task.title,updated_at:new Date().toISOString()}).eq('id',old.page_id).eq('telegram_user_id',uid));
+   const existing=await must(db.from('os7_blocks').select('id').eq('telegram_user_id',uid).eq('page_id',old.page_id).eq('type','heading').limit(1));
+   if(!existing.length)await must(db.from('os7_blocks').insert({telegram_user_id:uid,page_id:old.page_id,type:'heading',position:0,content:{text:''}}).select('id').single());
+   return reply({ok:true,pageId:old.page_id});}
+   const page=await must(db.from('os7_pages').insert({telegram_user_id:uid,title:task.title,icon:'📋'}).select('id').single());
    const {error:linkErr}=await db.from('os8_task_pages').insert({telegram_user_id:uid,task_id:task.id,page_id:page.id});
    if(linkErr){await db.from('os7_pages').delete().eq('id',page.id).eq('telegram_user_id',uid);
     const found=await must(db.from('os8_task_pages').select('page_id').eq('telegram_user_id',uid).eq('task_id',task.id).maybeSingle());
     if(found)return reply({ok:true,pageId:found.page_id});throw linkErr;
    }
+   await must(db.from('os7_blocks').insert({telegram_user_id:uid,page_id:page.id,type:'heading',position:0,content:{text:''}}).select('id').single());
    return reply({ok:true,pageId:page.id});
   }
   if(act==='task_page_links'){
