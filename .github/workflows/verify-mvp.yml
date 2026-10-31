@@ -43,5 +43,7 @@ jobs:
         run: npm run test:goals-691
       - name: 6.8 Integration
         run: npm run test:integration
+      - name: Unified task properties contract
+        run: node tests/unified-task-properties.mjs
       - name: Typecheck and build
         run: npm run build
