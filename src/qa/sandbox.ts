@@ -1,5 +1,6 @@
 import type {Task,Goal,GoalPoint,Category,OS6Data,DayMetrics,Finance,Workout,BodyWeight,Repeat,Challenge,Focus} from '../types';
 import type {RegularGoal} from '../components/RegularGoals';
+import type {GoalField} from '../lib/goalDocument';
 import type {WPage,WBlock,WSplit,WItem,WSource,WField,WView,WRecord} from '../lib/workspace';
 import type {TaskIncome} from '../lib/earnings';
 import {demoTasks,demoGoals,demoCategories,demoOS6,demoGoalHistory} from '../lib/demo';
@@ -26,6 +27,7 @@ export function resetQAData(){const s=readQASession();if(s)localStorage.removeIt
 type QAState={
  tasks:Task[];goals:Goal[];history:GoalPoint[];categories:Category[];os6:OS6Data;
  regularGoals:RegularGoal[];regularLinks:Record<string,string>;incomes:Record<string,TaskIncome>;
+ goalDocuments?:Record<string,{goal_kind:'regular'|'strategic';goal_id:string;fields:GoalField[];closed_at:string|null}>;
  pages:WPage[];blocks:WBlock[];splits:WSplit[];items:WItem[];
  sources:WSource[];fields:WField[];views:WView[];records:WRecord[];
  taskPages:Record<string,string>;trash:Record<string,Task>;
@@ -61,13 +63,13 @@ function seed():QAState{
  const fields:WField[]=[{id:newId(),source_id:sourceId,name:'Статус',field_type:'status',options:{choices:['К работе','В процессе','Готово']},position:1000},{id:newId(),source_id:sourceId,name:'Дата',field_type:'date',options:{},position:2000}];
  const views:WView[]=['table','board','list','calendar'].map((v,i)=>({id:newId(),source_id:sourceId,name:({table:'Таблица',board:'Доска',list:'Список',calendar:'Календарь'} as Record<string,string>)[v],view_type:v as WView['view_type'],config:{},position:(i+1)*1000}));
  const regularGoals:RegularGoal[]=[{id:newId(),title:'Собрать работающий MVP',description:'Пример связанной с задачами цели',period:'open',starts_on:null,ends_on:null,progress:20,completed:false,created_at:now(),updated_at:now()}];
- return {tasks,goals,history,categories:copy(demoCategories),os6,regularGoals,regularLinks:{[tasks[0].id]:regularGoals[0].id,[tasks[1].id]:regularGoals[0].id},incomes:{},
+ return {tasks,goals,history,categories:copy(demoCategories),os6,regularGoals,regularLinks:{[tasks[0].id]:regularGoals[0].id,[tasks[1].id]:regularGoals[0].id},incomes:{},goalDocuments:{},
  pages,blocks,splits,items,sources:[{id:sourceId,name:'Тестовые проекты',updated_at:now()}],fields,views,records:[],taskPages:{},trash:{}};
 }
 function load():QAState{
  const s=readQASession();if(!isQAMode()||!s)throw new Error('QA Sandbox: сначала создай гостевую сессию');
  const k=keyFor(s);const raw=localStorage.getItem(k);
- if(raw){try{const data=JSON.parse(raw) as QAState;if(Array.isArray(data.tasks)&&Array.isArray(data.pages)&&Array.isArray(data.regularGoals))return data}catch{/* corrupted local sample */}}
+ if(raw){try{const data=JSON.parse(raw) as QAState;if(Array.isArray(data.tasks)&&Array.isArray(data.pages)&&Array.isArray(data.regularGoals)){data.goalDocuments||={};return data}}catch{/* corrupted local sample */}}
  const initial=seed();localStorage.setItem(k,JSON.stringify(initial));return initial;
 }
 function persist(data:QAState){
@@ -107,7 +109,7 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='read')return ok({days:[]});
   if(action==='tasks_list')return ok({daily:ordered(db.tasks.filter(t=>t.day===f.day).map(t=>({...t,position:t.os61_position??0})) as Array<Task & {position:number}>),buffer:db.tasks.filter(t=>t.day===null)});
   if(action==='goals_list')return ok({goals:db.goals,history:db.history});
-  if(action==='task_toggle'){const t=db.tasks.find(t=>t.id===id);if(!t)throw Error('Задача не найдена');t.completed=f.completed===true;return ok()}
+  if(action==='task_toggle'){const t=db.tasks.find(t=>t.id===id);if(!t||!t.day)throw Error('Задача дня не найдена');t.completed=f.completed===true;return ok()}
   if(action==='task_delete'){const task=db.tasks.find(t=>t.id===id);if(!task)throw Error('Задача не найдена');db.trash[id]=copy(task);db.tasks=db.tasks.filter(t=>t.id!==id);return ok()}
   if(action==='task_restore'){const old=db.trash[id];if(!old)throw Error('Удалённая задача не найдена');db.tasks.push({...old,...(f.task as object),completed:f.completed===true});delete db.trash[id];return ok()}
   if(action==='goal_save'){const data=f.goal as Record<string,any>;if(!data)throw Error('Нет данных цели');const old=db.goals.find(g=>g.id===id);const next={...(old||{}),...data,id:old?.id||newId(),created_at:old?.created_at||now(),updated_at:now()} as Goal;db.goals=old?db.goals.map(g=>g.id===id?next:g):[...db.goals,next];db.history.push({id:db.history.length+1,goal_id:next.id,value:Number(next.current_value),recorded_at:dayToday()});return ok({id:next.id})}
@@ -127,7 +129,8 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='bootstrap')return ok({...db.os6});
   if(action==='metrics')return ok(metricsDefault(db,asStr(f.start),asStr(f.end)));
   if(action==='calendar')return ok({tasks:db.tasks.filter(t=>t.day&&t.day>=asStr(f.start)&&t.day<=asStr(f.end))});
-  if(action==='task_save_and_link'){
+  if(action==='task_reschedule'){const task=db.tasks.find(t=>t.id===id);if(!task)throw Error('Задача не найдена');task.day=asStr(f.day)||null;task.completed=false;return ok()}
+   if(action==='task_save_and_link'){
    const task=f.task as Partial<Task>;if(!task||!asStr(task.title).trim())throw Error('Укажи название задачи');
    const old=db.tasks.find(t=>t.id===id);
    const next:Task={...(old||{}),id:old?.id||newId(),title:asStr(task.title).trim(),notes:asStr(task.notes),sphere:asStr(task.sphere)||'Личное',day:task.day||null,priority:task.priority||'extra',completed:old?.completed||false,os61_category_id:old?.os61_category_id||null,os61_position:old?.os61_position||((db.tasks.length+1)*1024)};
@@ -155,7 +158,24 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='entity_delete'){const k=({finance:'finance',workout:'workouts',weight:'weight',exercise:'exercises',repeat:'repeats',challenge:'challenges'} as Record<string,keyof OS6Data>)[asStr(f.entity)];if(!k)throw Error('Неизвестная запись');(db.os6 as any)[k]=(db.os6 as any)[k].filter((x:{id:string})=>x.id!==id);return ok()}
  }
  if(fn==='os8'){
-  if(action==='goals_list')return ok({goals:db.regularGoals});
+  if(action==='goal_documents_list')return ok({documents:Object.values(db.goalDocuments||{})});
+   if(action==='goal_document_save'){
+    const kind=asStr(f.kind) as 'regular'|'strategic',goalId=asStr(f.goalId);
+    const goal=kind==='regular'?db.regularGoals.find(x=>x.id===goalId):kind==='strategic'?db.goals.find(x=>x.id===goalId):null;
+    if(!goal)throw Error('Цель не найдена');
+    const fields=f.fields as GoalField[];
+    if(!Array.isArray(fields)||fields.length>24||fields.filter(x=>x.featured).length>2)throw Error('Некорректные показатели');
+    const notesBody=asStr(f.notesBody);
+    if(notesBody.includes('[PERSONAL_OS_GOAL_DOCUMENT_V1]'))throw Error('Служебные данные не могут храниться в заметках');
+    const change=asStr(f.statusChange),closed_at=change==='close'?now():change==='reopen'?null:asStr(f.closedAt)||null;
+    db.goalDocuments||={};
+    const document={goal_kind:kind,goal_id:goalId,fields:copy(fields),closed_at};
+    db.goalDocuments[kind+':'+goalId]=document;
+    if(kind==='regular'){const g=goal as RegularGoal;g.description=notesBody;if(change==='close'){g.completed=true;g.progress=100}else if(change==='reopen'){g.completed=false;g.progress=0}}
+    else (goal as Goal).notes=notesBody;
+    return ok({document});
+   }
+   if(action==='goals_list')return ok({goals:db.regularGoals});
   if(action==='goal_save'){const old=db.regularGoals.find(x=>x.id===id);const g:RegularGoal={id:old?.id||newId(),title:asStr(f.title).slice(0,180),description:asStr(f.description),period:(asStr(f.period)||'open') as RegularGoal['period'],starts_on:asStr(f.starts_on)||null,ends_on:asStr(f.ends_on)||null,progress:Math.max(0,Math.min(100,Number(f.progress)||0)),completed:Number(f.progress)===100,created_at:old?.created_at||now(),updated_at:now()};db.regularGoals=old?db.regularGoals.map(x=>x.id===id?g:x):[...db.regularGoals,g];return ok({id:g.id})}
   if(action==='goal_delete'){db.regularGoals=db.regularGoals.filter(x=>x.id!==id);for(const [task,g] of Object.entries(db.regularLinks))if(g===id)delete db.regularLinks[task];return ok()}
   if(action==='task_page_links')return ok({pageIds:Object.values(db.taskPages)});
