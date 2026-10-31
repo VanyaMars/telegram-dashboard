@@ -7,6 +7,15 @@ async function enter(page:Page,name='QA Проверяющий'){
  await expect(page.getByText('Добро пожаловать')).toBeVisible();
  await expect(page.getByText(/QA Sandbox.*только локальные данные/)).toBeVisible();
 }
+async function openSampleTaskPage(page:Page){
+ const menu=page.getByRole('button',{name:'Открыть меню'});
+ if(await menu.isVisible())await menu.click();
+ await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
+ const task=page.locator('.buffer-mvp .task-copy').filter({hasText:'Идеи для автомобильного блога'});
+ await expect(task).toBeVisible();
+ await task.click();
+ await expect(page.locator('.os-page-editor')).toBeVisible();
+}
 test('guest sign-in, UI actions, local persistence and no Supabase calls',async({page})=>{
  const called:string[]=[];
  page.on('request',r=>{if(r.url().includes('/functions/v1/'))called.push(r.url())});
