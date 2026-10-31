@@ -175,7 +175,7 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
  };
  const flushNotes=()=>{if(notesTimer.current){clearTimeout(notesTimer.current);notesTimer.current=null}if(notesCurrent.current!==notesSent.current)saveField('notes',notesCurrent.current)};
  const onNotesChange=(text:string)=>{setNotes(text);notesCurrent.current=text;if(notesTimer.current)clearTimeout(notesTimer.current);notesTimer.current=setTimeout(flushNotes,750)};
- useEffect(()=>()=>{if(notesTimer.current)clearTimeout(notesTimer.current);if(notesCurrent.current!==notesSent.current){void request('os8','task_native_patch',{taskId:task.id,key:'notes',value:notesCurrent.current}).catch(()=>{})}},[task.id]);
+ useEffect(()=>()=>{if(notesTimer.current)clearTimeout(notesTimer.current);if(notesCurrent.current!==notesSent.current){const latest=notesCurrent.current;queue.current=queue.current.catch(()=>{}).then(async()=>{await request('os8','task_native_patch',{taskId:task.id,key:'notes',value:latest})}).catch(()=>{})}},[task.id]);
  const chooseCategory=(id:string)=>{setCategoryId(id);setCategoryOpen(false);setAddingCategory(false);saveField('category',id||null)};
  const createCategory=async(e:React.FormEvent)=>{e.preventDefault();if(!categoryName.trim()||categoryBusy)return;setCategoryBusy(true);setError('');
   try{const res=await saveCategory({name:categoryName.trim(),color:'#8B84ED',icon:'folder'});const id=String((res as any)?.id||'');if(!id)throw new Error('Категория создана, но не получен ID. Открой список повторно.');chooseCategory(id);setCategoryName('')}
