@@ -12,7 +12,8 @@ import * as m from 'motion/react-m';
 type Zone='important'|'extra'|'buffer';
 export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone;label?:string;emptyMessage?:string}){
   const {reorder}=useApp();const meta=useTaskCardMeta(items.map(x=>x.id));const [drag,setDrag]=useState<{id:string;over:string|null;section:Zone}|null>(null);
-  const gesture=useRef<{id:string;active:boolean;timer:number|null;over:string|null;section:Zone;startY:number;startX:number;pointerType:string;moved:boolean}|null>(null);
+  const suppressNextGripClick=useRef<string|null>(null);
+   const gesture=useRef<{id:string;active:boolean;timer:number|null;over:string|null;section:Zone;startY:number;startX:number;pointerType:string;moved:boolean}|null>(null);
   const stop=()=>{const g=gesture.current;if(g?.timer)window.clearTimeout(g.timer);gesture.current=null;setDrag(null);};
   const down=(e:React.PointerEvent<HTMLButtonElement>,id:string)=>{
     if(e.button!==0&&e.pointerType==='mouse')return;
@@ -35,7 +36,7 @@ export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone
       setDrag({id:g.id,over:g.over,section});
     }
   };
-  const up=()=>{const g=gesture.current;if(g?.active&&g.moved){void reorder(g.id,g.section,g.over===g.id?null:g.over);}stop();};
+  const up=()=>{const g=gesture.current;if(g?.active&&g.moved){suppressNextGripClick.current=g.id;void reorder(g.id,g.section,g.over===g.id?null:g.over);}stop();};
   const keyboard=(e:React.KeyboardEvent,id:string)=>{
     if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;e.preventDefault();
     const idx=items.findIndex(t=>t.id===id),to=idx+(e.key==='ArrowUp'?-1:1);
@@ -49,6 +50,7 @@ export function TaskList({items,zone,label,emptyMessage}:{items:Task[];zone:Zone
     items.map(item=><TaskRow key={item.id} task={item} zone={zone} meta={meta[item.id]} dragging={drag?.id===item.id} targeted={drag?.over===item.id&&drag.id!==item.id} dragProps={{
       onPointerDown:(e:React.PointerEvent<HTMLButtonElement>)=>down(e,item.id),
       onPointerMove:move,onPointerUp:up,onPointerCancel:stop,
+      onClickCapture:(e:React.MouseEvent)=>{if(suppressNextGripClick.current===item.id){e.preventDefault();e.stopPropagation();suppressNextGripClick.current=null}},
       onKeyDown:(e:React.KeyboardEvent)=>keyboard(e,item.id)
     }}/>) }
   </div>;
