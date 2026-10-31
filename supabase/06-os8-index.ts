@@ -33,6 +33,21 @@ Deno.serve(async(req:Request)=>{
   const body=await req.json();const uid=await verify(String(body?.initData||''));if(!uid)return reply({ok:false,error:'Telegram authorization failed'},401);
   const allowed=Deno.env.get('TG_ALLOWED_USER_ID');if(allowed&&allowed!==String(uid))return reply({ok:false,error:'Access denied'},403);
   const db=admin(),act=String(body.action||'');
+  // One query per goal, not one API request per task: all linked tasks, including Buffer.
+  if(act==='goal_tasks_list'){
+   const kind=body.kind,goalId=body.goalId;
+   if(!['regular','strategic'].includes(kind)||!idOk(goalId))return reply({ok:false,error:'Неверная цель'},400);
+   const goalTable=kind==='regular'?'os8_regular_goals':'ambitious_goals';
+   const owned=await must(db.from(goalTable).select('id').eq('id',goalId).eq('telegram_user_id',uid).maybeSingle());
+   if(!owned)return reply({ok:false,error:'Цель не найдена'},404);
+   const table=kind==='regular'?'os9_regular_goal_tasks':'os6_task_goal';
+   const rows=await must(db.from(table).select('task_id').eq('telegram_user_id',uid).eq('goal_id',goalId).limit(1001));
+   if(rows.length>1000)return reply({ok:false,error:'Слишком много связанных задач для одной загрузки'},413);
+   const ids=rows.map((r:any)=>r.task_id);
+   if(!ids.length)return reply({ok:true,tasks:[],count:{total:0,done:0}});
+   const tasks=await must(db.from('personal_tasks').select('id,title,notes,sphere,day,priority,completed,os61_category_id,os61_position').eq('telegram_user_id',uid).in('id',ids).order('created_at',{ascending:false}).limit(1000));
+   return reply({ok:true,tasks,count:{total:tasks.length,done:tasks.filter((t:any)=>t.completed).length}});
+  }
   // Normalized goal properties — authenticated by existing Telegram HMAC above.
   if(act==='goal_documents_list'){
    const documents=await must(db.from('os10_goal_documents').select('goal_kind,goal_id,fields,closed_at,updated_at').eq('telegram_user_id',uid).limit(800));
