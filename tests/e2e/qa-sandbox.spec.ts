@@ -318,22 +318,20 @@ test('6.8 Pipeline: 390px vertical accordion keeps one stage visible',async({pag
 });
 
 
-test('6.8.1 Shell: Pages inside Buffer only, nested editor and old URLs remain available',async({page})=>{
+test('6.9.1: task page Back returns to Buffer and old Pages route redirects',async({page})=>{
  await enter(page);
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await expect(page.locator('.buffer-mvp')).toBeVisible();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
- await page.locator('.os-page-gallery').getByRole('button',{name:/Запуск проекта/}).click();
+ await openSampleTaskPage(page);
  await expect.poll(()=>new URL(page.url()).hash).toMatch(/^#\/page\//);
  await page.reload();
- await expect(page.locator('.os-workspace')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('.os-page-editor')).toBeVisible();
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
  await page.goto(entry+'#/workspace');
- await expect(page.locator('.os-page-gallery')).toBeVisible();
- await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
+ await expect(page.locator('.os-page-gallery')).toHaveCount(0);
 });
 
 test('6.9 Shell: removed navigation items and preserved Analytics income',async({page})=>{
