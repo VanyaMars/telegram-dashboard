@@ -137,3 +137,25 @@
 @media(prefers-reduced-motion:reduce){
  .os-pipeline-premium .os-split,.os-pipeline-premium .os-workflow-row,.os-pipeline-premium .os-progress>span{transition:none!important;animation:none!important}
 }
+
+
+/* Properties v1 — narrow mobile-safe fields and goal rollups */
+.os-custom-properties,.os-goal-rollups{min-width:0;border:1px solid #e9eaf5;border-radius:16px;background:rgba(252,252,255,.92);padding:15px;display:grid;gap:12px}
+.os-custom-properties-head,.os-goal-rollups-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.os-custom-properties-head strong,.os-goal-rollups-heading strong{font-size:14px}
+.os-custom-property-row{display:grid;grid-template-columns:minmax(100px,1fr) minmax(130px,2fr);gap:10px;align-items:center;border-bottom:1px solid #eff0f7;padding-bottom:10px}
+.os-custom-property-row label{font-size:12px;color:#747b90;overflow-wrap:anywhere}
+.os-custom-property-row small{grid-column:2;color:#7775a1;font-size:11px}
+.os-custom-property-add,.os-goal-rollup-add{display:grid;gap:10px;padding:12px;border:1px dashed #cfcbec;border-radius:12px}
+.os-custom-property-add label,.os-goal-rollup-add label{display:grid;gap:5px;font-size:12px;color:#777b90}
+.os-custom-property-row input,.os-custom-property-row select,.os-goal-rollup-add input,.os-goal-rollup-add select{min-width:0;max-width:100%;width:100%}
+.os-goal-rollups{margin-bottom:12px}
+.os-goal-rollups-heading p{font-size:12px;color:#9496a7;margin:4px 0}
+.os-goal-rollup-row{display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;background:#fff;border:1px solid #ebeaf4;flex-wrap:wrap}
+.os-goal-rollup-row>div{display:grid;gap:4px;flex:1;min-width:130px}
+.os-goal-rollup-row small{color:#8a8fa2}.os-goal-rollup-row strong{font-size:22px;color:#46435c}.os-goal-rollup-row span{font-size:12px;color:#8d93a5}
+.os-goal-rollup-row progress{height:8px;accent-color:#8177e7;min-width:90px;max-width:180px;width:100%}
+.os-goal-rollup-row>button{border:0;background:transparent;color:#a1a1b4;font-size:22px}
+@media(max-width:420px){.os-custom-property-row{grid-template-columns:minmax(80px,1fr) minmax(0,1.5fr)}.os-goal-rollups-heading button{width:100%;justify-content:center}.os-custom-properties{padding:11px}}
+
+.os-computed-progress-value{display:flex;flex-wrap:wrap;gap:7px;align-items:center;min-width:0}.os-computed-progress-track{height:8px;background:#e9e7f5;border-radius:20px;overflow:hidden;flex:1;min-width:75px}.os-computed-progress-track span{display:block;height:100%;background:#8177e7;border-radius:20px;transition:width .2s}.os-computed-progress-value strong{font-size:12px;color:#6659b8;font-variant-numeric:tabular-nums}.os-computed-progress-value small{width:100%;grid-column:auto;color:#8f93a3}.os-property-name{font-size:12px;color:#747b90;overflow-wrap:anywhere}

@@ -4,6 +4,7 @@ import * as m from 'motion/react-m';
 import {useApp} from '../AppContext';
 import {useRegularGoals,RegularGoalEditor,goalEvidence,type RegularGoal,type GoalTaskStats} from './RegularGoals';
 import {Icon} from './Icons';
+import {GoalTaskRollups} from './GoalTaskRollups';
 import {Card,Empty,ProgressBar,SectionHead,Sparkline} from './UI';
 import {request} from '../lib/api';
 import {goalProgress} from '../lib/date';
@@ -256,6 +257,7 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
   {error&&<p className="os-error-banner" role="alert">{error}</p>}
   {saved&&<p className="goal-save-status" role="status"><Icon name="check-circle" size={16}/>{saved}</p>}
   {tab==='overview'&&<div className="goal-detail-panels">
+   <GoalTaskRollups kind={kind} goalId={goal.id}/>
    <Card className="goal-editor-panel">
     <SectionHead title="Показатели" caption="Все свойства цели — независимо от выбранных ключевых показателей."
      action={!editingFields?<button type="button" className="btn outline goal-edit-metrics" onClick={()=>startEditing()}><Icon name="edit" size={16}/> Настроить</button>:undefined}/>
@@ -317,7 +319,7 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
      <button className="btn outline" type="button" disabled={!linkExisting||taskSaving} onClick={()=>{const t=allTasks.find(x=>x.id===linkExisting);if(t)void linkTask(t)}}>Привязать</button></div>
    </Card>
   </div>}
-  {tab==='analytics'&&<div className="goal-analytics-grid">
+  {tab==='analytics'&&<><GoalTaskRollups kind={kind} goalId={goal.id}/><div className="goal-analytics-grid">
     <Card><span className="eyebrow">ВРЕМЯ</span><h2>{duration!==null?duration+' дней':'Нет данных'}</h2><p className="tiny-note">{closed?'До закрытия цели':'Прошло с создания'}</p></Card>
     <Card><span className="eyebrow">ЗАДАЧИ</span><h2>{counts.done} / {counts.total}</h2><ProgressBar value={counts.total?Math.round(counts.done/counts.total*100):0}/><p className="tiny-note">{missing?'Часть связанных задач вне загруженного периода':'Выполнение связанных задач'}</p></Card>
     <Card><span className="eyebrow">ПОКАЗАТЕЛИ</span><h2>{measured.length} измеримых</h2><p className="tiny-note">{metric===null?'Ещё нет измеримого показателя':'Средний прогресс: '+metric+'%'}</p></Card>
@@ -329,7 +331,7 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
        :<p className="tiny-note">История изменения основного показателя появится после нескольких сохранений.</p>;
      })():<p className="tiny-note">Для этой цели исторические замеры пока не записываются. Доступен текущий снимок.</p>}
     </Card>
-  </div>}
+  </div></>}
   {editOverlay}
  </div>;
 }

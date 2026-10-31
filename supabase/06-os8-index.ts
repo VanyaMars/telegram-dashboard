@@ -34,6 +34,72 @@ Deno.serve(async(req:Request)=>{
   const allowed=Deno.env.get('TG_ALLOWED_USER_ID');if(allowed&&allowed!==String(uid))return reply({ok:false,error:'Access denied'},403);
   const db=admin(),act=String(body.action||'');
   // One query per goal, not one API request per task: all linked tasks, including Buffer.
+
+  if(act==='task_property_fields'){
+   const fields=await must(db.from('os11_task_property_definitions').select('id,name,field_type,options').eq('telegram_user_id',uid).order('position').limit(100));
+   return reply({ok:true,fields});
+  }
+  if(act==='task_property_define'){
+   const name=trimmed(body.name,80),type=String(body.fieldType||'');
+   if(!name||!['duration','number','text','checkbox','date','select'].includes(type))return reply({ok:false,error:'Недопустимый тип свойства'},400);
+   const choices=type==='select'&&Array.isArray(body.choices)?body.choices.filter((x:unknown)=>typeof x==='string'&&x.length<=80).slice(0,25):[];
+   const existing=await must(db.from('os11_task_property_definitions').select('id').eq('telegram_user_id',uid).limit(101));
+   if(existing.length>=100)return reply({ok:false,error:'Лимит свойств'},413);
+   const field=await must(db.from('os11_task_property_definitions').insert({telegram_user_id:uid,name,field_type:type,options:{choices}}).select('id').single());
+   return reply({ok:true,id:field.id});
+  }
+  if(act==='task_property_values'||act==='task_property_set'){
+   if(!idOk(body.taskId))return reply({ok:false,error:'Некорректный ID задачи'},400);
+   const task=await must(db.from('personal_tasks').select('id').eq('telegram_user_id',uid).eq('id',body.taskId).maybeSingle());
+   if(!task)return reply({ok:false,error:'Задача не найдена'},404);
+   if(act==='task_property_values'){
+    const rows=await must(db.from('os11_task_property_values').select('property_id,value').eq('telegram_user_id',uid).eq('task_id',body.taskId).limit(100));
+    return reply({ok:true,values:Object.fromEntries(rows.map((x:any)=>[x.property_id,x.value]))});
+   }
+   if(!idOk(body.propertyId))return reply({ok:false,error:'Некорректное свойство'},400);
+   const field=await must(db.from('os11_task_property_definitions').select('field_type,options').eq('telegram_user_id',uid).eq('id',body.propertyId).maybeSingle());
+   if(!field)return reply({ok:false,error:'Свойство не найдено'},404);
+   const value=String(body.value??'');
+   if(value.length>2000)return reply({ok:false,error:'Слишком длинное значение'},400);
+   if(value!==''){
+    if(field.field_type==='duration'&&(!Number.isSafeInteger(Number(value))||Number(value)<0||Number(value)>10000000))return reply({ok:false,error:'Продолжительность в целых минутах'},400);
+    if(field.field_type==='number'&&(!Number.isFinite(Number(value))||Math.abs(Number(value))>1e12))return reply({ok:false,error:'Некорректное число'},400);
+    if(field.field_type==='checkbox'&&!['true','false'].includes(value))return reply({ok:false,error:'Некорректный флажок'},400);
+    if(field.field_type==='date'&&!iso(value))return reply({ok:false,error:'Некорректная дата'},400);
+    if(field.field_type==='select'&&!(field.options?.choices||[]).includes(value))return reply({ok:false,error:'Вариант не найден'},400);
+   }
+   await must(db.from('os11_task_property_values').upsert({telegram_user_id:uid,task_id:body.taskId,property_id:body.propertyId,value,updated_at:new Date().toISOString()},{onConflict:'telegram_user_id,task_id,property_id'}).select('property_id').single());
+   return reply({ok:true});
+  }
+  if(act==='goal_rollup_get'||act==='goal_rollup_save'){
+   const kind=String(body.kind||''),goalId=body.goalId;
+   if(!['regular','strategic'].includes(kind)||!idOk(goalId))return reply({ok:false,error:'Некорректная цель'},400);
+   const table=kind==='regular'?'os8_regular_goals':'ambitious_goals';
+   const goal=await must(db.from(table).select('id').eq('telegram_user_id',uid).eq('id',goalId).maybeSingle());
+   if(!goal)return reply({ok:false,error:'Цель не найдена'},404);
+   if(act==='goal_rollup_save'){
+    if(!idOk(body.propertyId))return reply({ok:false,error:'Некорректный ID поля'},400);
+    const f=await must(db.from('os11_task_property_definitions').select('field_type').eq('telegram_user_id',uid).eq('id',body.propertyId).maybeSingle());
+    if(!f||!['duration','number'].includes(f.field_type))return reply({ok:false,error:'Нужно числовое поле'},400);
+    if(body.remove===true)await must(db.from('os11_goal_rollups').delete().eq('telegram_user_id',uid).eq('goal_kind',kind).eq('goal_id',goalId).eq('property_id',body.propertyId));
+    else{
+     const target=body.target===''||body.target==null?null:Number(body.target),label=trimmed(body.label,80);
+     if(!label||target!==null&&(!Number.isFinite(target)||target<=0||target>1e12))return reply({ok:false,error:'Проверь показатель'},400);
+     await must(db.from('os11_goal_rollups').upsert({telegram_user_id:uid,goal_kind:kind,goal_id:goalId,property_id:body.propertyId,label,target},{onConflict:'telegram_user_id,goal_kind,goal_id,property_id'}).select('goal_id').single());
+    }
+    return reply({ok:true});
+   }
+   const fields=await must(db.from('os11_task_property_definitions').select('id,name,field_type').eq('telegram_user_id',uid).in('field_type',['duration','number']).limit(100));
+   const rollups=await must(db.from('os11_goal_rollups').select('property_id,label,target').eq('telegram_user_id',uid).eq('goal_kind',kind).eq('goal_id',goalId).limit(40));
+   const links=await must(db.from(kind==='regular'?'os9_regular_goal_tasks':'os6_task_goal').select('task_id').eq('telegram_user_id',uid).eq('goal_id',goalId).limit(1001));
+   if(links.length>1000)return reply({ok:false,error:'Слишком много задач'},413);
+   const ids=links.map((x:any)=>x.task_id),sums:Record<string,number>={};
+   if(ids.length){
+    const rows=await must(db.from('os11_task_property_values').select('property_id,value').eq('telegram_user_id',uid).in('task_id',ids).limit(100000));
+    for(const x of rows){if(!fields.some((f:any)=>f.id===x.property_id)||x.value==='')continue;const n=Number(x.value);if(Number.isFinite(n))sums[x.property_id]=(sums[x.property_id]||0)+n;}
+   }
+   return reply({ok:true,fields,rollups:rollups.map((x:any)=>({...x,total:sums[x.property_id]||0})),linkedTasks:ids.length});
+  }
   if(act==='goal_tasks_list'){
    const kind=body.kind,goalId=body.goalId;
    if(!['regular','strategic'].includes(kind)||!idOk(goalId))return reply({ok:false,error:'Неверная цель'},400);
