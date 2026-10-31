@@ -503,13 +503,13 @@ test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({
 });
 
 for(const width of [320,390,430,1440]){
- test('6.9 integration: Goals/Pages/Analytics fit '+width+'px',async({page})=>{
+ test('6.9.1: Goals/Buffer/Analytics fit '+width+'px',async({page})=>{
   await page.setViewportSize({width,height:830});
   await enter(page);
-  for(const route of ['workspace','goals','analytics']){
-   await page.goto(entry+(route==='workspace'?'#/workspace':'#/tab/'+route));
+  for(const route of ['buffer','goals','analytics']){
+   await page.goto(entry+'#/tab/'+route);
    await expect(page.locator('main.app-content .motion-route')).toBeVisible();
-   if(route==='workspace')await expect(page.locator('.os-page-gallery')).toBeVisible();
+   if(route==='buffer')await expect(page.locator('.buffer-mvp')).toBeVisible();
    else if(route==='goals')await expect(page.locator('.goal-work-grid').first()).toBeVisible();
    else await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
    const dim=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
