@@ -341,22 +341,20 @@ test('6.9 Shell: removed navigation items and preserved Analytics income',async(
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
 });
 
-test('6.8.1 Shell: mobile Pages accessible from Buffer, not a sidebar tab',async({page})=>{
+test('6.9.1: mobile task page has Back to Buffer, not a Pages tab',async({page})=>{
  await page.setViewportSize({width:390,height:780});
  await enter(page);
  const bottom=page.getByRole('navigation',{name:'Основная навигация'});
- for(const label of ['Сегодня','Буфер задач','Цели','Ещё'])await expect(bottom.getByRole('button',{name:label})).toBeVisible();
  await bottom.getByRole('button',{name:'Ещё'}).click();
- await expect(page.locator('.app-sidebar')).toHaveClass(/is-open/);
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
- await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
- await page.getByRole('button',{name:'Дополнительные страницы и базы'}).click();
- await expect(page.locator('.os-page-gallery')).toBeVisible();
+ await openSampleTaskPage(page);
  await expect(bottom.getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
+ await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await expect(page.locator('.buffer-mvp')).toBeVisible();
  await bottom.getByRole('button',{name:'Сегодня'}).click();
  await expect(bottom.getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
- const size=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
- expect(size.doc).toBeLessThanOrEqual(size.client+2);
+ const dimensions=await page.evaluate(()=>({doc:document.documentElement.scrollWidth,width:document.documentElement.clientWidth}));
+ expect(dimensions.doc).toBeLessThanOrEqual(dimensions.width+2);
 });
 
 test('6.9 Goals: linked goal card opens tasks and analytics',async({page})=>{
