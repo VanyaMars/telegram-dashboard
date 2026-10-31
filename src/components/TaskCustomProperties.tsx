@@ -5,7 +5,7 @@ export type TaskField={id:string;name:string;field_type:'duration'|'number'|'tex
 const types:Record<TaskField['field_type'],string>={duration:'Время работы',number:'Число',text:'Текст',checkbox:'Флажок',date:'Дата',select:'Выбор'};
 const formatMinutes=(n:number)=>n>=60?`${Math.floor(n/60)} ч ${n%60} мин`:`${n} мин`;
 
-export function TaskCustomProperties({taskId}:{taskId:string}){
+export function TaskCustomProperties({taskId,pipelineProperties=[]}:{taskId:string;pipelineProperties?:Array<{blockId:string;label:string;percent:number;done:number;total:number}>}){
  const [fields,setFields]=useState<TaskField[]>([]),[values,setValues]=useState<Record<string,string>>({}),[error,setError]=useState(''),[status,setStatus]=useState('');
  const [adding,setAdding]=useState(false),[name,setName]=useState(''),[type,setType]=useState<TaskField['field_type']>('duration'),[choices,setChoices]=useState('');
  const [busy,setBusy]=useState(false);
@@ -29,6 +29,12 @@ export function TaskCustomProperties({taskId}:{taskId:string}){
   <div className="os-custom-properties-head"><strong>Свойства задачи</strong><button type="button" className="os-btn" onClick={()=>setAdding(x=>!x)}>+ Add property</button></div>
   {error&&<p role="alert" className="os-inline-error">{error}</p>}
   {status&&<p role="status" className="os-inline-hint">{status}</p>}
+  {pipelineProperties.map(p=><div className="os-custom-property-row os-computed-progress" key={p.blockId}>
+   <span className="os-property-name">{p.label}</span><div className="os-computed-progress-value">
+    <div className="os-computed-progress-track" role="progressbar" aria-label={p.label} aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100}><span style={{width:p.percent+'%'}}/></div>
+    <strong>{p.percent}%</strong><small>{p.done} из {p.total} действий · автоматически</small>
+   </div>
+  </div>)}
   {fields.map(f=><div className="os-custom-property-row" key={f.id}>
    <label htmlFor={'property-'+f.id}>{f.name}</label>
    {f.field_type==='checkbox'?<input id={'property-'+f.id} type="checkbox" disabled={busy} checked={values[f.id]==='true'} onChange={e=>void save(f,String(e.target.checked))}/>
