@@ -8,6 +8,7 @@ import {request} from '../lib/api';
 import type {Task} from '../types';
 import {TaskIncomeEditor} from '../components/TaskIncome';
 import {QuickCategory} from '../components/QuickCategory';
+import {TaskCustomProperties} from '../components/TaskCustomProperties';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 
@@ -80,7 +81,7 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
    <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
    <input className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
    {data.record&&<div className="os-info">Это запись базы данных. Редактируй её поля в представлении базы; здесь можно добавлять любые блоки.</div>}
-   {taskData&&<><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<TaskIncomeEditor taskId={taskData.id}/>}</>}
+   {taskData&&<><TaskCustomProperties taskId={taskData.id}/><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<TaskIncomeEditor taskId={taskData.id}/>}</>}
    <div className="os-blocks">{blocks.map((block,index)=><div className="os-block-shell" key={block.id}><div className="os-block-handles"><button title="Поднять блок" disabled={!index} onClick={()=>void blockOrder(block.id,-1)}>↑</button><button title="Опустить блок" disabled={index===blocks.length-1} onClick={()=>void blockOrder(block.id,1)}>↓</button><button title="Удалить блок" onClick={()=>{if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>×</button></div><PageBlock block={block}onAppendChecklist={appendChecklist}pages={pages}sources={sources}data={data}openPage={onOpen}write={write}refresh={refresh}/></div>)}</div>
    <div className="os-new-block"><button className="os-btn" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/> Добавить блок</button>{adding&&<div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
      {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{!sourceId&&<input placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
