@@ -108,37 +108,43 @@ function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:Detail
  const [doc,setDoc]=useState<GoalDocument>(full);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState('');
  const [allTasks,setAllTasks]=useState<Task[]>([]),[linkedIds,setLinkedIds]=useState<string[]>([]),[linkLoading,setLinkLoading]=useState(false),[linkError,setLinkError]=useState('');
+ const [freshStats,setFreshStats]=useState<{total:number;done:number}|null>(null);
  const [taskDraft,setTaskDraft]=useState(''),[draftId,setDraftId]=useState<string|null>(null),[linkExisting,setLinkExisting]=useState(''),[taskSaving,setTaskSaving]=useState(false);
  const saveLock=useRef(false),taskLock=useRef(false);
  const storedRaw=goalRaw(goal);
  useEffect(()=>{setDoc(readGoalDocument(storedRaw));},[storedRaw]);
  const loadTasks=async()=>{
   setLinkLoading(true);setLinkError('');
-  try{
-   const periods=[[dateAdd(app.today,-60),app.today],[dateAdd(app.today,1),dateAdd(app.today,61)]];
-   const results=await Promise.allSettled(periods.map(([start,end])=>request<{tasks:Task[]}>('os6','calendar',{start,end})));
-   const candidates=[...app.buffer,...app.tasks,...results.flatMap(r=>r.status==='fulfilled'?r.value.tasks||[]:[])];
-   const unique=[...new Map(candidates.map(t=>[t.id,t])).values()];
-   setAllTasks(unique);
-   if(kind==='strategic')setLinkedIds(app.os6.links.filter(l=>l.goal_id===goal.id).map(l=>l.task_id));
-   else{
-    const related:string[]=[];
-    // Existing os9 API supports lookup by task ID; no unverifiable bulk endpoint.
-    // Query limited to the nearby calendar range and Buffer; overall stats are from os9.
-    for(let i=0;i<unique.length;i+=12){
-     const replies=await Promise.allSettled(unique.slice(i,i+12).map(task=>request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id})));
-     replies.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value.goalId===goal.id)related.push(unique[i+j].id)});
-    }
-    setLinkedIds(related);
+  const periods=[[dateAdd(app.today,-60),app.today],[dateAdd(app.today,1),dateAdd(app.today,61)]];
+  const results=await Promise.allSettled([
+   request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:app.today}),
+   ...periods.map(([start,end])=>request<{tasks:Task[]}>('os6','calendar',{start,end})),
+   ...(kind==='regular'?[request<{stats:GoalTaskStats}>('os9','regular_goal_stats')]:[])
+  ]);
+  const list=results[0].status==='fulfilled'?results[0].value:null;
+  const calendar=results.slice(1,3).flatMap(item=>item.status==='fulfilled'?item.value.tasks||[]:[]);
+  // Network snapshots win over outdated AppContext data after a write.
+  const unique=[...new Map([...app.buffer,...app.tasks,...calendar,...(list?.buffer||[]),...(list?.daily||[])].map(t=>[t.id,t])).values()];
+  setAllTasks(unique);
+  if(kind==='regular'){
+   const res=results[3];if(res?.status==='fulfilled')setFreshStats(res.value.stats?.[goal.id]||{total:0,done:0});
+   const related:string[]=[];
+   for(let i=0;i<unique.length;i+=12){
+    const responses=await Promise.allSettled(unique.slice(i,i+12).map(task=>request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id})));
+    responses.forEach((response,j)=>{if(response.status==='fulfilled'&&response.value.goalId===goal.id)related.push(unique[i+j].id)});
    }
-   if(results.every(r=>r.status==='rejected'))setLinkError('Не удалось загрузить календарь; показаны задачи из Буфера и выбранного дня.');
-  }catch(e:any){setLinkError(e?.message||'Не удалось загрузить связанные задачи')}
-  finally{setLinkLoading(false)}
+   setLinkedIds(related);
+  }else{
+   setLinkedIds(app.os6.links.filter(l=>l.goal_id===goal.id).map(l=>l.task_id));
+  }
+  if(results.slice(0,3).every(item=>item.status==='rejected'))
+   setLinkError('Не удалось обновить список задач. Проверь соединение и попробуй ещё раз.');
+  setLinkLoading(false);
  };
  useEffect(()=>{void loadTasks()},[goal.id,kind,app.today]);
  const linked=allTasks.filter(t=>linkedIds.includes(t.id));
  const missing=kind==='strategic'?Math.max(0,linkedIds.length-linked.length):Math.max(0,(stats[goal.id]?.total||0)-linked.length);
- const counts=kind==='regular'?stats[goal.id]||{total:0,done:0}:{total:linkedIds.length,done:linked.filter(t=>t.completed).length};
+ const counts=kind==='regular'?freshStats||stats[goal.id]||{total:0,done:0}:{total:linkedIds.length,done:linked.filter(t=>t.completed).length};
  const {percent,metric,task}=goalProgressParts(kind,goal,stats,counts);
  const closed=statusOf(goal,kind);
  const measured=doc.fields.map(goalFieldProgress).filter((x):x is number=>x!==null);
@@ -168,20 +174,29 @@ function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:Detail
  const complete=()=>{const next={...doc,closedAt:closed?null:new Date().toISOString(),previousProgress:closed?doc.previousProgress:regular?(goal as RegularGoal).progress:undefined};void saveDoc(next,!closed)};
  const createTask=async(e:React.FormEvent)=>{
   e.preventDefault();if(taskLock.current||!taskDraft.trim())return;
-  taskLock.current=true;setTaskSaving(true);setLinkError('');
+  taskLock.current=true;setTaskSaving(true);setLinkError('');setSaved('');
+  let createdId=draftId,creationConfirmed=!!draftId;
+  const title=taskDraft.trim();
   try{
-   let id=draftId;
-   if(!id){
+   if(!createdId){
     const result=await request<{id:string}>('os6','task_save_and_link',{id:null,task:{
-     title:taskDraft.trim(),notes:'',sphere:'Личное',day:null,priority:'extra'
+     title,notes:'',sphere:'Личное',day:null,priority:'extra'
     },goal_id:kind==='strategic'?goal.id:null});
-    id=result.id;setDraftId(id);
+    createdId=result.id;creationConfirmed=true;setDraftId(createdId);
    }
-   if(kind==='regular')await request('os9','regular_goal_set',{taskId:id,goalId:goal.id});
-   setTaskDraft('');setDraftId(null);setSaved('Задача создана в Буфере и привязана к цели');
-   await app.refresh();await loadTasks();onUpdated();
-  }catch(e:any){setLinkError((draftId?'Повторить привязку: ':'Проверь сохранение: ')+(e?.message||'Ошибка связи')+'. Если задача уже создана, повторная попытка не создаст копию.')}
-  finally{taskLock.current=false;setTaskSaving(false)}
+   if(kind==='regular')await request('os9','regular_goal_set',{taskId:createdId,goalId:goal.id});
+   const created:Task={id:createdId!,title,notes:'',sphere:'Личное',day:null,priority:'extra',completed:false};
+   setAllTasks(rows=>[created,...rows.filter(t=>t.id!==created.id)]);
+   setLinkedIds(ids=>[...new Set([...ids,created.id])]);
+   setFreshStats(prev=>kind==='regular'?{total:(prev?.total??counts.total)+1,done:prev?.done??counts.done}:prev);
+   setTaskDraft('');setDraftId(null);setSaved('Задача создана и привязана к цели. Она находится в Буфере.');
+   try{await app.refresh();onUpdated();}catch{
+    setLinkError('Задача сохранена. Обновление общего списка не удалось — повтори позже.');
+   }
+  }catch(e:any){
+   if(creationConfirmed&&createdId)setDraftId(createdId);
+   setLinkError((creationConfirmed?'Задача уже создана, но привязка не завершена. Повтори попытку: ':'Не удалось создать задачу: ')+(e?.message||'Ошибка соединения'));
+  }finally{taskLock.current=false;setTaskSaving(false)}
  };
  const linkTask=async(task:Task,unlink=false)=>{
   if(taskLock.current)return;taskLock.current=true;setTaskSaving(true);setLinkError('');
@@ -195,12 +210,25 @@ function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:Detail
   finally{taskLock.current=false;setTaskSaving(false)}
  };
  const toggleDone=async(taskItem:Task)=>{
-  if(taskLock.current)return;taskLock.current=true;setTaskSaving(true);setLinkError('');
-  try{await request('dashboard','task_toggle',{id:taskItem.id,completed:!taskItem.completed});
-   setAllTasks(rows=>rows.map(t=>t.id===taskItem.id?{...t,completed:!t.completed}:t));
-   await app.refresh();onUpdated();
-  }catch(e:any){setLinkError(e?.message||'Не удалось обновить задачу')}
-  finally{taskLock.current=false;setTaskSaving(false)}
+  if(taskLock.current)return;taskLock.current=true;setTaskSaving(true);setLinkError('');setSaved('');
+  let rescheduled=false,committed=false;
+  try{
+   // The deployed dashboard.task_toggle only accepts daily tasks, not Buffer tasks.
+   // Explicit completion of a Buffer task moves the SAME task ID into Today first.
+   if(!taskItem.day){
+    await request('os6','task_reschedule',{id:taskItem.id,day:app.today});
+    rescheduled=true;
+   }
+   await request('dashboard','task_toggle',{id:taskItem.id,completed:!taskItem.completed});
+   committed=true;
+   setAllTasks(rows=>rows.map(t=>t.id===taskItem.id?{...t,day:t.day||app.today,completed:!t.completed}:t));
+   if(kind==='regular')setFreshStats(prev=>({...prev||counts,done:Math.max(0,(prev?.done??counts.done)+(taskItem.completed?-1:1))}));
+   setSaved(rescheduled?'Задача выполнена и перенесена в Сегодня':'Статус задачи сохранён');
+   try{await app.refresh();onUpdated();}catch{setLinkError('Отметка сохранена, но обновить общий список не удалось.')}
+  }catch(e:any){
+   const lead=committed?'Статус сохранён. ':rescheduled?'Задача перенесена в Сегодня, но не отмечена выполненной. ':'';
+   setLinkError(lead+(e?.message||'Не удалось отметить задачу'));
+  }finally{taskLock.current=false;setTaskSaving(false)}
  };
  const duration=goalAgeDays(goal.created_at,doc.closedAt,app.today,app.tz);
  const options:GoalFieldType[]=['number','percent','text','checkbox','date','select'];
@@ -253,15 +281,16 @@ function GoalDetail({kind,goal,stats,onBack,onEdit,onUpdated,editOverlay}:Detail
   </div>}
   {tab==='tasks'&&<div className="goal-detail-panels">
    <Card className="goal-tasks-panel">
-    <SectionHead title="Задачи цели" caption="Связанные задачи остаются обычными задачами Personal OS"/>
+    <SectionHead title="Задачи цели" caption="Добавляй и выполняй задачи, не создавая отдельный список-копию"/>
     <div className="goal-task-summary"><strong>{counts.done} / {counts.total}</strong><span>выполнено</span><ProgressBar value={counts.total?Math.round(counts.done/counts.total*100):0}/></div>
     {linkError&&<p role="alert" className="os-error-banner">{linkError}</p>}
     {linkLoading&&<p className="tiny-note" role="status">Загружаем связи задач…</p>}
+    <p className="goal-task-hint">Отметка выполнения задачи из Буфера автоматически переносит её в «Сегодня», сохраняя цель, категорию и заметки.</p>
     <div className="goal-task-rows">{linked.length?linked.map(t=><div key={t.id} className="goal-task-row">
      <input type="checkbox" aria-label={'Выполнить: '+t.title} checked={t.completed} disabled={taskSaving} onChange={()=>void toggleDone(t)}/>
      <button className={'goal-task-open '+(t.completed?'completed':'')} onClick={()=>void app.openTaskPage(t)}>{t.title}</button>
      <button className="goal-task-unlink" title="Отвязать от цели" aria-label={'Отвязать '+t.title} disabled={taskSaving} onClick={()=>void linkTask(t,true)}><Icon name="x" size={16}/></button>
-    </div>):<p className="tiny-note">Связанных задач за загруженный период пока нет.</p>}</div>
+    </div>):<p className="tiny-note">Пока нет задач. Добавь первое действие ниже.</p>}</div>
     {missing>0&&<p className="tiny-note">Ещё {missing} задач вне отображаемого периода. Полный счётчик учитывает связи на сервере.</p>}
     <form className="goal-task-create" onSubmit={e=>void createTask(e)}><label>Новая задача в Буфере<input value={taskDraft} onChange={e=>setTaskDraft(e.target.value)} placeholder="Что нужно сделать для цели?" maxLength={180}/></label>
      <button className="btn accent" type="submit" disabled={!taskDraft.trim()||taskSaving}><Icon name="plus" size={16}/>{draftId?'Повторить привязку':'Создать и привязать'}</button></form>
