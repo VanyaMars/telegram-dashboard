@@ -14,7 +14,7 @@ assert.doesNotMatch(analytics,/focusIncome|Фокус по задачам/);asse
 assert.doesNotMatch(pages,/workspaceMode|showPages|mvp-pages-toggle/);
 assert.match(pages,/taskPage/);
 assert.match(pipeline,/LayoutGroup/);assert.match(pipeline,/useReducedMotion/);
-assert.match(read('package.json'),/6\.9\.1-rc\.1/);
+assert.match(read('package.json'),/"version": "6\.10\.0"/);
 assert.ok(!read('src/lib/api.ts').includes('goal_target_mode'),'No invented backend contract');
 console.log('6.8 integrated static checks: Home, Goals, Pages, Income, Pipeline and build label OK');
 
