@@ -49,6 +49,11 @@ test('task properties autosave: category, notes and icon/title persist',async({p
  await expect(panel.getByText('Ctrl + Enter')).toHaveCount(0);
  await panel.getByRole('button',{name:'Выбрать категорию'}).click();
  await expect(panel.getByRole('button',{name:'Добавить категорию'})).toBeVisible();
+ await panel.getByRole('button',{name:'Добавить категорию'}).click();
+ await panel.getByRole('textbox',{name:'Название новой категории'}).fill('Новая QA категория');
+ await panel.getByRole('button',{name:'Создать',exact:true}).click();
+ await expect(panel.getByRole('button',{name:'Выбрать категорию'})).toContainText('Новая QA категория');
+ await panel.getByRole('button',{name:'Выбрать категорию'}).click();
  await panel.locator('.os-category-menu').getByRole('button',{name:'Без категории'}).click();
  await expect(panel.getByRole('button',{name:'Выбрать категорию'})).toContainText('Без категории');
  const notes=panel.getByRole('textbox',{name:'Заметки'});
