@@ -139,12 +139,12 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
    ...(kind==='regular'?[request<{stats:GoalTaskStats}>('os9','regular_goal_stats')]:[])
   ]);
   const list=results[0].status==='fulfilled'?results[0].value:null;
-  const calendar=results.slice(1,3).flatMap(item=>item.status==='fulfilled'?item.value.tasks||[]:[]);
+  const calendar=results.slice(1,3).flatMap(item=>item.status==='fulfilled'&&'tasks' in item.value?item.value.tasks||[]:[]);
   // Network snapshots win over outdated AppContext data after a write.
   const unique=[...new Map([...app.buffer,...app.tasks,...calendar,...(list?.buffer||[]),...(list?.daily||[])].map(t=>[t.id,t])).values()];
   setAllTasks(unique);
   if(kind==='regular'){
-   const res=results[3];if(res?.status==='fulfilled')setFreshStats(res.value.stats?.[goal.id]||{total:0,done:0});
+   const res=results[3];if(res?.status==='fulfilled'&&'stats' in res.value)setFreshStats(res.value.stats?.[goal.id]||{total:0,done:0});
    const related:string[]=[];
    for(let i=0;i<unique.length;i+=12){
     const responses=await Promise.allSettled(unique.slice(i,i+12).map(task=>request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id})));
