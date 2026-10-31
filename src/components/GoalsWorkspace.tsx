@@ -6,7 +6,7 @@ import {useRegularGoals,RegularGoalEditor,goalEvidence,type RegularGoal,type Goa
 import {Icon} from './Icons';
 import {Card,Empty,ProgressBar,SectionHead,Sparkline} from './UI';
 import {request} from '../lib/api';
-import {dateAdd,goalProgress} from '../lib/date';
+import {goalProgress} from '../lib/date';
 import {readGoalDocument,goalAgeDays,goalFieldProgress,metricAverage,combinedGoalProgress,formatGoalField,
  type GoalDocument,type GoalField,type GoalFieldType} from '../lib/goalDocument';
 import type {Goal,GoalPoint,Task} from '../types';
@@ -132,31 +132,16 @@ function GoalDetail({kind,goal,stats,storedDocument,onBack,onEdit,onUpdated,edit
  useEffect(()=>{setDoc(storedDocument);},[goal.id,storedRaw,JSON.stringify(storedDocument.fields),storedDocument.closedAt]);
  const loadTasks=async()=>{
   setLinkLoading(true);setLinkError('');
-  const periods=[[dateAdd(app.today,-60),app.today],[dateAdd(app.today,1),dateAdd(app.today,61)]];
-  const results=await Promise.allSettled([
-   request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:app.today}),
-   ...periods.map(([start,end])=>request<{tasks:Task[]}>('os6','calendar',{start,end})),
-   ...(kind==='regular'?[request<{stats:GoalTaskStats}>('os9','regular_goal_stats')]:[])
-  ]);
-  const list=results[0].status==='fulfilled'?results[0].value:null;
-  const calendar=results.slice(1,3).flatMap(item=>item.status==='fulfilled'&&'tasks' in item.value?item.value.tasks||[]:[]);
-  // Network snapshots win over outdated AppContext data after a write.
-  const unique=[...new Map([...app.buffer,...app.tasks,...calendar,...(list?.buffer||[]),...(list?.daily||[])].map(t=>[t.id,t])).values()];
-  setAllTasks(unique);
-  if(kind==='regular'){
-   const res=results[3];if(res?.status==='fulfilled'&&'stats' in res.value)setFreshStats(res.value.stats?.[goal.id]||{total:0,done:0});
-   const related:string[]=[];
-   for(let i=0;i<unique.length;i+=12){
-    const responses=await Promise.allSettled(unique.slice(i,i+12).map(task=>request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id})));
-    responses.forEach((response,j)=>{if(response.status==='fulfilled'&&response.value.goalId===goal.id)related.push(unique[i+j].id)});
-   }
-   setLinkedIds(related);
-  }else{
-   setLinkedIds(app.os6.links.filter(l=>l.goal_id===goal.id).map(l=>l.task_id));
-  }
-  if(results.slice(0,3).every(item=>item.status==='rejected'))
-   setLinkError('Не удалось обновить список задач. Проверь соединение и попробуй ещё раз.');
-  setLinkLoading(false);
+  try{
+   const data=await request<{tasks:Task[];count:{total:number;done:number}}>('os8','goal_tasks_list',{kind,goalId:goal.id});
+   const tasks=data.tasks||[];
+   const unique=[...new Map([...app.buffer,...app.tasks,...tasks].map(t=>[t.id,t])).values()];
+   setAllTasks(unique);
+   setLinkedIds(tasks.map(t=>t.id));
+   if(kind==='regular')setFreshStats(data.count||{total:0,done:0});
+  }catch(e:any){
+   setLinkError('Не удалось загрузить связанные задачи: '+(e?.message||'Ошибка соединения')+'. Другие данные цели сохранены.');
+  }finally{setLinkLoading(false)}
  };
  useEffect(()=>{void loadTasks()},[goal.id,kind,app.today]);
  const linked=allTasks.filter(t=>linkedIds.includes(t.id));
