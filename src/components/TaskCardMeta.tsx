@@ -10,9 +10,10 @@ export function useTaskCardMeta(ids:string[]){
 }
 export const EMOJI_GROUPS:Record<string,string[]>={Действия:['📋','✅','🎯','📌','📝','📅','⏰','🔥','⚡','💡','🚀','⭐','🏆','📈','🔔','🔑'],Работа:['💼','💻','📊','📁','🗂️','🎨','✍️','📷','💰','💳','📞','🌐','🧠','🔧'],Жизнь:['🏠','🛒','🍎','🍽️','🚗','🚲','🏃','🏋️','💪','❤️','📚','🎧','🎮','🎉','☕','🌱'],Люди:['🙂','😀','😎','🤝','👨‍👩‍👧','👤','👥','🙌','💬']};
 export function TaskEmojiPicker({value,onSelect,onClose}:{value:string;onSelect:(emoji:string)=>void;onClose:()=>void}){
- const [search,setSearch]=useState('');
+ const [search,setSearch]=useState(''),[custom,setCustom]=useState('');
  return <div className="task-emoji-picker" onClick={e=>e.stopPropagation()}>
   <div className="task-emoji-search"><input aria-label="Поиск эмодзи" placeholder="Поиск по категории" value={search} onChange={e=>setSearch(e.target.value)}/><button type="button" aria-label="Закрыть выбор эмодзи" onClick={onClose}>×</button></div>
   {Object.entries(EMOJI_GROUPS).filter(([name])=>name.toLowerCase().includes(search.toLowerCase())||!search).map(([name,icons])=><div key={name}><small>{name}</small><div className="task-emoji-grid">{icons.map(emoji=><button type="button" className={emoji===value?'active':''} key={emoji} aria-label={'Выбрать '+emoji} onClick={()=>onSelect(emoji)}>{emoji}</button>)}</div></div>)}
+  <div className="task-emoji-custom"><input aria-label="Вставить любой эмодзи" value={custom} onChange={e=>setCustom(e.target.value)} maxLength={16} placeholder="Другой эмодзи с клавиатуры"/><button type="button" disabled={!custom.trim()} onClick={()=>onSelect(custom.trim())}>Выбрать</button></div>
  </div>;
 }
