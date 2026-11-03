@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {useApp} from '../AppContext';
 import {Icon} from '../components/Icons';
 import {Card,Empty,GoalMini,Pill,ProgressBar,SectionHead,Sparkline,WeekBars} from '../components/UI';
-import {TaskLibrary} from '../components/TaskLibrary';
+import {TaskLibrary,type TaskLibraryView} from '../components/TaskLibrary';
 import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
@@ -29,7 +29,7 @@ export function HomePage(){
  const remaining=tasks.filter(t=>t.priority==='important'&&!t.completed).slice(0,3);
  const allDone=k.important>0&&k.doneImportant===k.important;
  return <div className="page-stack home-dashboard">
-  <div className="hello-block"><div><p className="eyebrow">ТВОЯ ЛИЧНАЯ СИСТЕМА</p><h1>Добро пожаловать<span className="hello-dot">.</span></h1><p>Действуй точно. Прогресс придёт следом.</p></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
+  <div className="hello-block"><div><h1>Добро пожаловать<span className="hello-dot">.</span></h1></div><span className="date-chip"><Icon name="calendar" size={16}/>{shortDay(today)}</span></div>
   <div className="home-bento">
    <Card className="hero-result next-step-card">
     <div className="hero-orb orb1"/><div className="hero-orb orb2"/>
@@ -48,11 +48,11 @@ export function HomePage(){
    <div className="home-stat-grid actual-goals"><RegularGoals compact/></div>
   </div>
   <div className="home-second">
-   <Card className="priority-card"><div className="card-title-row"><div><span className="eyebrow">ПЛАН</span><h2>Важные задачи</h2></div><button className="icon-btn" onClick={()=>setEditor({type:'task',day:today,priority:'important'})} aria-label="Добавить важную задачу"><Icon name="plus"/></button></div>
+   {remaining.length>0&&<Card className="priority-card"><div className="card-title-row"><div><span className="eyebrow">ПЛАН</span><h2>Важные задачи</h2></div><button className="icon-btn" onClick={()=>setEditor({type:'task',day:today,priority:'important'})} aria-label="Добавить важную задачу"><Icon name="plus"/></button></div>
     {remaining.length?remaining.map(t=><button className="mini-task" key={t.id} onClick={()=>void openTaskPage(t)}><span className="mini-checkbox"/><span>{t.title}</span><Icon name="right" size={17}/></button>):
      <div className="success-spot"><Icon name="check-circle" size={26}/><strong>Главное под контролем</strong><span>{allDone?'Важные задачи выполнены':'Добавь первую важную задачу'}</span></div>}
     <button className="link-action" onClick={()=>open('today')}>Весь список <Icon name="arrow-right" size={16}/></button>
-   </Card>
+   </Card>}
    <Card className="week-overview"><div className="card-title-row"><div><span className="eyebrow">АКТИВНОСТЬ</span><h2>Неделя в цифрах</h2></div><button className="icon-btn" onClick={()=>open('analytics')} aria-label="Открыть аналитику"><Icon name="arrow-up-right"/></button></div>
     <WeekBars days={dates} current={Object.fromEntries(dates.map(d=>[d,metrics[d]?.tasks||0]))}/>
     <div className="week-footer"><span><i className="legend-lavender"/> Выполненные задачи</span><b>{totals.tasks} всего</b></div>
@@ -98,7 +98,7 @@ export function TodayPage(){
     <div className="summary-grid"><div><span>Важные</span><b>{progress(k.doneImportant,k.important)}%</b></div><div><span>Дополнительные</span><b>{progress(k.doneExtra,k.extra)}%</b></div></div>
    </Card>
    <div className="quick-plan-disclosure"><button className="btn outline quick-plan-toggle" aria-expanded={pickerOpen} aria-controls="today-buffer-picker" onClick={()=>setPickerOpen(v=>!v)}><Icon name="inbox" size={18}/> Из буфера {buffer.length>0?'· '+buffer.length:''}<Icon name={pickerOpen?'up':'down'} size={16}/></button>
-    {pickerOpen&&<Card className="quick-plan-card" ><div id="today-buffer-picker"><div className="card-title-row"><div><h2>Перенести из буфера</h2><p className="tiny-note">Задача сохранит свой ID, категорию и связь с целью.</p></div></div>
+    {pickerOpen&&<Card className="quick-plan-card" ><div id="today-buffer-picker"><div className="card-title-row"><div><h2>Перенести из буфера</h2><p className="tiny-note">Категория и связь с целью сохранятся.</p></div></div>
      <div className="quick-plan-form"><select aria-label="Задача из буфера" value={bufferId} onChange={e=>setBufferId(e.target.value)}><option value="">Выбрать задачу…</option>{buffer.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select>
       <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select>
       <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={()=>void transfer()}>{moving?'Переносим…':'В день'} <Icon name="right" size={16}/></button>
@@ -108,12 +108,14 @@ export function TodayPage(){
   </div>
   {group(extra,'extra')}
   <button className="btn add-inline" onClick={()=>setEditor({type:'task',day,priority:'important'})}><Icon name="plus" size={20}/> Добавить задачу</button>
+  <button className="link-action center" onClick={()=>{sessionStorage.setItem('os-task-view','completed');open('buffer')}}><Icon name="check-circle" size={17}/> Все завершённые задачи <Icon name="right" size={15}/></button>
   <button className="link-action center" onClick={()=>open('buffer')}><Icon name="inbox" size={17}/> Открыть буфер задач <Icon name="right" size={15}/></button>
  </div>;
 }
 
 
 export function BufferPage(){
+ const [view,setView]=useState<'active'|TaskLibraryView>(()=>{const saved=sessionStorage.getItem('os-task-view');return ['completed','templates','archive'].includes(saved||'')?saved as TaskLibraryView:'active'});
  const {buffer,categories,setEditor,saveTask}=useApp();
  const [query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[title,setTitle]=useState(''),[adding,setAdding]=useState(false),[addError,setAddError]=useState('');
  const submitting=React.useRef(false),inputRef=React.useRef<HTMLInputElement>(null);
@@ -128,12 +130,13 @@ export function BufferPage(){
   finally{submitting.current=false;setAdding(false)}
  };
  return <div className="page-stack buffer-mvp buffer-action-flow">
-  <div className="page-heading"><div><p className="eyebrow">ВВЕДИ СЕЙЧАС — РАЗБЕРЁШЬ ПОТОМ</p><h1>Буфер задач</h1><p>Одна строка для идеи. Детали добавишь позже.</p></div><button className="btn outline" onClick={()=>setEditor({type:'task',day:null})}><Icon name="settings" size={16}/> Подробно</button></div>
-  <Card className="buffer-quick"><form onSubmit={quick}><Icon name="plus" size={20}/><input ref={inputRef} value={title} onChange={e=>{setTitle(e.target.value);if(addError)setAddError('')}} placeholder="Что нужно сделать?" maxLength={180} aria-label="Быстро добавить задачу"/><button type="submit" disabled={!title.trim()||adding}>{adding?'Сохраняю…':'Добавить'}</button></form></Card>
+  <div className="page-heading"><div><h1>Буфер задач</h1><p>Задачи, завершённое и сохранённые шаблоны.</p></div><button className="btn outline" onClick={()=>setEditor({type:'task',day:null})}><Icon name="settings" size={16}/> Подробно</button></div>
+  <div className="task-view-tabs" role="tablist" aria-label="Списки задач">{([['active','Активные'],['completed','Завершённые'],['templates','Шаблоны'],['archive','Архив']] as const).map(([id,label])=><button role="tab" key={id} aria-selected={view===id} onClick={()=>{setView(id);sessionStorage.setItem('os-task-view',id);setQuery('')}}>{label}</button>)}</div>
+  {view==='active'&&<><Card className="buffer-quick"><form onSubmit={quick}><Icon name="plus" size={20}/><input ref={inputRef} value={title} onChange={e=>{setTitle(e.target.value);if(addError)setAddError('')}} placeholder="Что нужно сделать?" maxLength={180} aria-label="Быстро добавить задачу"/><button type="submit" disabled={!title.trim()||adding}>{adding?'Сохраняю…':'Добавить'}</button></form></Card>
   {addError&&<p className="buffer-save-error" role="alert">{addError}</p>}
   <div className="buffer-categories" aria-label="Категории задач"><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Все <span>{buffer.length}</span></button>{categories.map(c=><button key={c.id} className={filter===c.id?'active':''} onClick={()=>setFilter(c.id)}><i style={{background:c.color}}/>{c.name}<span>{buffer.filter(t=>matchCategory(t)?.id===c.id).length}</span></button>)}<QuickCategory/></div>
-  <TaskLibrary/><label className="buffer-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по задачам и заметкам" aria-label="Поиск задач"/></label>
-  {!matching.length?<Card><Empty title={buffer.length?'Ничего не найдено':'Буфер пока пуст'} description={buffer.length?'Попробуй другой запрос или сбрось фильтры.':'Запиши задачу в одну строку — детали добавишь в её странице.'} action={buffer.length?<button className="btn outline" onClick={()=>{setQuery('');setFilter('all')}}>Сбросить фильтры</button>:undefined}/></Card>:groupKeys.map(id=>{
+  </>}<label className="buffer-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder={view==='active'?'Поиск по задачам и заметкам':'Поиск по названию'} aria-label="Поиск задач"/></label>
+  {view!=='active'?<TaskLibrary view={view} query={query}/>:!matching.length?<Card><Empty title={buffer.length?'Ничего не найдено':'Буфер пока пуст'} description={buffer.length?'Попробуй другой запрос или сбрось фильтры.':'Запиши задачу в одну строку — детали добавишь в её странице.'} action={buffer.length?<button className="btn outline" onClick={()=>{setQuery('');setFilter('all')}}>Сбросить фильтры</button>:undefined}/></Card>:groupKeys.map(id=>{
    const group=matching.filter(t=>(matchCategory(t)?.id||'uncategorized')===id),cat=categories.find(c=>c.id===id);
    return <Card className="buffer-group" key={id}><SectionHead title={cat?.name||'Без категории'} caption={group.length+' задач'}/><TaskList zone="buffer" items={group}/></Card>
   })}

@@ -113,7 +113,7 @@ export function StatusToast(){
  const{message,recentDeleted,undoDelete}=useApp();
  const reduced=useReducedMotion();
  return <AnimatePresence initial={false}>
-  {message&&<m.div key={message} className="toast" role="status"
+  {message&&<m.div key={message} className={'toast'+(message==='Задача сохранена'?' task-saved-toast':'')} role="status"
    initial={reduced?false:{opacity:0,y:8,scale:0.985}}
    animate={{opacity:1,y:0,scale:1}}
    exit={reduced?{opacity:0}:{opacity:0,y:5}}

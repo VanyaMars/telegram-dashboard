@@ -1,7 +1,7 @@
 {
   "name": "personal-os-premium",
   "private": true,
-  "version": "6.11.0",
+  "version": "6.12.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",

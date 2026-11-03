@@ -39,7 +39,19 @@ Deno.serve(async(req:Request)=>{
   // Editable presentation for fixed built-in fields. Storage semantics never change.
 
   if(act==='task_duplicate'){if(!idOk(body.taskId))return reply({ok:false,error:'Неверная задача'},400);const id=await must(db.rpc('os12_duplicate_task',{owner_id:uid,source_id:body.taskId}));return reply({ok:true,id});}
-  if(act==='task_library'){const tasks=await must(db.from('personal_tasks').select('*').eq('telegram_user_id',uid).limit(3000));return reply({ok:true,tasks:tasks.filter((t:any)=>t.task_options?.archived||t.task_options?.template)});}
+  if(act==='task_library'){
+   const view=String(body.view||'legacy');const offset=Number(body.offset||0);
+   if(!['completed','templates','archive','legacy'].includes(view)||!Number.isInteger(offset)||offset<0||offset>100000)return reply({ok:false,error:'Неверный список'},400);
+   let query=db.from('personal_tasks').select('*').eq('telegram_user_id',uid);
+   if(view==='completed')query=query.eq('completed',true);
+   else if(view==='templates')query=query.eq('task_options->>template','true');
+   else if(view==='archive')query=query.eq('task_options->>archived','true');
+   else query=query.or('task_options->>archived.eq.true,task_options->>template.eq.true');
+   const search=trimmed(body.query,180);if(search)query=query.ilike('title','%'+search.replace(/[\\%_]/g,'\\$&')+'%');
+   if(view==='legacy')return reply({ok:true,tasks:await must(query.limit(3000)),hasMore:false});
+   const tasks=await must(query.order('updated_at',{ascending:false}).order('id').range(offset,offset+50));
+   return reply({ok:true,tasks:tasks.slice(0,50),hasMore:tasks.length>50});
+  }
   if(act==='task_options_get'||act==='task_options_set'){
    if(!idOk(body.taskId))return reply({ok:false,error:'Неверная задача'},400);
    const task=await must(db.from('personal_tasks').select('id,task_options').eq('telegram_user_id',uid).eq('id',body.taskId).maybeSingle());
