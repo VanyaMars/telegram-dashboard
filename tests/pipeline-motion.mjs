@@ -5,7 +5,7 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const path='src/components/WorkspacePipeline.tsx',code=read(path);
 const ast=ts.createSourceFile(path,code,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
 assert.equal(ast.parseDiagnostics.length,0,'Pipeline TSX is valid');
-assert.match(code,/>Pipeline<\/strong>/);
+assert.match(code,/>\{title\}<\/strong>/);
 assert.match(code,/os-split-menu/);
 assert.match(code,/LayoutGroup/);
 assert.match(code,/AnimatePresence/);

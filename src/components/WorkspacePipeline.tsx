@@ -5,11 +5,11 @@ import {Icon} from './Icons';
 import {motionTokens} from './motionTokens';
 import {pipelineProgress,splitProgress,WSplit,WItem} from '../lib/workspace';
 
-type Props={blockId:string;initialSplits:WSplit[];initialItems:WItem[];write:(action:string,body:Record<string,unknown>)=>Promise<any>;reload:()=>Promise<void>};
+type Props={title?:string;blockId:string;initialSplits:WSplit[];initialItems:WItem[];write:(action:string,body:Record<string,unknown>)=>Promise<any>;reload:()=>Promise<void>};
 const sameOrder=(a:string[],b:string[])=>a.length===b.length&&a.every((id,i)=>id===b[i]);
 
 /** Local optimistic order only: the backend remains authoritative after each commit. */
-export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:Props){
+export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialItems,write,reload}:Props){
  const reduced=useReducedMotion();
  const splits=useMemo(()=>initialSplits.filter(s=>s.block_id===blockId).sort((a,b)=>a.position-b.position),[initialSplits,blockId]);
  const items=useMemo(()=>initialItems.filter(t=>splits.some(s=>s.id===t.split_id)).sort((a,b)=>a.position-b.position),[initialItems,splits]);
@@ -22,6 +22,7 @@ export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:
  const arranged=useMemo(()=>localOrder?[...splits].sort((a,b)=>localOrder.indexOf(a.id)-localOrder.indexOf(b.id)):splits,[splits,localOrder]);
  const total=items.length,done=items.filter(x=>x.completed).length;
  const completed=pipelineProgress(splits,items);
+ const nextAction=arranged.flatMap(s=>items.filter(i=>i.split_id===s.id)).find(i=>!i.completed);
  const action=async(name:string,body:Record<string,unknown>)=>{const result=await write(name,body);await reload();return result};
  const commitOrder=async(ids:string[])=>{
   if(movingRef.current)return;
@@ -41,16 +42,18 @@ export function SplitPipeline({blockId,initialSplits,initialItems,write,reload}:
   e.preventDefault();if(creatingRef.current)return;
   if(!newSplit.trim()){setNewSplitError('Сначала введи название этапа');splitRef.current?.focus();return}
   creatingRef.current=true;setPending(true);setNewSplitError('');
-  try{await action('split_save',{blockId,title:newSplit.trim()});setNewSplit('');splitRef.current?.focus()}
+  try{const created=await action('split_save',{blockId,title:newSplit.trim()});setActive(created.id);setNewSplit('');splitRef.current?.focus()}
   catch{setNewSplitError('Не удалось сохранить этап. Повтори попытку.')}
   finally{creatingRef.current=false;setPending(false)}
  };
  return <section className="os-pipeline os-pipeline-premium" aria-label="Pipeline">
-  <div className="os-pipe-summary"><div><strong>Pipeline</strong><span>{total?done+' из '+total+' действий':'Нет задач'}</span></div><b>{completed}%</b></div>
+  <div className="os-pipe-summary"><div><strong>{title}</strong><span>{total?done+' из '+total+' действий':'Нет задач'}</span></div><b>{completed}%</b></div>
   <div className="os-progress os-pipe-progress" role="progressbar" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={100} aria-label="Прогресс Pipeline">
    <m.span initial={false} style={{width:'100%',transformOrigin:'0% 50%'}} animate={{scaleX:completed/100}}
     transition={reduced?{duration:0}:motionTokens.progress}/>
   </div>
+  {nextAction&&<p className="os-inline-hint">Следующее действие: {nextAction.title}</p>}
+  {total>0&&completed===100&&<p role="status" className="os-inline-hint">Все действия выполнены. Можно завершить задачу кнопкой вверху страницы.</p>}
   {orderError&&<div className="os-pipe-feedback" role="alert">{orderError}{failedOrder&&<button type="button" disabled={moving} onClick={()=>void commitOrder(failedOrder)}>Повторить перестановку</button>}</div>}
   <div className="os-pipe-tabs" role="tablist" aria-label="Этапы Pipeline">{arranged.map((s,i)=><button role="tab" key={s.id} aria-selected={active===s.id} className={active===s.id?'active':''} onClick={()=>setActive(s.id)}><small>Этап {i+1}</small>{s.title}</button>)}</div>
   <LayoutGroup id={'pipeline-'+blockId}>
@@ -108,7 +111,7 @@ function SplitColumn({split,index,items,move,action,write,reload,allSplits,expan
   if(!next){setRenameError('Название этапа не может быть пустым');return}
   if(next===split.title){setRenameError('');return}
   renameRef.current=true;setRenameError('');
-  try{await action('split_save',{id:split.id,blockId:split.block_id,title:next})}
+  try{await write('split_save',{id:split.id,blockId:split.block_id,title:next})}
   catch{setRenameError('Не удалось сохранить название. Нажми Enter для повторной попытки.')}
   finally{renameRef.current=false}
  };
@@ -139,6 +142,7 @@ function SplitColumn({split,index,items,move,action,write,reload,allSplits,expan
    <details className="os-split-menu"><summary aria-label={'Действия с этапом '+split.title} title="Действия с этапом"><Icon name="more" size={17}/></summary><div className="os-split-actions">
     <button type="button" className="os-icon" disabled={stageMoving||index===0} title="Этап левее" aria-label="Этап левее" onClick={()=>void move(split.id,-1)}><Icon name="left" size={16}/></button>
     <button type="button" className="os-icon" disabled={stageMoving||index===allSplits.length-1} title="Этап правее" aria-label="Этап правее" onClick={()=>void move(split.id,1)}><Icon name="right" size={16}/></button>
+    <button type="button" onClick={()=>void action('split_duplicate',{id:split.id}).catch(()=>setRenameError('Не удалось скопировать этап.'))}>Копировать этап</button>
     <button type="button" className="os-icon os-danger" title="Удалить этап" aria-label="Удалить этап" onClick={()=>{if(window.confirm('Удалить этап и все его пункты?'))void action('split_delete',{id:split.id}).catch(()=>setRenameError('Не удалось удалить этап.'))}}><Icon name="trash" size={15}/></button>
    </div></details>
   </div>
@@ -165,6 +169,7 @@ function SplitColumn({split,index,items,move,action,write,reload,allSplits,expan
      </div>:<button type="button" className={'os-workflow-name '+(item.completed?'completed':'')} aria-label={'Изменить действие: '+item.title} onClick={()=>startEdit(item)}>{item.title}</button>}
      {pendingItems.includes(item.id)&&<span className="os-workflow-pending" role="status">Сохраняем…</span>}
      <div className="os-task-mini-controls">
+      {allSplits.length>1&&<select className="os-workflow-move" aria-label={'Перенести действие: '+item.title} value="" onChange={e=>void action('workflow_move',{id:item.id,splitId:e.target.value}).catch(()=>setWorkflowEditError('Не удалось перенести действие.'))}><option value="" disabled>↗</option>{allSplits.filter(s=>s.id!==split.id).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select>}
       <button type="button" title="Выше" aria-label={'Выше: '+item.title} disabled={reordering||arranged[0].id===item.id} onClick={()=>void reorder(item.id,-1)}>↑</button>
       <button type="button" title="Ниже" aria-label={'Ниже: '+item.title} disabled={reordering||arranged[arranged.length-1].id===item.id} onClick={()=>void reorder(item.id,1)}>↓</button>
       <button type="button" title="Удалить" aria-label={'Удалить: '+item.title} onClick={()=>{if(window.confirm('Удалить это действие?'))void action('workflow_delete',{id:item.id}).catch(()=>setWorkflowEditError('Не удалось удалить действие.'))}}>×</button>

@@ -37,6 +37,37 @@ Deno.serve(async(req:Request)=>{
 
 
   // Editable presentation for fixed built-in fields. Storage semantics never change.
+
+  if(act==='task_duplicate'){if(!idOk(body.taskId))return reply({ok:false,error:'Неверная задача'},400);const id=await must(db.rpc('os12_duplicate_task',{owner_id:uid,source_id:body.taskId}));return reply({ok:true,id});}
+  if(act==='task_library'){const tasks=await must(db.from('personal_tasks').select('*').eq('telegram_user_id',uid).limit(3000));return reply({ok:true,tasks:tasks.filter((t:any)=>t.task_options?.archived||t.task_options?.template)});}
+  if(act==='task_options_get'||act==='task_options_set'){
+   if(!idOk(body.taskId))return reply({ok:false,error:'Неверная задача'},400);
+   const task=await must(db.from('personal_tasks').select('id,task_options').eq('telegram_user_id',uid).eq('id',body.taskId).maybeSingle());
+   if(!task)return reply({ok:false,error:'Задача не найдена'},404);
+   if(act==='task_options_set'){
+    const patch=body.patch||{};if(typeof patch!=='object'||Array.isArray(patch))return reply({ok:false,error:'Неверные настройки'},400);const allowed=['hiddenProperties','enabledProperties','notesVisible','deadline','customPriority','archived','template'];
+    if(Object.keys(patch).some(k=>!allowed.includes(k))||JSON.stringify(patch).length>12000)return reply({ok:false,error:'Неверные настройки'},400);
+    if(['archived','template','notesVisible'].some(k=>k in patch&&typeof patch[k]!=='boolean')||['hiddenProperties','enabledProperties'].some(k=>k in patch&&(!Array.isArray(patch[k])||patch[k].length>100||patch[k].some((id:any)=>!idOk(id))))||('customPriority' in patch&&patch.customPriority!==null&&!idOk(patch.customPriority)))return reply({ok:false,error:'Неверные настройки'},400);
+    if(patch.deadline&&!iso(patch.deadline))return reply({ok:false,error:'Неверный срок'},400);
+    const options=await must(db.rpc('os12_patch_task_options',{owner_id:uid,task_id:task.id,patch}));return reply({ok:true,options});
+   }
+   return reply({ok:true,options:task.task_options||{}});
+  }
+  if(act==='priorities_list'||act==='priority_create'){
+   if(act==='priority_create'){
+    const name=trimmed(body.name,60),group=body.group==='important'?'important':'extra';
+    if(!name)return reply({ok:false,error:'Введите название'},400);
+    await must(db.from('os11_task_property_definitions').insert({telegram_user_id:uid,slug:'priority:'+crypto.randomUUID(),name,field_type:'text',options:{group,color: /^#[0-9a-f]{6}$/i.test(body.color)?body.color:'#8b84ed'}}));
+   }
+   const rows=await must(db.from('os11_task_property_definitions').select('id,name,options').eq('telegram_user_id',uid).like('slug','priority:%'));
+   return reply({ok:true,priorities:rows});
+  }
+  if(act==='task_property_archive'){
+   if(!idOk(body.propertyId))return reply({ok:false,error:'Неверное свойство'},400);
+   const f=await must(db.from('os11_task_property_definitions').select('options').eq('telegram_user_id',uid).eq('id',body.propertyId).is('slug',null).maybeSingle());
+   if(!f)return reply({ok:false,error:'Свойство не найдено'},404);
+   await must(db.from('os11_task_property_definitions').update({options:{...f.options,archived:body.archived!==false}}).eq('telegram_user_id',uid).eq('id',body.propertyId));return reply({ok:true});
+  }
   const nativeKeys=['category','priority','day','goal','notes','progress'];
   const iconKeys=['folder','flag','calendar','target','list','chart','clock','wallet','briefcase','check-square','idea','book-open','heart-pulse','zap','star','settings','palette','inbox','timer','users','tag','hash','type','check','filter'];
   if(act==='task_native_fields'){
@@ -293,8 +324,6 @@ Deno.serve(async(req:Request)=>{
    if(!task)return reply({ok:false,error:'Задача не найдена'},404);
    const old=await must(db.from('os8_task_pages').select('page_id').eq('telegram_user_id',uid).eq('task_id',task.id).maybeSingle());
    if(old){await must(db.from('os7_pages').update({title:task.title,updated_at:new Date().toISOString()}).eq('id',old.page_id).eq('telegram_user_id',uid));
-   const existing=await must(db.from('os7_blocks').select('id').eq('telegram_user_id',uid).eq('page_id',old.page_id).eq('type','heading').limit(1));
-   if(!existing.length)await must(db.from('os7_blocks').insert({telegram_user_id:uid,page_id:old.page_id,type:'heading',position:0,content:{text:''}}).select('id').single());
    return reply({ok:true,pageId:old.page_id});}
    const page=await must(db.from('os7_pages').insert({telegram_user_id:uid,title:task.title,icon:'📋'}).select('id').single());
    const {error:linkErr}=await db.from('os8_task_pages').insert({telegram_user_id:uid,task_id:task.id,page_id:page.id});
@@ -302,7 +331,7 @@ Deno.serve(async(req:Request)=>{
     const found=await must(db.from('os8_task_pages').select('page_id').eq('telegram_user_id',uid).eq('task_id',task.id).maybeSingle());
     if(found)return reply({ok:true,pageId:found.page_id});throw linkErr;
    }
-   await must(db.from('os7_blocks').insert({telegram_user_id:uid,page_id:page.id,type:'heading',position:0,content:{text:''}}).select('id').single());
+   await must(db.from('os7_blocks').insert({telegram_user_id:uid,page_id:page.id,type:'text',position:0,content:{text:''}}).select('id').single());
    return reply({ok:true,pageId:page.id});
   }
   if(act==='task_page_links'){
@@ -313,7 +342,7 @@ Deno.serve(async(req:Request)=>{
    if(!idOk(body.pageId))return reply({ok:false,error:'Неверный ID страницы'},400);
    const link=await must(db.from('os8_task_pages').select('task_id').eq('telegram_user_id',uid).eq('page_id',body.pageId).maybeSingle());
    if(!link)return reply({ok:true,task:null});
-   const task=await must(db.from('personal_tasks').select('id,title,notes,sphere,day,priority,completed,os61_category_id').eq('id',link.task_id).eq('telegram_user_id',uid).maybeSingle());
+   const task=await must(db.from('personal_tasks').select('id,title,notes,sphere,day,priority,completed,os61_category_id,task_options').eq('id',link.task_id).eq('telegram_user_id',uid).maybeSingle());
    return reply({ok:true,task:task||null});
   }
   if(act==='task_page_title'){

@@ -1,6 +1,6 @@
 export type Tab='home'|'today'|'goals'|'analytics'|'buffer'|'calendar'|'tomorrow'|'finance'|'sport'|'challenges'|'review'|'discipline'|'settings'|'categories'|'help'|'workspace';
 export type TaskPriority='important'|'extra';
-export type Task={id:string;title:string;notes:string;sphere:string;day:string|null;priority:TaskPriority;completed:boolean;created_at?:string;updated_at?:string;os61_position?:number|null;os61_category_id?:string|null;os6_repeat_id?:string|null};
+export type Task={task_options?:Record<string,any>;id:string;title:string;notes:string;sphere:string;day:string|null;priority:TaskPriority;completed:boolean;created_at?:string;updated_at?:string;os61_position?:number|null;os61_category_id?:string|null;os6_repeat_id?:string|null};
 export type Category={id:string;name:string;color:string;icon:string;sort_order:number};
 export type Goal={id:string;title:string;notes:string;sphere:string;start_value:number;current_value:number;target_value:number;unit:string;deadline:string|null;created_at?:string;updated_at?:string};
 export type GoalPoint={id:number;goal_id:string;value:number;recorded_at:string};

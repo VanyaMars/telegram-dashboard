@@ -2,13 +2,16 @@ import React,{useEffect,useState} from 'react';
 import {request} from '../lib/api';
 import {TaskPropertyAppearance,PROPERTY_ICON_DEFAULTS,type PropertyAppearance} from './TaskPropertyAppearance';
 
-export type TaskField={id:string;name:string;field_type:'duration'|'number'|'text'|'checkbox'|'date'|'select';options?:{choices?:string[];icon?:string}};
+export type TaskField={id:string;name:string;field_type:'duration'|'number'|'text'|'checkbox'|'date'|'select';options?:{choices?:string[];icon?:string;archived?:boolean}};
 const types:Record<TaskField['field_type'],string>={duration:'Время работы',number:'Число',text:'Текст',checkbox:'Флажок',date:'Дата',select:'Выбор'};
 const formatMinutes=(n:number)=>n>=60?`${Math.floor(n/60)} ч ${n%60} мин`:`${n} мин`;
 
 export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppearance={name:'Прогресс',icon:'chart'},onProgressAppearance=()=>{}}:{taskId:string;pipelineProperties?:Array<{blockId:string;label:string;percent:number;done:number;total:number}>;progressAppearance?:PropertyAppearance;onProgressAppearance?:(name:string,icon:string)=>void}){
  const [fields,setFields]=useState<TaskField[]>([]),[values,setValues]=useState<Record<string,string>>({}),[error,setError]=useState(''),[status,setStatus]=useState('');
  const [adding,setAdding]=useState(false),[name,setName]=useState(''),[type,setType]=useState<TaskField['field_type']>('duration'),[choices,setChoices]=useState('');
+ const [options,setOptions]=useState<Record<string,any>>({}),[manage,setManage]=useState(false);
+ useEffect(()=>{request('os8','task_options_get',{taskId}).then(r=>setOptions(r.options||{})).catch(e=>setError(e.message))},[taskId]);
+ const hide=async(id:string,hidden:boolean)=>{try{const enabledProperties=[...(options.enabledProperties||[]).filter((x:string)=>x!==id),...(!hidden?[id]:[])];const hiddenProperties=[...(options.hiddenProperties||[]).filter((x:string)=>x!==id),...(hidden?[id]:[])];const r=await request('os8','task_options_set',{taskId,patch:{hiddenProperties,enabledProperties}});setOptions(r.options)}catch(e:any){setError(e.message)}};
  const [busy,setBusy]=useState(false);
  const load=async()=>{
   const [f,v]=await Promise.all([request<{fields:TaskField[]}>('os8','task_property_fields'),request<{values:Record<string,string>}>('os8','task_property_values',{taskId})]);
@@ -23,7 +26,7 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
  };
  const create=async(e:React.MouseEvent<HTMLButtonElement>)=>{
   e.preventDefault();setBusy(true);setError('');
-  try{await request('os8','task_property_define',{name,fieldType:type,icon:PROPERTY_ICON_DEFAULTS[type],choices:choices.split(',').map(x=>x.trim()).filter(Boolean)});await load();setName('');setChoices('');setAdding(false)}
+  try{const created=await request('os8','task_property_define',{name,fieldType:type,icon:PROPERTY_ICON_DEFAULTS[type],choices:choices.split(',').map(x=>x.trim()).filter(Boolean)});await hide(created.id,false);await load();setName('');setChoices('');setAdding(false)}
   catch(e:any){setError(e.message||'Не удалось создать свойство')}finally{setBusy(false)}
  };
  return <div className="os-custom-properties os-custom-properties--embedded" aria-label="Дополнительные свойства задачи">
@@ -36,17 +39,20 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
     <strong>{p.percent}%</strong><small>{p.done} из {p.total} действий · автоматически</small>
    </div>
   </div>)}
-  {fields.map(f=><div className="os-custom-property-row" key={f.id}>
+  {fields.filter(f=>!f.options?.archived&&!(options.hiddenProperties||[]).includes(f.id)&&(values[f.id]!==undefined||(options.enabledProperties||[]).includes(f.id))).map(f=><div className="os-custom-property-row" key={f.id}>
    <TaskPropertyAppearance fieldKey={f.id} name={f.name} fieldType={f.field_type} icon={f.options?.icon||PROPERTY_ICON_DEFAULTS[f.field_type]} choices={f.field_type==='select'?f.options?.choices||[]:undefined} onChange={(name,icon,choices,fieldType)=>setFields(prev=>prev.map(x=>x.id===f.id?{...x,name,field_type:(fieldType||x.field_type) as TaskField['field_type'],options:{...x.options,icon,choices:choices||x.options?.choices}}:x))}/>
    {f.field_type==='checkbox'?<input id={'property-'+f.id} type="checkbox" disabled={busy} checked={values[f.id]==='true'} onChange={e=>void save(f,String(e.target.checked))}/>
    :f.field_type==='select'?<select id={'property-'+f.id} disabled={busy} value={values[f.id]||''} onChange={e=>void save(f,e.target.value)}><option value="">—</option>{(f.options?.choices||[]).map(x=><option key={x} value={x}>{x}</option>)}</select>
    :<input id={'property-'+f.id} key={f.id+'-'+(values[f.id]||'')} defaultValue={values[f.id]||''} disabled={busy} type={f.field_type==='duration'||f.field_type==='number'?'number':f.field_type==='date'?'date':'text'} min={f.field_type==='duration'?0:undefined} step={f.field_type==='duration'?1:'any'} placeholder={f.field_type==='duration'?'Минуты':'—'} onBlur={e=>{if(e.target.value!==(values[f.id]||''))void save(f,e.target.value)}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>}
+   <button type="button" className="task-field-remove" aria-label={'Убрать '+f.name} onClick={()=>void hide(f.id,true)}>×</button>
    {f.field_type==='duration'&&<small>{formatMinutes(Number(values[f.id]||0))}</small>}
   </div>)}
   <button type="button" className="os-add-property-inline" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить свойство</button>
+  <button type="button" className="os-add-property-inline" onClick={()=>setManage(!manage)}>Управлять свойствами</button>
+  {manage&&<div>{fields.map(f=><div className="task-option-row" key={f.id}><span>{f.name}</span><button type="button" onClick={()=>void hide(f.id,(values[f.id]!==undefined||(options.enabledProperties||[]).includes(f.id))&&!(options.hiddenProperties||[]).includes(f.id))}>{(!(options.enabledProperties||[]).includes(f.id)&&values[f.id]===undefined||(options.hiddenProperties||[]).includes(f.id))?'Показать в задаче':'Убрать из задачи'}</button><button type="button" onClick={async()=>{if(!f.options?.archived&&!confirm('Убрать свойство из всех задач? Значения сохранятся, свойство можно восстановить.'))return;try{await request('os8','task_property_archive',{propertyId:f.id,archived:!f.options?.archived});await load()}catch(e:any){setError(e.message)}}}>{f.options?.archived?'Восстановить':'Удалить во всех задачах'}</button></div>)}</div>}
   {adding&&<div className="os-custom-property-add">
    <label>Название<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Например, Время работы"/></label>
-   <label>Тип<select value={type} onChange={e=>setType(e.target.value as TaskField['field_type'])}>{Object.entries(types).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+   <label>Тип<select aria-label="Тип свойства" value={type} onChange={e=>setType(e.target.value as TaskField['field_type'])}>{Object.entries(types).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
    {type==='select'&&<label>Варианты через запятую<input value={choices} onChange={e=>setChoices(e.target.value)}/></label>}
    <div className="os-add-property-actions"><button type="button" className="os-btn os-btn-primary" onClick={e=>void create(e)} disabled={busy||!name.trim()}>Создать свойство</button><button type="button" className="os-btn" onClick={()=>{setAdding(false);setName("");setChoices("");setError("")}} disabled={busy}>Отмена</button></div>
   </div>}

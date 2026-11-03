@@ -51,7 +51,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const readDays=useCallback(async(d:string)=>{
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});
-    setTasks(sorted(data.daily||[]));setBuffer(sorted(data.buffer||[]));
+    setTasks(sorted((data.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((data.buffer||[]).filter(t=>!t.task_options?.archived)));
   },[demo]);
   const reload=useCallback(async(d:string,timezone:string)=>{
     if(demo){
@@ -77,7 +77,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
         request<{days:any[]}>('dashboard','read',{week:monday}),
         request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end})
       ]);
-      setTasks(sorted(list.daily||[]));setBuffer(sorted(list.buffer||[]));setGoals(goalData.goals||[]);
+      setTasks(sorted((list.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((list.buffer||[]).filter(t=>!t.task_options?.archived)));setGoals(goalData.goals||[]);
       setGoalHistory(goalData.history||[]);setLegacyRows(legacy.days||[]);
       setMetrics(weekMetrics.days||{});setPrevMetrics(weekMetrics.days||{});
       setStatus('saved');setReady(true);setError('');
@@ -186,7 +186,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
     if(demo){setCategories(x=>x.filter(c=>c.id!==cat.id));return;}await mutate('os61','category_delete',{id:cat.id});notify('Категория удалена, задачи сохранены');};
   const getCalendar=async(start:string,end:string)=>{
     if(demo){setCalendarTasks(demoTasks.filter(t=>t.day&&t.day>=start&&t.day<=end));return;}
-    try{const r=await request<{tasks:Task[]}>('os6','calendar',{start,end});setCalendarTasks(r.tasks||[]);}catch(e:any){notify(e.message);}
+    try{const r=await request<{tasks:Task[]}>('os6','calendar',{start,end});setCalendarTasks((r.tasks||[]).filter(t=>!t.task_options?.archived));}catch(e:any){notify(e.message);}
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
     tasks,buffer,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
