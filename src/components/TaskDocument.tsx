@@ -1,7 +1,8 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {EditorContent,useEditor,type Editor} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import {AllSelection,Selection} from '@tiptap/pm/state';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import {Details,DetailsContent,DetailsSummary} from '@tiptap/extension-details';
@@ -33,8 +34,15 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
    setAnchor({top:caret.bottom+8,left,width});setEmpty(ed.isEmpty);
   }catch{}
  })};
- const editor=useEditor({extensions:[StarterKit.configure({link:{openOnClick:false,protocols:['https','http','mailto']}}),TaskList,TaskItem.configure({nested:true,HTMLAttributes:{'data-type':'taskItem'},a11y:{checkboxLabel:node=>'Выполнено: '+(node.textContent||'пункт чеклиста')}}),Details.configure({persist:true}),DetailsSummary,DetailsContent],content:initial(),
-  editorProps:{attributes:{class:'task-document','aria-label':'Содержимое задачи','aria-multiline':'true',spellcheck:'true'},handleKeyDown:(view,e)=>{if(e.key==='Escape'){setMenu(false);setLink(null);return false}if(e.key==='/'&&!e.isComposing&&!e.ctrlKey&&!e.metaKey&&view.state.selection.$from.parentOffset===0){setMenu(true);position(true);e.preventDefault();return true}return false}},
+ // Keep ProseMirror configuration stable while caret position and save state rerender React.
+ const extensions=useMemo(()=>[StarterKit.configure({link:{openOnClick:false,protocols:['https','http','mailto']}}),TaskList,TaskItem.configure({nested:true,HTMLAttributes:{'data-type':'taskItem'},a11y:{checkboxLabel:node=>'Выполнено: '+(node.textContent||'пункт чеклиста')}}),Details.configure({persist:true}),DetailsSummary,DetailsContent],[]);
+ const [initialDocument]=useState(initial);
+ const editorProps=useMemo<Editor['options']['editorProps']>(()=>({attributes:{class:'task-document','aria-label':'Содержимое задачи','aria-multiline':'true',spellcheck:'true'},handleKeyDown:(view,e)=>{
+   // Collapse Select All in the editor state immediately. Native selectionchange can
+   // arrive after a fast Enter, leaving the keymap with a stale AllSelection.
+   if((e.key==='ArrowRight'||e.key==='ArrowLeft')&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.isComposing&&view.state.selection instanceof AllSelection){view.dispatch(view.state.tr.setSelection(e.key==='ArrowRight'?Selection.atEnd(view.state.doc):Selection.atStart(view.state.doc)));e.preventDefault();return true}
+   if(e.key==='Escape'){setMenu(false);setLink(null);return false}if(e.key==='/'&&!e.isComposing&&!e.ctrlKey&&!e.metaKey&&view.state.selection.$from.parentOffset===0){setMenu(true);position(true);e.preventDefault();return true}return false}}),[]);
+ const editor=useEditor({extensions,content:initialDocument,editorProps,
   onCreate:({editor})=>{editorRef.current=editor;setEmpty(editor.isEmpty)},
   onFocus:()=>{setFocused(true);position(true)},onSelectionUpdate:()=>position(true),
   onUpdate:({editor})=>{const doc=editor.getJSON();pending.current={doc,text:editor.getText(),revision:++revision.current};try{localStorage.setItem(draftKey,JSON.stringify(doc))}catch{}setStatus('Черновик');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>flushRef.current(),700);position(true)},
