@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {useApp} from '../AppContext';
 import {Icon} from '../components/Icons';
 import {Card,Empty,GoalMini,Pill,ProgressBar,SectionHead,Sparkline,WeekBars} from '../components/UI';
+import {TaskLibrary} from '../components/TaskLibrary';
 import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
 import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
@@ -131,7 +132,7 @@ export function BufferPage(){
   <Card className="buffer-quick"><form onSubmit={quick}><Icon name="plus" size={20}/><input ref={inputRef} value={title} onChange={e=>{setTitle(e.target.value);if(addError)setAddError('')}} placeholder="Что нужно сделать?" maxLength={180} aria-label="Быстро добавить задачу"/><button type="submit" disabled={!title.trim()||adding}>{adding?'Сохраняю…':'Добавить'}</button></form></Card>
   {addError&&<p className="buffer-save-error" role="alert">{addError}</p>}
   <div className="buffer-categories" aria-label="Категории задач"><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Все <span>{buffer.length}</span></button>{categories.map(c=><button key={c.id} className={filter===c.id?'active':''} onClick={()=>setFilter(c.id)}><i style={{background:c.color}}/>{c.name}<span>{buffer.filter(t=>matchCategory(t)?.id===c.id).length}</span></button>)}<QuickCategory/></div>
-  <label className="buffer-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по задачам и заметкам" aria-label="Поиск задач"/></label>
+  <TaskLibrary/><label className="buffer-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по задачам и заметкам" aria-label="Поиск задач"/></label>
   {!matching.length?<Card><Empty title={buffer.length?'Ничего не найдено':'Буфер пока пуст'} description={buffer.length?'Попробуй другой запрос или сбрось фильтры.':'Запиши задачу в одну строку — детали добавишь в её странице.'} action={buffer.length?<button className="btn outline" onClick={()=>{setQuery('');setFilter('all')}}>Сбросить фильтры</button>:undefined}/></Card>:groupKeys.map(id=>{
    const group=matching.filter(t=>(matchCategory(t)?.id||'uncategorized')===id),cat=categories.find(c=>c.id===id);
    return <Card className="buffer-group" key={id}><SectionHead title={cat?.name||'Без категории'} caption={group.length+' задач'}/><TaskList zone="buffer" items={group}/></Card>

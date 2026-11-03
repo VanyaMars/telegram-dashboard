@@ -161,6 +161,18 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
  }
  if(fn==='os8'){
   db.propertyFields||=[];db.propertyValues||={};
+  if(action==='task_library')return ok({tasks:db.tasks.filter(t=>t.task_options?.archived||t.task_options?.template)});
+  if(action==='task_duplicate'){
+   const t=db.tasks.find(t=>t.id===taskId);if(!t)throw Error('Задача не найдена');
+   const next={...copy(t),id:newId(),title:t.title+' — копия',day:null,completed:false,task_options:{...copy(t.task_options||{}),archived:false,template:false,deadline:null}};db.tasks.push(next);
+   const root=db.taskPages[taskId],mapping:Record<string,string>={};
+   const clonePage=(pid:string,parent:string|null)=>{const old=db.pages.find(p=>p.id===pid);if(!old)return;const page={...copy(old),id:newId(),parent_id:parent,title:pid===root?next.title:old.title};mapping[pid]=page.id;db.pages.push(page);for(const child of db.pages.filter(p=>p.parent_id===pid))clonePage(child.id,page.id)};
+   if(root){clonePage(root,null);db.taskPages[next.id]=mapping[root];for(const block of [...db.blocks].filter(b=>mapping[b.page_id])){const b={...copy(block),id:newId(),page_id:mapping[block.page_id],content:JSON.parse(JSON.stringify(block.content).replace(/"checked":true/g,'"checked":false'))};if(mapping[b.content.pageId])b.content.pageId=mapping[b.content.pageId];db.blocks.push(b);for(const split of [...db.splits].filter(s=>s.block_id===block.id)){const sid=newId();db.splits.push({...copy(split),id:sid,block_id:b.id});db.items.push(...db.items.filter(i=>i.split_id===split.id).map(i=>({...copy(i),id:newId(),split_id:sid,completed:false})))}}}
+   db.propertyValues[next.id]=copy(db.propertyValues[taskId]||{});return ok({id:next.id});
+  }
+  if(action==='task_options_get'||action==='task_options_set'){const task=db.tasks.find(t=>t.id===taskId);if(!task)throw Error('Задача не найдена');if(action==='task_options_set')task.task_options={...task.task_options,...f.patch as object};return ok({options:task.task_options||{}})}
+  if(action==='priorities_list'||action==='priority_create'){if(action==='priority_create')db.propertyFields.push({id:newId(),slug:'priority:'+newId(),name:asStr(f.name),field_type:'text',options:{group:asStr(f.group),color:asStr(f.color)} as any});return ok({priorities:db.propertyFields.filter(x=>x.slug?.startsWith('priority:'))})}
+  if(action==='task_property_archive'){const field=db.propertyFields.find(x=>x.id===f.propertyId);if(field)(field.options as any).archived=f.archived!==false;return ok()}
   if(action==='task_native_fields'){
    return ok({fields:Object.fromEntries(db.propertyFields.filter(x=>x.slug?.startsWith('native:')).map(x=>[x.slug!.slice(7),{name:x.name,icon:x.options.icon}]))});
   }
@@ -245,7 +257,7 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   if(action==='task_page_links')return ok({pageIds:Object.values(db.taskPages)});
   if(action==='task_page_ensure'){if(!db.tasks.some(t=>t.id===taskId))throw Error('Задача не найдена');
    let pageId=db.taskPages[taskId];if(!pageId){pageId=newId();const task=db.tasks.find(t=>t.id===taskId)!;db.pages.push({id:pageId,parent_id:null,title:task.title,icon:'📋',updated_at:now()});db.taskPages[taskId]=pageId;}
-   if(!db.blocks.some(b=>b.page_id===pageId&&b.type==='heading'))db.blocks.push({id:newId(),page_id:pageId,type:'heading',position:0,content:{text:''}});
+
    return ok({pageId});
   }
   if(action==='task_page_find'){const found=Object.entries(db.taskPages).find(([,v])=>v===asStr(f.pageId));return ok({task:found?db.tasks.find(x=>x.id===found[0])||null:null})}
@@ -273,9 +285,11 @@ function workspaceAction(db:QAState,a:string,f:Record<string,unknown>):Record<st
  if(a==='page_get'){const page=db.pages.find(x=>x.id===id);if(!page)throw Error('Страница не найдена');const blocks=ordered(db.blocks.filter(b=>b.page_id===id));const ids=blocks.map(x=>x.id);const splits=ordered(db.splits.filter(x=>ids.includes(x.block_id))),splitIds=splits.map(x=>x.id);return ok({page,blocks,splits,items:ordered(db.items.filter(x=>splitIds.includes(x.split_id))),record:db.records.find(x=>x.page_id===id)||null})}
  if(a==='page_save'){const p=db.pages.find(x=>x.id===id);if(p){p.title=asStr(f.title)||p.title;p.icon=asStr(f.icon)||p.icon;p.parent_id=asStr(f.parentId)||null;p.updated_at=now();const task=Object.entries(db.taskPages).find(([,v])=>v===p.id);if(task){const t=db.tasks.find(x=>x.id===task[0]);if(t)t.title=p.title;}return ok({id:p.id})}const next:WPage={id:newId(),title:asStr(f.title)||'Новая страница',icon:asStr(f.icon)||'📄',parent_id:asStr(f.parentId)||null,updated_at:now()};db.pages.push(next);return ok({id:next.id})}
  if(a==='page_delete'){removePage(db,id);return ok()}
- if(a==='block_save'){const b=db.blocks.find(x=>x.id===id);if(b){b.content=copy(f.content||{});return ok({id:b.id})}const next:WBlock={id:newId(),page_id:pageId,type:asStr(f.type) as WBlock['type'],position:nextPos(db.blocks.filter(x=>x.page_id===pageId)),content:copy(f.content||{})};db.blocks.push(next);return ok({id:next.id})}
+ if(a==='block_save'){const savedId=id||asStr(f.clientId);const b=db.blocks.find(x=>x.id===savedId);if(b){b.content=copy(f.content||{});return ok({id:b.id})}const next:WBlock={id:savedId||newId(),page_id:pageId,type:asStr(f.type) as WBlock['type'],position:nextPos(db.blocks.filter(x=>x.page_id===pageId)),content:copy(f.content||{})};db.blocks.push(next);return ok({id:next.id})}
  if(a==='block_delete'){const b=db.blocks.find(x=>x.id===id);if(b?.type==='pipeline'){const splits=db.splits.filter(x=>x.block_id===b.id);const keys=splits.map(x=>x.id);db.items=db.items.filter(x=>!keys.includes(x.split_id));db.splits=db.splits.filter(x=>x.block_id!==b.id)}db.blocks=db.blocks.filter(x=>x.id!==id);return ok()}
  if(a==='block_reorder'){reorder(db.blocks.filter(x=>x.page_id===pageId),f.ids as string[]);return ok()}
+ if(a==='split_duplicate'){const source=db.splits.find(s=>s.id===id);if(!source)throw Error('Нет этапа');const sid=newId();db.splits.push({...copy(source),id:sid,title:source.title+' — копия',position:nextPos(db.splits.filter(s=>s.block_id===source.block_id))});db.items.push(...db.items.filter(i=>i.split_id===id).map(i=>({...copy(i),id:newId(),split_id:sid,completed:false})));return ok({id:sid})}
+ if(a==='workflow_move'){const item=db.items.find(i=>i.id===id);if(item){item.split_id=splitId;item.position=nextPos(db.items.filter(i=>i.split_id===splitId))}return ok()}
  if(a==='split_save'){const b=db.splits.find(x=>x.id===id);if(b){b.title=asStr(f.title);return ok({id:b.id})}const next:WSplit={id:newId(),block_id:blockId,title:asStr(f.title),position:nextPos(db.splits.filter(x=>x.block_id===blockId))};db.splits.push(next);return ok({id:next.id})}
  if(a==='split_delete'){db.items=db.items.filter(x=>x.split_id!==id);db.splits=db.splits.filter(x=>x.id!==id);return ok()}
  if(a==='split_reorder'){reorder(db.splits.filter(x=>x.block_id===blockId),f.ids as string[]);return ok()}

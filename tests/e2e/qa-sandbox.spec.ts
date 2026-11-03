@@ -37,7 +37,7 @@ test('6.11 task cards: emoji persistence, Pipeline progress, grip menu and edito
  await expect(page.getByRole('button',{name:'Отмена'})).toBeVisible();
  await page.getByRole('button',{name:'Отмена'}).click();
  await expect(page.locator('.os-block-grip').first()).toBeVisible();
- await expect(page.getByRole('textbox',{name:'Заголовок'}).first()).toBeVisible();
+ await expect(page.locator('.task-document').first()).toBeVisible();
 });
 
 test('task properties autosave: category, notes and icon/title persist',async({page})=>{
@@ -56,21 +56,22 @@ test('task properties autosave: category, notes and icon/title persist',async({p
  await panel.getByRole('button',{name:'Выбрать категорию'}).click();
  await panel.locator('.os-category-menu').getByRole('button',{name:'Без категории'}).click();
  await expect(panel.getByRole('button',{name:'Выбрать категорию'})).toContainText('Без категории');
+ if(await panel.getByRole('button',{name:'＋ Заметки',exact:true}).count())await panel.getByRole('button',{name:'＋ Заметки',exact:true}).click();
  const notes=panel.getByRole('textbox',{name:'Заметки'});
  await notes.fill('Заметки сохраняются автоматически');
  await notes.blur();
  await expect(panel.getByRole('status').filter({hasText:'Сохранено'})).toBeVisible();
  await page.reload();
  await expect(page.locator('.os-task-properties').getByRole('textbox',{name:'Заметки'})).toHaveValue('Заметки сохраняются автоматически');
- const configure=page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Приоритет'});
+ const configure=page.locator('.task-options').getByRole('button',{name:'Настроить свойство Приоритет'});
  await configure.click();
  const modal=page.locator('.os-property-settings').filter({hasText:'Настроить свойство'});
  await modal.getByRole('textbox',{name:'Название'}).fill('Важность');
  await modal.getByRole('button',{name:'Иконка star'}).click();
  await modal.getByRole('button',{name:'Готово'}).click();
- await expect(page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
+ await expect(page.locator('.task-options').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
  await page.reload();
- await expect(page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
+ await expect(page.locator('.task-options').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
 });
 
 test('guest sign-in, UI actions, local persistence and no Supabase calls',async({page})=>{
@@ -85,17 +86,20 @@ test('guest sign-in, UI actions, local persistence and no Supabase calls',async(
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await expect(page.getByRole('button',{name:'QA задача для проверки',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'QA задача для проверки',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Свойства задачи'})).toBeVisible();
+ await expect(page.locator('.os-task-properties')).toBeVisible();
  await page.getByRole('button',{name:'Добавить блок'}).click();
  await page.locator('.os-block-picker').getByRole('button',{name:'Чеклист'}).click();
  await page.locator('.os-block-picker').getByRole('button',{name:'Вставить чеклист'}).click();
- const input=page.getByRole('textbox',{name:'Пункт чеклиста'}).first();
- await input.fill('Первый пункт QA');
- await input.press('Enter');
- await expect(page.getByRole('textbox',{name:'Пункт чеклиста'})).toHaveCount(2);
- await expect(page.getByRole('textbox',{name:'Пункт чеклиста'}).last()).toBeFocused();
+ const input=page.locator('.task-document').filter({has:page.locator('[data-type="taskList"]')}).first();
+ await input.click();
+ await page.keyboard.type('Первый пункт QA');
+ await page.keyboard.press('Enter');
+ await page.keyboard.type('Второй пункт QA');
+ await expect(input.locator('[data-type="taskItem"]')).toHaveCount(2);
+ await input.blur();
+ await expect(page.locator('.task-save-status')).toHaveCount(0);
  await page.reload();
- await expect(page.getByRole('textbox',{name:'Пункт чеклиста'}).first()).toHaveValue('Первый пункт QA');
+ await expect(page.locator('.task-document').filter({hasText:'Первый пункт QA'})).toContainText('Второй пункт QA');
  expect(called,'A QA session must never call the production Edge endpoints').toEqual([]);
 });
 test('QA is isolated for each newly created browser session',async({page})=>{
@@ -184,7 +188,7 @@ test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({pag
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.10.0');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.11.0');
  await openSampleTaskPage(page);
  await expect(page.locator('.os-page-editor')).toBeVisible();
  await expect(page.locator('#os-workspace-panel')).toHaveCount(0);

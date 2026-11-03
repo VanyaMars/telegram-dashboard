@@ -62,12 +62,20 @@ async function setOrder(db:any,table:string,uid:number,parentKey:string,parentId
   if(rows.length!==ids.length||rows.some((r:any)=>!ids.includes(r.id)))throw Error('Порядок должен содержать все элементы списка');
   for(let i=0;i<ids.length;i++)await must(db.from(table).update({position:(i+1)*1000}).eq('telegram_user_id',uid).eq(parentKey,parentId).eq('id',ids[i]));
 }
+function validateDocument(node:any,depth=0):void{
+ if(depth>30||!node||typeof node!=='object'||!['doc','text','paragraph','heading','bulletList','orderedList','listItem','taskList','taskItem','details','detailsSummary','detailsContent','blockquote','codeBlock','horizontalRule','hardBreak'].includes(node.type))throw Error('Неверный блок документа');
+ if(node.text!==undefined&&typeof node.text!=='string')throw Error('Неверный текст');
+ if(node.attrs){for(const k of Object.keys(node.attrs))if(!['level','start','type','checked','open','language'].includes(k))throw Error('Неверный атрибут');}
+ if(node.marks){if(!Array.isArray(node.marks))throw Error('Неверное форматирование');for(const m of node.marks){if(!['bold','italic','strike','underline','code','link'].includes(m.type))throw Error('Неверное форматирование');if(m.type==='link'&&!/^(https?:\/\/|mailto:)/i.test(m.attrs?.href||''))throw Error('Неверная ссылка');}}
+ if(node.content){if(!Array.isArray(node.content)||node.content.length>2000)throw Error('Слишком много блоков');node.content.forEach((n:any)=>validateDocument(n,depth+1));}
+}
 function safeContent(type:string,value:unknown){
   const v=cleanObj(value);const result:Record<string,unknown>={};
   if(['text','heading','checklist'].includes(type)){result.text=safeText(v.text,12000);if(type==='checklist')result.checked=v.checked===true;}
   if(type==='image'){const src=safeText(v.url,1800);if(src&&!/^https:\/\//i.test(src))throw Error('Изображение должно иметь HTTPS-адрес');result.url=src;result.alt=safeText(v.alt,200);}
   if(type==='database'){if(!validId(v.sourceId))throw Error('Выбери базу данных');result.sourceId=v.sourceId;}
   if(type==='page_link'){if(!validId(v.pageId))throw Error('Выбери страницу');result.pageId=v.pageId;}
+  if(['text','heading','checklist'].includes(type)&&v.document){const raw=JSON.stringify(v.document);if(raw.length>45000)throw Error('Раздел слишком большой');if(cleanObj(v.document).type!=='doc')throw Error('Неверный документ');validateDocument(v.document);result.document=v.document;}
   if(type==='pipeline')result.title=safeText(v.title,150)||'Pipeline';
   return result;
 }
@@ -152,12 +160,13 @@ Deno.serve(async(req:Request)=>{
     const content=safeContent(b.type,b.content);
     if(b.type==='database'&&!await ownerRow(db,tables.sources,uid,content.sourceId as string))return fail('База данных не найдена',404);
     if(b.type==='page_link'&&!await ownerRow(db,tables.pages,uid,content.pageId as string))return fail('Ссылка ведёт на чужую страницу',404);
+    if(b.clientId!==undefined){if(!validId(b.clientId))return fail('Неверный ID');const existing=await ownerRow(db,tables.blocks,uid,b.clientId);if(existing)b.id=b.clientId;}
     if(b.id){const old=validId(b.id)?await ownerRow(db,tables.blocks,uid,b.id):null;if(!old||old.page_id!==b.pageId)return fail('Блок не найден',404);
       if(old.type==='pipeline'&&b.type!=='pipeline')return fail('Нельзя менять тип блока Pipeline без удаления');
       await must(db.from(tables.blocks).update({content,updated_at:new Date().toISOString()}).eq('id',b.id).eq('telegram_user_id',uid));return json({ok:true,id:b.id});
     }
     const pos=await position(db,tables.blocks,uid,'page_id',b.pageId);
-    const row=await must(db.from(tables.blocks).insert({telegram_user_id:uid,page_id:b.pageId,type:b.type,content,position:pos}).select('id').single());
+    const row=await must(db.from(tables.blocks).insert({...(b.clientId?{id:b.clientId}:{}),telegram_user_id:uid,page_id:b.pageId,type:b.type,content,position:pos}).select('id').single());
     return json({ok:true,id:row.id});
   }
   if(act==='block_delete'){
@@ -237,6 +246,18 @@ Deno.serve(async(req:Request)=>{
   if(act==='record_delete'){
     const record=validId(b.id)?await ownerRow(db,tables.records,uid,b.id):null;if(!record)return fail('Запись не найдена',404);
     await must(db.from(tables.pages).delete().eq('telegram_user_id',uid).eq('id',record.page_id));return json({ok:true});
+  }
+  if(act==='split_duplicate'){
+    if(!validId(b.id))return fail('Неверный этап');
+    const id=await must(db.rpc('os12_duplicate_split',{owner_id:uid,source_id:b.id}));return json({ok:true,id});
+  }
+  if(act==='workflow_move'){
+    const row=validId(b.id)?await ownerRow(db,tables.items,uid,b.id):null;
+    const target=validId(b.splitId)?await ownerRow(db,tables.splits,uid,b.splitId):null;
+    const source=row?await ownerRow(db,tables.splits,uid,row.split_id):null;
+    if(!row||!target||!source||target.block_id!==source.block_id)return fail('Этап не найден',404);
+    const pos=await position(db,tables.items,uid,'split_id',b.splitId);
+    await must(db.from(tables.items).update({split_id:b.splitId,position:pos,updated_at:new Date().toISOString()}).eq('telegram_user_id',uid).eq('id',row.id));return json({ok:true});
   }
   if(act==='split_save'){
     const block=validId(b.blockId)?await ownerRow(db,tables.blocks,uid,b.blockId):null;if(!block||block.type!=='pipeline')return fail('Pipeline не найден',404);

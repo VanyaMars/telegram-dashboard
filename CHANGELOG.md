@@ -1,3 +1,11 @@
+## 6.11.0 — Task document editor
+
+- Rich text, nested lists, compact checklists and collapsible sections; old text blocks remain editable.
+- Custom priorities, per-task custom property visibility, recoverable removal of shared property definitions, optional notes and separate deadline.
+- Block menu, editable Pipeline title, mobile stage/action creation, stage copy and action transfer.
+- Task duplication with independent page tree and Pipeline, reusable templates, archive/restore, completion in the editor.
+- Local document drafts, ordered autosave and retry; database snapshots restore custom values and goal links on deletion Undo.
+
 # Personal OS 6.1 — Changelog
 
 **Добавлено**
