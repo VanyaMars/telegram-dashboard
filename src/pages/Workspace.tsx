@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useApp} from '../AppContext';
 import {Icon} from '../components/Icons';
+import {Dialog} from '../components/UI';
 import {WorkspaceDatabase} from '../components/WorkspaceDatabase';
 import {SplitPipeline} from '../components/WorkspacePipeline';
 import {WPage,WBlock,WSource,WPageResponse,BlockType,workspaceRequest,pageLink,taskPipelineProperties} from '../lib/workspace';
@@ -57,6 +58,9 @@ type Contents={data:WPageResponse;taskData:Task|null;pages:WPage[];sources:WSour
 function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage,write,refresh}:Contents){
  const {page,blocks}=data,[title,setTitle]=useState(page.title),[icon,setIcon]=useState(page.icon),[type,setType]=useState<BlockType>('text');
  const [sourceId,setSourceId]=useState(sources[0]?.id||''),[sourceName,setSourceName]=useState(''),[linkId,setLinkId]=useState('');
+ const [propertiesOpen,setPropertiesOpen]=useState(false);
+ const [insertAfter,setInsertAfter]=useState<string|null>(null);
+ const [renaming,setRenaming]=useState<WBlock|null>(null),[blockName,setBlockName]=useState(''),[renameBusy,setRenameBusy]=useState(false),[renameError,setRenameError]=useState('');
  const [adding,setAdding]=useState(false);const [blockMenu,setBlockMenu]=useState<string|null>(null);const [blockDrag,setBlockDrag]=useState<string|null>(null);
  const blockGesture=useRef<{id:string;startX:number;startY:number;active:boolean;target:string|null;timer:number|null}|null>(null);
  const [draftId]=useState(()=>{const key='os-new-document:'+page.id;try{const old=localStorage.getItem(key);if(old)return old;const id=crypto.randomUUID();localStorage.setItem(key,id);return id}catch{return crypto.randomUUID()}});
@@ -66,7 +70,7 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
  useEffect(()=>()=>{if(blockGesture.current?.timer)window.clearTimeout(blockGesture.current.timer)},[]);
 
  const savePage=async(nextTitle=title,nextIcon=icon)=>{if(!nextTitle.trim())return;await write('page_save',{id:page.id,title:nextTitle,icon:nextIcon,parentId:page.parent_id});await refresh()};
- const addBlock=async(kind:BlockType)=>{
+ const addBlock=async(kind:BlockType,after=insertAfter)=>{
    let content:Record<string,unknown>={};if(kind==='text'||kind==='heading'||kind==='checklist')content={text:'',checked:false};
    if(kind==='pipeline')content={title:'План выполнения'};
    if(kind==='database'){
@@ -74,7 +78,7 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
     content={sourceId:sid};
    }
    if(kind==='page_link'){if(!linkId)return;content={pageId:linkId};}
-   await write('block_save',{pageId:page.id,type:kind,content});setAdding(false);await refresh();
+   const created=await write('block_save',{pageId:page.id,type:kind,content});if(after){const latest=await workspaceRequest<WPageResponse>('page_get',{id:page.id});const ids=latest.blocks.filter(b=>b.id!==created.id).map(b=>b.id);const index=ids.indexOf(after);ids.splice(index<0?ids.length:index+1,0,created.id);await write('block_reorder',{pageId:page.id,ids})}setAdding(false);setInsertAfter(null);await refresh();
  };
  const moveBlock=async(id:string,target:string)=>{if(id===target)return;const ids=blocks.map(x=>x.id);const a=ids.indexOf(id),b=ids.indexOf(target);if(a<0||b<0)return;ids.splice(a,1);ids.splice(b,0,id);await write('block_reorder',{pageId:page.id,ids});await refresh()};
   const blockOrder=async(id:string,delta:number)=>{const ids=blocks.map(x=>x.id),i=ids.indexOf(id),j=i+delta;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await write('block_reorder',{pageId:page.id,ids});await refresh()};
@@ -102,28 +106,30 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
  };
  const sub=pages.filter(x=>x.parent_id===page.id);
  return <>
-   <div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{!icons.includes(icon)&&<option value={icon}>{icon}</option>}{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div><button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button></div>
-   <input className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
+   <div className="task-title-row"><div className="os-page-toolbar"><div className="os-icon-pick"><select aria-label="Иконка страницы" value={icon} onChange={e=>{setIcon(e.target.value);void savePage(title,e.target.value)}}>{!icons.includes(icon)&&<option value={icon}>{icon}</option>}{icons.map(i=><option key={i} value={i}>{i}</option>)}</select></div>{!taskData&&<button className="os-icon os-danger" onClick={()=>void onDeletePage(page)} title="Удалить страницу"><Icon name="trash" size={17}/></button>}</div>
+   <textarea rows={1} ref={el=>{if(el){el.style.height='auto';el.style.height=el.scrollHeight+'px'}}} className="os-page-heading" aria-label="Название страницы" value={title} maxLength={180} onChange={e=>setTitle(e.target.value)} onBlur={()=>{if(title.trim()!==page.title)void savePage()}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();(e.target as HTMLTextAreaElement).blur()}}}/></div>
    {data.record&&<div className="os-info">Это запись базы данных. Редактируй её поля в представлении базы; здесь можно добавлять любые блоки.</div>}
-   {taskData&&<><TaskOptions task={taskData} onSaved={refresh}/><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh} pipelineProperties={taskPipelineProperties(data)}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<TaskIncomeEditor taskId={taskData.id}/>}</>}
+   {taskData&&<><TaskOptions task={taskData} onSaved={refresh} propertiesOpen={propertiesOpen} onToggleProperties={()=>setPropertiesOpen(v=>!v)}/><div id="task-inspector" className="task-inspector" hidden={!propertiesOpen}><TaskPageProperties key={taskData.id} task={taskData} pageTitle={title} onSaved={refresh} pipelineProperties={taskPipelineProperties(data)}/>{/работ|бизнес|фриланс|клиент|продаж/i.test(taskData.sphere||'')&&<details className="task-income-disclosure"><summary>Доход по задаче</summary><TaskIncomeEditor taskId={taskData.id}/></details>}</div></>}
+
    <div className="os-blocks">{blocks.map(block=><div className={'os-block-shell '+(blockDrag===block.id?'is-block-dragging':'')+(blockHover===block.id&&blockDrag!==block.id?' os-block-hover':'')} key={block.id} data-block-id={block.id} onDragOver={e=>{if(blockDrag)e.preventDefault()}} onDrop={e=>{e.preventDefault();if(blockDrag){void moveBlock(blockDrag,block.id);setBlockDrag(null)}}}>
  <div className="os-block-control"><button type="button" className="os-block-grip" draggable title="Перетащить блок" aria-label="Меню блока" onDragStart={e=>{e.dataTransfer.effectAllowed='move';setBlockDrag(block.id)}} onDragEnd={()=>setBlockDrag(null)} onPointerDown={e=>blockPointerDown(e,block.id)} onPointerMove={blockPointerMove} onPointerUp={blockPointerUp} onPointerCancel={cancelBlockGesture} onClick={()=>{if(blockSkipClick.current){blockSkipClick.current=false;return}setBlockMenu(v=>v===block.id?null:block.id)}}><span aria-hidden="true">⋯</span></button>
- {blockMenu===block.id&&<div className="os-block-context">{block.type==='pipeline'&&<button type="button" onClick={()=>{const title=window.prompt('Название Pipeline',block.content.title||'Pipeline');if(title?.trim())void write('block_save',{id:block.id,pageId:page.id,type:'pipeline',content:{...block.content,title:title.trim()}}).then(refresh);setBlockMenu(null)}}>Переименовать</button>}<button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,-1)}}>Выше</button><button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,1)}}>Ниже</button><button type="button" className="danger" onClick={()=>{setBlockMenu(null);if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>Удалить блок</button></div>}</div>
- <PageBlock block={block} pages={pages} sources={sources} data={data} openPage={onOpen} write={write} refresh={refresh}/>
+ {blockMenu===block.id&&<div className="os-block-context">{block.type==='pipeline'&&<button type="button" onClick={()=>{setRenaming(block);setBlockName(block.content.title||'Pipeline');setRenameError('');setBlockMenu(null)}}>Переименовать</button>}<button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,-1)}}>Выше</button><button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,1)}}>Ниже</button><button type="button" className="danger" onClick={()=>{setBlockMenu(null);if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>Удалить блок</button></div>}</div>
+ <PageBlock block={block} onInsertBlock={kind=>{setInsertAfter(block.id);if(kind==='pipeline'||kind==='image')void addBlock(kind,block.id);else{setType(kind);setAdding(true)}}} pages={pages} sources={sources} data={data} openPage={onOpen} write={write} refresh={refresh}/>
  </div>)}</div>
- {!blocks.length&&<DocumentLoader><TaskDocument block={{id:draftId,page_id:page.id,type:'text',position:0,content:{}}} save={async content=>{await write('block_save',{clientId:draftId,pageId:page.id,type:'text',content})}}/></DocumentLoader>}
- <div className="os-new-block"><button className="os-add-block-mini" aria-label="Добавить блок" title="Добавить блок" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/></button>{adding&&<div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
+ {!blocks.length&&<DocumentLoader><TaskDocument block={{id:draftId,page_id:page.id,type:'text',position:0,content:{}}} save={async content=>{await write('block_save',{clientId:draftId,pageId:page.id,type:'text',content})}} onInsertBlock={kind=>{setInsertAfter(draftId);if(kind==='pipeline'||kind==='image')void addBlock(kind,draftId);else{setType(kind);setAdding(true)}}}/></DocumentLoader>}
+ <div className="os-new-block"><button className="os-add-block-mini" aria-label="Добавить блок" title="Добавить блок" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/></button><Dialog open={adding} onClose={()=>{setAdding(false);setInsertAfter(null)}} title="Добавить блок"><div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
      {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{!sourceId&&<input placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
      {type==='page_link'&&<div className="os-block-options"><select value={linkId} onChange={e=>setLinkId(e.target.value)}><option value="">Выбери страницу</option>{pages.filter(p=>p.id!==page.id).map(p=><option key={p.id} value={p.id}>{p.icon} {p.title}</option>)}</select></div>}
      <button className="os-btn os-btn-primary" disabled={(type==='database'&&!sourceId&&!sourceName.trim())||(type==='page_link'&&!linkId)} onClick={()=>void addBlock(type)}>Вставить {blockLabels[type].toLowerCase()}</button>
-    </div>}</div>
-   <section className="os-children"><div className="os-section-title"><h3>Вложенные страницы</h3><button className="os-btn" onClick={()=>void onAddPage('Новая страница',page.id)}>+ Страница</button></div>{sub.length>0&&<div className="os-children-grid">{sub.map(p=><button key={p.id} onClick={()=>onOpen(p.id)}><span>{p.icon}</span>{p.title}<Icon name="right" size={16}/></button>)}</div>}</section>
+    </div></Dialog></div>
+   <Dialog open={!!renaming} title="Название блока" onClose={()=>{if(!renameBusy)setRenaming(null)}}><form className="editor-form" onSubmit={e=>{e.preventDefault();if(!renaming||!blockName.trim()||renameBusy)return;setRenameBusy(true);setRenameError('');void write('block_save',{id:renaming.id,pageId:page.id,type:renaming.type,content:{...renaming.content,title:blockName.trim()}}).then(refresh).then(()=>setRenaming(null)).catch(()=>setRenameError('Название не сохранилось. Попробуй ещё раз.')).finally(()=>setRenameBusy(false))}}><label>Название<input autoFocus value={blockName} maxLength={120} onChange={e=>setBlockName(e.target.value)}/></label>{renameError&&<p role="alert">{renameError}</p>}<button className="btn accent" disabled={renameBusy||!blockName.trim()}>Сохранить</button></form></Dialog>
+   <details className="task-children-disclosure"><summary>Вложенные страницы{ sub.length?` · ${sub.length}`:''}</summary><section className="os-children"><div className="os-section-title"><h3>Вложенные страницы</h3><button className="os-btn" onClick={()=>void onAddPage('Новая страница',page.id)}>+ Страница</button></div>{sub.length>0&&<div className="os-children-grid">{sub.map(p=><button key={p.id} onClick={()=>onOpen(p.id)}><span>{p.icon}</span>{p.title}<Icon name="right" size={16}/></button>)}</div>}</section></details>
  </>;
 }
-function PageBlock({block,pages,sources,data,openPage,write,refresh}:{block:WBlock;pages:WPage[];sources:WSource[];data:WPageResponse;openPage:(id:string)=>void;write:(a:string,b:Record<string,unknown>)=>Promise<any>;refresh:()=>Promise<void>}){
+function PageBlock({block,onInsertBlock,pages,sources,data,openPage,write,refresh}:{block:WBlock;onInsertBlock:(type:'pipeline'|'image'|'database'|'page_link')=>void;pages:WPage[];sources:WSource[];data:WPageResponse;openPage:(id:string)=>void;write:(a:string,b:Record<string,unknown>)=>Promise<any>;refresh:()=>Promise<void>}){
  const [url,setUrl]=useState(String(block.content.url||''));
  const save=(content:Record<string,unknown>)=>write('block_save',{id:block.id,pageId:block.page_id,type:block.type,content});
- if(['text','heading','checklist'].includes(block.type))return <DocumentLoader><TaskDocument block={block} save={save}/></DocumentLoader>;
+ if(['text','heading','checklist'].includes(block.type))return <DocumentLoader><TaskDocument block={block} save={save} onInsertBlock={onInsertBlock}/></DocumentLoader>;
  if(block.type==='divider')return <hr className="os-divider"/>;
  if(block.type==='pipeline')return <SplitPipeline title={block.content.title||'Pipeline'} blockId={block.id}initialSplits={data.splits}initialItems={data.items}write={write}reload={refresh}/>;
  if(block.type==='database')return <WorkspaceDatabase sourceId={block.content.sourceId}sources={sources}openPage={openPage}/>;

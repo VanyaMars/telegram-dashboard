@@ -1,3 +1,11 @@
+## 6.12.0 — Task UX and completed-task library
+
+- Shared restrained appearance informed by Apple HIG; consistent controls, neutral content surfaces, system fonts and simpler mobile layouts.
+- Document-first task page with optional properties, income and nested pages; secondary task and Workflow actions in menus.
+- Contextual insertion/formatting controls follow the native caret and available viewport; visible text caret, compact checklists and focused insertion dialogs.
+- Completed tasks across all dates, search, pagination, open contents and undo completion; separate template/archive views.
+- No schema migration; os8 task_library applies owner-scoped filters and pagination on the server.
+
 ## 6.11.0 — Task document editor
 
 - Rich text, nested lists, compact checklists and collapsible sections; old text blocks remain editable.

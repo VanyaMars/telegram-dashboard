@@ -21,6 +21,7 @@ import './styles.css';
 import './premium.css';
 import './shell.css';
 import './goals-workspace.css';
+import './design-system.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
 const mobilePrimary=[primary[1],workspaceNav,primary[2]];
@@ -109,6 +110,7 @@ function HelpSheet(){const{help,setHelp,open}=useApp();return <Dialog open={help
   <button className="btn accent full" onClick={()=>{setHelp(false);open('help')}}>Полная справка</button>
   </div></Dialog>}
 export default function App(){const{ready,error,refresh,tab}=useApp();
+  useEffect(()=>{const dismiss=(e:PointerEvent)=>{document.querySelectorAll<HTMLDetailsElement>('details.task-actions[open],details.os-split-menu[open]').forEach(menu=>{if(e.target instanceof Node&&!menu.contains(e.target))menu.open=false})};const choose=(e:MouseEvent)=>{if(e.target instanceof Element){const button=e.target.closest('button');const menu=button?.closest<HTMLDetailsElement>('details.os-split-menu,details.workflow-actions');if(menu)menu.open=false}};document.addEventListener('pointerdown',dismiss);document.addEventListener('click',choose);return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('click',choose)}},[]);
   useEffect(()=>{const app=telegram();const back=()=>{const modal=document.querySelector('.modal-backdrop');if(modal){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));return;}window.history.back()};
     app?.BackButton?.onClick?.(back);return()=>{app?.BackButton?.offClick?.(back)}},[]);
   return <div className="app-shell"><Sidebar/><div className="app-center"><Header/>

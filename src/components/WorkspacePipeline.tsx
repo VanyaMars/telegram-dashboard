@@ -168,12 +168,12 @@ function SplitColumn({split,index,items,move,action,write,reload,allSplits,expan
       {workflowEditError&&<small role="alert" className="os-inline-error">{workflowEditError}</small>}
      </div>:<button type="button" className={'os-workflow-name '+(item.completed?'completed':'')} aria-label={'Изменить действие: '+item.title} onClick={()=>startEdit(item)}>{item.title}</button>}
      {pendingItems.includes(item.id)&&<span className="os-workflow-pending" role="status">Сохраняем…</span>}
-     <div className="os-task-mini-controls">
-      {allSplits.length>1&&<select className="os-workflow-move" aria-label={'Перенести действие: '+item.title} value="" onChange={e=>void action('workflow_move',{id:item.id,splitId:e.target.value}).catch(()=>setWorkflowEditError('Не удалось перенести действие.'))}><option value="" disabled>↗</option>{allSplits.filter(s=>s.id!==split.id).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select>}
-      <button type="button" title="Выше" aria-label={'Выше: '+item.title} disabled={reordering||arranged[0].id===item.id} onClick={()=>void reorder(item.id,-1)}>↑</button>
-      <button type="button" title="Ниже" aria-label={'Ниже: '+item.title} disabled={reordering||arranged[arranged.length-1].id===item.id} onClick={()=>void reorder(item.id,1)}>↓</button>
-      <button type="button" title="Удалить" aria-label={'Удалить: '+item.title} onClick={()=>{if(window.confirm('Удалить это действие?'))void action('workflow_delete',{id:item.id}).catch(()=>setWorkflowEditError('Не удалось удалить действие.'))}}>×</button>
-     </div>
+     <details className="workflow-actions task-actions"><summary aria-label={'Действия Workflow: '+item.title}><Icon name="more" size={18}/></summary><div className="os-task-mini-controls task-action-menu">
+      {allSplits.length>1&&<select className="os-workflow-move" aria-label={'Перенести действие: '+item.title} value="" onChange={e=>void action('workflow_move',{id:item.id,splitId:e.target.value}).catch(()=>setWorkflowEditError('Не удалось перенести действие.'))}><option value="" disabled>Перенести в этап…</option>{allSplits.filter(s=>s.id!==split.id).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select>}
+      <button type="button" title="Выше" aria-label={'Выше: '+item.title} disabled={reordering||arranged[0].id===item.id} onClick={()=>void reorder(item.id,-1)}>Переместить выше</button>
+      <button type="button" title="Ниже" aria-label={'Ниже: '+item.title} disabled={reordering||arranged[arranged.length-1].id===item.id} onClick={()=>void reorder(item.id,1)}>Переместить ниже</button>
+      <button type="button" title="Удалить" aria-label={'Удалить: '+item.title} onClick={()=>{if(window.confirm('Удалить это действие?'))void action('workflow_delete',{id:item.id}).catch(()=>setWorkflowEditError('Не удалось удалить действие.'))}}>Удалить действие</button>
+     </div></details>
     </m.div>)}</AnimatePresence>
    </div></LayoutGroup>
    <form className="os-workflow-add" onSubmit={e=>void addItem(e)}>

@@ -49,5 +49,7 @@ jobs:
         run: node tests/task-polish.mjs
       - name: Task autosave and appearance contracts
         run: node tests/task-property-autosave.mjs
+      - name: Task library authorization and pagination
+        run: node tests/task-library.mjs
       - name: Typecheck and build
         run: npm run build
