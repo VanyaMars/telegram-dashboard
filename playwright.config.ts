@@ -5,6 +5,7 @@ export default defineConfig({
  expect:{timeout:10_000},
  fullyParallel:false,
  retries:process.env.CI?1:0,
+ failOnFlakyTests:!!process.env.CI,
  reporter:process.env.CI?[['list'],['html',{open:'never'}]]:[['list']],
  use:{launchOptions:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--disable-dev-shm-usage']}:undefined,baseURL:'http://127.0.0.1:4173/telegram-dashboard/',trace:'retain-on-failure',screenshot:'only-on-failure',reducedMotion:'reduce'},
  projects:[{name:'chromium',use:{...devices['Desktop Chrome']}}],

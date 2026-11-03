@@ -1,3 +1,9 @@
+## 6.12.1 — Stable editor input
+
+- Collapse Select All immediately on horizontal arrow keys so a fast Enter uses the current caret rather than waiting for native selectionchange.
+- Keep Tiptap extensions, initial document and editor props stable across caret/toolbar/autosave renders.
+- Add repeated formatting → Enter → typing → reload regression coverage; CI rejects flaky tests.
+
 ## 6.12.0 — Task UX and completed-task library
 
 - Shared restrained appearance informed by Apple HIG; consistent controls, neutral content surfaces, system fonts and simpler mobile layouts.

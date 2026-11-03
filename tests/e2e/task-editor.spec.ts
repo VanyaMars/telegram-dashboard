@@ -31,3 +31,12 @@ test('custom priorities, optional properties, duplicate, template and archive',a
  await page.getByRole('button',{name:'Дублировать',exact:true}).click();await expect(page.getByLabel('Название страницы')).toHaveValue('Идеи для автомобильного блога — копия');await expect(page.locator('.os-pipe-summary b')).toHaveText('0%');await expect(page.getByLabel('Приоритет задачи').locator('option:checked')).toHaveText('На этой неделе');
  await page.getByLabel('Действия с задачей',{exact:true}).click();await page.getByRole('button',{name:'В архив',exact:true}).click();await expect(page.locator('.task-context-note')).toBeVisible();await page.getByLabel('Действия с задачей',{exact:true}).click();await expect(page.getByRole('button',{name:'Вернуть из архива'})).toBeVisible();await page.getByRole('button',{name:'Назад в буфер задач'}).click();await expect(page.locator('.task-copy').filter({hasText:'— копия'})).toHaveCount(0);await page.getByRole('tab',{name:'Архив',exact:true}).click();await page.locator('.task-library-row').filter({hasText:'— копия'}).locator('summary').click();await page.getByRole('button',{name:'Восстановить',exact:true}).click();await expect(page.locator('.task-library-row')).toHaveCount(0);await page.getByRole('tab',{name:'Активные',exact:true}).click();await expect(page.locator('.task-copy').filter({hasText:'— копия'})).toHaveCount(1);
 });
+
+test('rapid formatting followed by Enter preserves native editing across renders',async({page})=>{
+ await enter(page);await buffer(page);await page.getByLabel('Быстро добавить задачу').fill('Быстрый ввод');await page.locator('.buffer-quick button').click();await page.getByRole('button',{name:'Быстрый ввод',exact:true}).click();
+ const doc=page.getByRole('textbox',{name:'Содержимое задачи'});
+ for(let i=0;i<8;i++){
+  await doc.fill('Строка '+i);await doc.press('ControlOrMeta+a');await page.getByRole('button',{name:'Жирный',exact:true}).click();await doc.press('ArrowRight');await doc.press('Enter');await expect(doc.locator('p')).toHaveCount(2);await doc.pressSequentially('Продолжение '+i);await expect(doc).toContainText('Строка '+i);await expect(doc).toContainText('Продолжение '+i);
+ }
+ await expect(page.locator('.editor-save-hint')).toHaveText('Сохранено');await page.reload();await expect(doc).toContainText('Продолжение 7');
+});

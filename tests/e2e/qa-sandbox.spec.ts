@@ -194,7 +194,7 @@ test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({pag
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.12.0');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.12.1');
  await openSampleTaskPage(page);
  await expect(page.locator('.os-page-editor')).toBeVisible();
  await expect(page.locator('#os-workspace-panel')).toHaveCount(0);
