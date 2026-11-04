@@ -48,7 +48,7 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
   </div>)}
   <button type="button" className="os-add-property-inline" aria-label="Добавить" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить</button>
   {adding&&<div className="os-property-restore-list">
-   {hiddenNativeProperties.map(key=><button type="button" key={key} onClick={()=>{onRestoreNative(key);setAdding(false)}}>Вернуть: {({category:'Категория',day:'Дата',goal:'Связь с целью',progress:'Прогресс'} as Record<string,string>)[key]||key}</button>)}
+   {hiddenNativeProperties.map(key=><button type="button" key={key} onClick={()=>{onRestoreNative(key);setAdding(false)}}>Вернуть: {({category:'Категория',priority:'Приоритет',day:'Дата',deadline:'Дедлайн',goal:'Связь с целью',progress:'Прогресс'} as Record<string,string>)[key]||key}</button>)}
    {fields.filter(f=>!f.options?.archived&&(options.hiddenProperties||[]).includes(f.id)).map(f=><button type="button" key={f.id} onClick={()=>{void hide(f.id,false);setAdding(false)}}>Вернуть: {f.name}</button>)}
   </div>}
   {adding&&<div className="os-custom-property-add">

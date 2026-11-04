@@ -91,7 +91,7 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
   {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\/\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\/\/|mailto:)/i.test(link)}>Добавить</button></form>}
  </div>;
  return <div className={'task-document-wrap '+(empty?'is-empty ':'')+(focused?'is-editing':'')} onClick={e=>{if(e.target===e.currentTarget)editor.commands.focus('end')}}>
-  {empty&&<span className="task-document-placeholder" aria-hidden="true">Начни писать или нажми + для добавления блока</span>}
+  {empty&&!focused&&<span className="task-document-placeholder" aria-hidden="true">Начни писать или нажми + для добавления блока</span>}
   <EditorContent editor={editor}/>
   {status.startsWith('Не сохранено')&&<button className="task-save-status" type="button" onClick={flush} role="alert">{status}</button>}
   {focused&&<span className="editor-save-hint" role="status">{status||'Сохранено'}</span>}

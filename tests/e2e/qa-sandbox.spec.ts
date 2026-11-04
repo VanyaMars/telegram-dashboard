@@ -1,5 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 const entry='/telegram-dashboard/?qa=1';
+async function finishQuick(page:Page){const dlg=page.getByRole('dialog',{name:'Категория новой задачи'});await expect(dlg).toBeVisible();await dlg.getByRole('button',{name:'Добавить без категории'}).click();}
 async function enter(page:Page,name='QA Проверяющий'){
  await page.goto(entry);
  await page.getByRole('textbox',{name:'Как тебя зовут?'}).fill(name);
@@ -84,7 +85,7 @@ test('guest sign-in, UI actions, local persistence and no Supabase calls',async(
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('QA задача для проверки');
- await page.locator('.buffer-quick').getByRole('button',{name:'Добавить'}).click();
+ await page.locator('.buffer-quick').getByRole('button',{name:'Добавить'}).click();await finishQuick(page);
  await expect(page.getByRole('button',{name:'QA задача для проверки',exact:true})).toBeVisible();
  await page.reload();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
@@ -109,7 +110,7 @@ test('QA is isolated for each newly created browser session',async({page})=>{
  await enter(page,'Первый тестировщик');
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Секрет первой сессии');
- await page.locator('.buffer-quick').getByRole('button',{name:'Добавить'}).click();
+ await page.locator('.buffer-quick').getByRole('button',{name:'Добавить'}).click();await finishQuick(page);
  await expect(page.getByRole('button',{name:'Секрет первой сессии',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Выйти'}).click();
  await page.getByRole('textbox',{name:'Как тебя зовут?'}).fill('Второй тестировщик');
@@ -192,7 +193,7 @@ test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({pag
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
- await expect(page.locator('.sidebar-bottom')).toContainText('v6.13.0');
+ await expect(page.locator('.sidebar-bottom')).toContainText('v6.14.0');
  await openSampleTaskPage(page);
  await expect(page.locator('.os-page-editor')).toBeVisible();
  await expect(page.locator('#os-workspace-panel')).toHaveCount(0);
@@ -284,7 +285,9 @@ test('6.8 Action Flow: fast Buffer capture prevents duplicate Enter and clears s
  const input=page.getByRole('textbox',{name:'Быстро добавить задачу'});
  await input.fill('QA быстрый захват 6.8');
  await input.press('Enter');
+ await expect(page.getByRole('dialog',{name:'Категория новой задачи'})).toBeVisible();
  await input.press('Enter');
+ await finishQuick(page);
  await expect(page.getByRole('button',{name:'QA быстрый захват 6.8',exact:true})).toHaveCount(1);
  await expect(input).toBeFocused();
  await expect(input).toHaveValue('');
@@ -551,7 +554,7 @@ test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Буфер задач'}).click();
  await page.getByRole('textbox',{name:'Быстро добавить задачу'}).fill('Сквозная задача Personal OS 6.9.1');
- await page.getByRole('textbox',{name:'Быстро добавить задачу'}).press('Enter');
+ await page.getByRole('textbox',{name:'Быстро добавить задачу'}).press('Enter');await finishQuick(page);
  await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9.1',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
  await page.getByRole('button',{name:/Из буфера/}).click();

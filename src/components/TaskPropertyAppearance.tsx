@@ -3,10 +3,10 @@ import {Icon} from './Icons';
 import {request} from '../lib/api';
 
 export const PROPERTY_ICON_CHOICES=['folder','flag','calendar','target','list','chart','clock','wallet','briefcase','check-square','idea','book-open','heart-pulse','zap','star','settings','palette','inbox','timer','users','tag','hash','type','check','filter'] as const;
-export const PROPERTY_ICON_DEFAULTS:Record<string,string>={category:'folder',priority:'flag',day:'calendar',goal:'target',notes:'list',progress:'chart',duration:'clock',number:'hash',text:'type',checkbox:'check-square',date:'calendar',select:'list'};
+export const PROPERTY_ICON_DEFAULTS:Record<string,string>={category:'folder',priority:'flag',day:'calendar',deadline:'clock',goal:'target',notes:'list',progress:'chart',duration:'clock',number:'hash',text:'type',checkbox:'check-square',date:'calendar',select:'list'};
 export type PropertyAppearance={name:string;icon:string};
 export const DEFAULT_NATIVE_PROPERTIES:Record<string,PropertyAppearance>={
- category:{name:'Категория',icon:'folder'},priority:{name:'Приоритет',icon:'flag'},day:{name:'Дата',icon:'calendar'},goal:{name:'Связь с целью',icon:'target'},notes:{name:'Заметки',icon:'list'},progress:{name:'Прогресс',icon:'chart'}
+ category:{name:'Категория',icon:'folder'},priority:{name:'Приоритет',icon:'flag'},day:{name:'Дата',icon:'calendar'},deadline:{name:'Дедлайн',icon:'clock'},goal:{name:'Связь с целью',icon:'target'},notes:{name:'Заметки',icon:'list'},progress:{name:'Прогресс',icon:'chart'}
 };
 export const isPropertyIcon=(s:string)=>PROPERTY_ICON_CHOICES.some(x=>x===s);
 
