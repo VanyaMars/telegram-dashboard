@@ -1,0 +1,48 @@
+/* Personal OS task & buffer: minimal surface, responsive native fields. */
+.task-inspector{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:10px 0 12px!important}
+.task-inspector .os-task-properties{background:transparent!important}
+.task-command-bar{gap:12px!important}
+.task-command-bar .task-work-control{margin-left:0!important;order:0}
+.task-command-bar .task-properties-toggle{margin-left:0!important;order:1;gap:9px!important}
+.task-command-bar .task-properties-toggle svg:last-child{color:var(--muted);margin-left:5px}
+.task-command-bar .task-actions{margin-left:auto!important;order:2}
+.task-document-wrap .task-document-placeholder{left:33px;right:0;max-width:calc(100% - 33px);white-space:normal}
+.task-document-wrap.is-editing .task-document-placeholder{display:none!important}
+.os-priority-property{position:relative}
+.os-priority-property select{width:100%;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);min-height:42px;cursor:pointer}
+.os-deadline-property{position:relative}
+.os-deadline-value{position:relative;min-width:0}
+.os-deadline-trigger{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center;text-align:left;min-height:44px;width:100%;padding:8px 6px;border:0;background:transparent;color:var(--text);font-size:14px;cursor:pointer}
+.os-deadline-trigger small{font-size:12px;color:var(--muted)}
+.os-deadline-trigger.is-overdue small{color:#b33442}
+.os-deadline-picker{position:absolute;top:calc(100% + 5px);left:0;z-index:90;width:min(350px,calc(100vw - 54px));display:grid;gap:12px;padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--white);box-shadow:0 12px 32px #1f293724}
+.os-deadline-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.os-deadline-presets button,.os-deadline-actions button{min-height:41px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--page);color:var(--text);font-size:12px;cursor:pointer}
+.os-deadline-presets button:hover,.os-deadline-actions button:hover{background:var(--purple-soft);color:var(--purple)}
+.os-deadline-picker label{display:grid;gap:6px;color:var(--muted);font-size:12px}
+.os-deadline-picker input{width:100%;min-width:0;font-size:16px!important;padding:9px!important;border:1px solid var(--line)!important;border-radius:9px;background:var(--white)!important}
+.os-deadline-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.os-deadline-actions button:last-child{background:var(--purple-soft);color:var(--purple);font-weight:650}
+.os-deadline-actions button:disabled{opacity:.45;cursor:not-allowed}
+.buffer-category-picker{display:grid;gap:12px;max-width:100%}
+.buffer-category-preview{padding:12px;border-radius:9px;background:var(--page);font-size:14px;color:var(--text);overflow-wrap:anywhere}
+.buffer-category-choice-list{display:grid;gap:4px;max-height:min(300px,40dvh);overflow-y:auto;overscroll-behavior:contain}
+.buffer-category-choice-list button{width:100%;display:flex;align-items:center;gap:12px;min-height:46px;padding:10px 12px;border:0;border-radius:9px;background:transparent;text-align:left;color:var(--text);font-size:14px;cursor:pointer}
+.buffer-category-choice-list button:hover,.buffer-category-choice-list button:focus-visible{background:var(--page)}
+.buffer-category-dot{width:10px;height:10px;flex:none;border-radius:100%}
+.buffer-category-new,.buffer-category-skip{min-height:44px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:transparent;color:var(--text);cursor:pointer;font-size:13px}
+.buffer-category-new{display:flex;align-items:center;gap:9px}
+.buffer-category-skip{border:0;background:var(--purple-soft);color:var(--purple);font-weight:650}
+.buffer-category-new-form{display:grid;gap:10px}
+.buffer-category-new-form label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+.buffer-category-new-form input{min-height:44px;padding:10px;border:1px solid var(--line);border-radius:9px;font-size:16px;color:var(--text)}
+.buffer-category-new-form>div{display:flex;flex-wrap:wrap;gap:8px}
+.buffer-category-new-form button{min-height:44px;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--page);color:var(--text)}
+.buffer-category-picker button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:600px){
+ .task-command-bar .task-work-control{flex:1 1 145px}
+ .task-command-bar .task-properties-toggle{flex:1 1 115px}
+ .task-command-bar .task-actions{flex:none}
+ .task-document-wrap .task-document-placeholder{left:26px;max-width:calc(100% - 26px)}
+ .os-deadline-picker{left:auto;right:0;width:min(320px,calc(100vw - 40px))}
+}
