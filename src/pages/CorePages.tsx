@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {useApp} from '../AppContext';
 import {Icon} from '../components/Icons';
-import {Card,Empty,GoalMini,Pill,ProgressBar,SectionHead,Sparkline,WeekBars} from '../components/UI';
+import {Card,Dialog,Empty,GoalMini,Pill,ProgressBar,SectionHead,Sparkline,WeekBars} from '../components/UI';
 import {TaskLibrary,type TaskLibraryView} from '../components/TaskLibrary';
 import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
@@ -116,23 +116,47 @@ export function TodayPage(){
 
 export function BufferPage(){
  const [view,setView]=useState<'active'|TaskLibraryView>(()=>{const saved=sessionStorage.getItem('os-task-view');return ['completed','templates','archive'].includes(saved||'')?saved as TaskLibraryView:'active'});
- const {buffer,categories,setEditor,saveTask}=useApp();
+ const {buffer,categories,setEditor,saveTask,saveCategory}=useApp();
  const [query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[title,setTitle]=useState(''),[adding,setAdding]=useState(false),[addError,setAddError]=useState('');
+ const [categoryPicker,setCategoryPicker]=useState(false),[creatingCategory,setCreatingCategory]=useState(false),[newCategoryName,setNewCategoryName]=useState('');
  const submitting=React.useRef(false),inputRef=React.useRef<HTMLInputElement>(null);
  const matchCategory=(t:Task)=>categories.find(c=>c.id===t.os61_category_id)||categories.find(c=>c.name===t.sphere);
  const matching=buffer.filter(t=>(filter==='all'||matchCategory(t)?.id===filter)&&(t.title+' '+t.notes).toLocaleLowerCase('ru').includes(query.toLocaleLowerCase('ru')));
  const groupKeys=[...new Set(matching.map(t=>matchCategory(t)?.id||'uncategorized'))];
- const quick=async(e:React.FormEvent)=>{
-  e.preventDefault();if(!title.trim()||submitting.current)return;
-  submitting.current=true;setAdding(true);setAddError('');
-  try{await saveTask({title:title.trim(),categoryId:filter==='all'?'':filter,day:null,priority:'extra'});setTitle('');inputRef.current?.focus()}
-  catch(e:any){setAddError(e?.message||'Не удалось сохранить. Попробуй снова.');inputRef.current?.focus()}
+ const quick=(e:React.FormEvent)=>{e.preventDefault();if(!title.trim()||adding)return;setAddError('');setCategoryPicker(true)};
+ const createWithCategory=async(categoryId:string)=>{
+  if(!title.trim()||submitting.current)return;submitting.current=true;setAdding(true);setAddError('');
+  try{await saveTask({title:title.trim(),categoryId,day:null,priority:'extra'});setTitle('');setCategoryPicker(false);setCreatingCategory(false);setNewCategoryName('');inputRef.current?.focus()}
+  catch(err:any){setAddError(err?.message||'Не удалось сохранить задачу. Повтори попытку.')}
   finally{submitting.current=false;setAdding(false)}
  };
+ const createNewCategory=async(e:React.FormEvent)=>{
+  e.preventDefault();if(!newCategoryName.trim()||submitting.current)return;submitting.current=true;setAdding(true);setAddError('');
+  try{
+   const created=await saveCategory({name:newCategoryName.trim(),color:'#8B84ED',icon:'folder'});
+   if(!created?.id)throw Error('Категория создана, но её идентификатор не получен');
+   await saveTask({title:title.trim(),categoryId:created.id,day:null,priority:'extra'});
+   setTitle('');setCategoryPicker(false);setCreatingCategory(false);setNewCategoryName('');inputRef.current?.focus();
+  }catch(err:any){setAddError(err?.message||'Не удалось создать категорию или задачу. Попробуй снова.')}
+  finally{submitting.current=false;setAdding(false)}
+ };
+
  return <div className="page-stack buffer-mvp buffer-action-flow">
   <div className="page-heading"><div><h1>Буфер задач</h1><p>Задачи, завершённое и сохранённые шаблоны.</p></div><button className="btn outline" onClick={()=>setEditor({type:'task',day:null})}><Icon name="settings" size={16}/> Подробно</button></div>
   <div className="task-view-tabs" role="tablist" aria-label="Списки задач">{([['active','Активные'],['completed','Завершённые'],['templates','Шаблоны'],['archive','Архив']] as const).map(([id,label])=><button role="tab" key={id} aria-selected={view===id} onClick={()=>{setView(id);sessionStorage.setItem('os-task-view',id);setQuery('')}}>{label}</button>)}</div>
   {view==='active'&&<><Card className="buffer-quick"><form onSubmit={quick}><Icon name="plus" size={20}/><input ref={inputRef} value={title} onChange={e=>{setTitle(e.target.value);if(addError)setAddError('')}} placeholder="Что нужно сделать?" maxLength={180} aria-label="Быстро добавить задачу"/><button type="submit" disabled={!title.trim()||adding}>{adding?'Сохраняю…':'Добавить'}</button></form></Card>
+  <Dialog open={categoryPicker} onClose={()=>{if(!adding){setCategoryPicker(false);setCreatingCategory(false)}}} title="Категория новой задачи">
+   <div className="buffer-category-picker">
+    <p className="buffer-category-preview">«{title.trim()}»</p>
+    <div className="buffer-category-choice-list" role="group" aria-label="Выбрать категорию для задачи">
+     {categories.map(cat=><button type="button" key={cat.id} disabled={adding} onClick={()=>void createWithCategory(cat.id)}><span className="buffer-category-dot" style={{background:cat.color}}/>{cat.name}</button>)}
+    </div>
+    {!creatingCategory?<button type="button" className="buffer-category-new" disabled={adding} onClick={()=>setCreatingCategory(true)}><Icon name="plus" size={16}/>Создать категорию</button>
+    :<form className="buffer-category-new-form" onSubmit={e=>void createNewCategory(e)}><label>Название категории<input autoFocus maxLength={60} value={newCategoryName} aria-label="Название категории для задачи" onChange={e=>setNewCategoryName(e.target.value)} placeholder="Новая категория"/></label><div><button type="submit" disabled={!newCategoryName.trim()||adding}>Создать и добавить</button><button type="button" onClick={()=>setCreatingCategory(false)} disabled={adding}>Отмена</button></div></form>}
+    {addError&&<p role="alert" className="buffer-save-error">{addError}</p>}
+    <button type="button" className="buffer-category-skip" disabled={adding} onClick={()=>void createWithCategory('')}>Добавить без категории</button>
+   </div>
+  </Dialog>
   {addError&&<p className="buffer-save-error" role="alert">{addError}</p>}
   <div className="buffer-categories" aria-label="Категории задач"><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Все <span>{buffer.length}</span></button>{categories.map(c=><button key={c.id} className={filter===c.id?'active':''} onClick={()=>setFilter(c.id)}><i style={{background:c.color}}/>{c.name}<span>{buffer.filter(t=>matchCategory(t)?.id===c.id).length}</span></button>)}<QuickCategory/></div>
   </>}<label className="buffer-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder={view==='active'?'Поиск по задачам и заметкам':'Поиск по названию'} aria-label="Поиск задач"/></label>
