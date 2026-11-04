@@ -143,7 +143,7 @@ export function BufferPage(){
  };
 
  return <div className="page-stack buffer-mvp buffer-action-flow">
-  <div className="page-heading"><div><h1>Буфер задач</h1><p>Задачи, завершённое и сохранённые шаблоны.</p></div><button className="btn outline" onClick={()=>setEditor({type:'task',day:null})}><Icon name="settings" size={16}/> Подробно</button></div>
+  <div className="page-heading"><div><h1>Буфер задач</h1></div><button className="btn outline" onClick={()=>setEditor({type:'task',day:null})}><Icon name="settings" size={16}/> Подробно</button></div>
   <div className="task-view-tabs" role="tablist" aria-label="Списки задач">{([['active','Активные'],['completed','Завершённые'],['templates','Шаблоны'],['archive','Архив']] as const).map(([id,label])=><button role="tab" key={id} aria-selected={view===id} onClick={()=>{setView(id);sessionStorage.setItem('os-task-view',id);setQuery('')}}>{label}</button>)}</div>
   {view==='active'&&<><Card className="buffer-quick"><form onSubmit={quick}><Icon name="plus" size={20}/><input ref={inputRef} value={title} onChange={e=>{setTitle(e.target.value);if(addError)setAddError('')}} placeholder="Что нужно сделать?" maxLength={180} aria-label="Быстро добавить задачу"/><button type="submit" disabled={!title.trim()||adding}>{adding?'Сохраняю…':'Добавить'}</button></form></Card>
   <Dialog open={categoryPicker} onClose={()=>{if(!adding){setCategoryPicker(false);setCreatingCategory(false)}}} title="Категория новой задачи">
