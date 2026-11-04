@@ -12,7 +12,7 @@ export function QASandboxGate({children}:{children:React.ReactNode}){
  if(!isQAMode())return <>{children}</>;
  if(!session)return <main className="qa-entry">
    <form className="qa-entry-card" onSubmit={e=>{e.preventDefault();if(name.trim().length<2)return;setSession(startQASession(name.trim()))}}>
-     <span className="qa-eyebrow">PERSONAL OS · QA SANDBOX</span>
+     <span className="qa-eyebrow">PRODESK · QA SANDBOX</span>
      <h1>Тестовое пространство</h1>
      <p>Введи имя и исследуй интерфейс без Telegram. Задачи, цели и страницы сохраняются только в этом браузере — рабочая база не используется.</p>
      <label htmlFor="qa-guest-name">Как тебя зовут?</label>
