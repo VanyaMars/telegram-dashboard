@@ -7,6 +7,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import {Details,DetailsContent,DetailsSummary} from '@tiptap/extension-details';
 import {Icon} from './Icons';
+import {TaskBlockMenu,type TaskInsertKind,isTaskTool} from './TaskBlockMenu';
 import type {WBlock} from '../lib/workspace';
 
 type Change={doc:Record<string,any>;text:string;revision:number};
@@ -30,8 +31,9 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
    // Reserve room for the contextual controls above the on-screen keyboard/navigation.
    const nav=document.querySelector('.bottom-nav')?.getBoundingClientRect();const usableBottom=nav&&nav.height&&nav.top>top?Math.min(bottom,nav.top):bottom;
    if(reveal&&ed.isFocused){const delta=caret.bottom>usableBottom-76?caret.bottom-(usableBottom-76):caret.top<top?caret.top-top:0;if(delta){window.scrollBy({top:delta,behavior:'instant'});caret=ed.view.coordsAtPos(ed.state.selection.head)}}
-   const width=Math.min(288,(viewport?.width||window.innerWidth)-24);const left=Math.max(12,Math.min(caret.left,(viewport?.width||window.innerWidth)-width-12));
-   setAnchor({top:caret.bottom+8,left,width});setEmpty(ed.isEmpty);
+   const bounds=ed.view.dom.getBoundingClientRect();const viewWidth=viewport?.width||window.innerWidth;
+   const left=Math.max(8,Math.min(bounds.left-34,viewWidth-48));const width=Math.min(280,viewWidth-left-12);
+   setAnchor({top:caret.top,left,width});setEmpty(ed.isEmpty);
   }catch{}
  })};
  // Keep ProseMirror configuration stable while caret position and save state rerender React.
@@ -54,18 +56,38 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
  useEffect(()=>{if(!editor||revision.current)return;try{if(localStorage.getItem(draftKey)){pending.current={doc:editor.getJSON(),text:editor.getText(),revision:++revision.current};flushRef.current()}}catch{}},[editor]);
  if(!editor)return null;
  const command=(fn:()=>unknown)=>{fn();setMenu(false);position()};
- const commands:Array<[string,string,()=>unknown]>=[['Текст','type',()=>editor.chain().focus().setParagraph().run()],['Заголовок','hash',()=>editor.chain().focus().toggleHeading({level:2}).run()],['Список','list',()=>editor.chain().focus().toggleBulletList().run()],['Нумерация','list',()=>editor.chain().focus().toggleOrderedList().run()],['Чеклист','check-square',()=>editor.chain().focus().toggleTaskList().run()],['Раскрывающийся список','down',()=>editor.chain().focus().setDetails().run()],['Цитата','book-open',()=>editor.chain().focus().toggleBlockquote().run()],['Разделитель','more',()=>editor.chain().focus().setHorizontalRule().run()]];
+ const choose=(kind:TaskInsertKind)=>{
+  if(isTaskTool(kind)){
+   if(!onInsertBlock){setMenu(false);return}
+   flushRef.current();setMenu(false);
+   void queue.current.then(()=>{if(!pending.current)onInsertBlock(kind as 'pipeline'|'image'|'database'|'page_link')});
+   return;
+  }
+  const chain=editor.chain().focus();
+  const actions:Record<string,()=>unknown>={
+   paragraph:()=>chain.setParagraph().run(),
+   heading:()=>chain.toggleHeading({level:2}).run(),
+   bulletList:()=>chain.toggleBulletList().run(),
+   orderedList:()=>chain.toggleOrderedList().run(),
+   taskList:()=>chain.toggleTaskList().run(),
+   details:()=>chain.setDetails().run(),
+   blockquote:()=>chain.toggleBlockquote().run(),
+   horizontalRule:()=>chain.setHorizontalRule().run()
+  };
+  command(actions[kind]);
+ };
  const viewportBottom=(window.visualViewport?.height||window.innerHeight)+(window.visualViewport?.offsetTop||0);
- const controls=focused&&anchor.top>0&&anchor.top<viewportBottom-12&&<div data-editor-owner={block.id} className="editor-controls" style={{position:'fixed',top:anchor.top,left:anchor.left,width:anchor.width}} onMouseDown={e=>{if(!(e.target instanceof HTMLInputElement))e.preventDefault()}} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(false);setLink(null);editor.commands.focus()}}}>
-  <div className="editor-insert-bar" role="toolbar" aria-label="Формат текущей строки">
-   <button type="button" aria-label="Вставить в текущую строку" title="Добавить блок · /" aria-expanded={menu} onClick={()=>{setMenu(v=>!v);position(true)}}><Icon name="plus" size={17}/><span>Блок</span><kbd>/</kbd></button>
-   <span className="editor-tool-divider"/>
-   <button type="button" aria-label="Жирный" aria-pressed={editor.isActive('bold')} onClick={()=>command(()=>editor.chain().focus().toggleBold().run())}><b>B</b></button>
-   <button type="button" aria-label="Курсив" aria-pressed={editor.isActive('italic')} onClick={()=>command(()=>editor.chain().focus().toggleItalic().run())}><i>I</i></button>
-   <button type="button" aria-label="Ссылка" onClick={()=>setLink(editor.getAttributes('link').href||'')}><Icon name="arrow-up-right" size={17}/></button>
-  </div>
-  {menu&&<div className="editor-block-menu" role="group" aria-label="Выбор блока" style={{maxHeight:Math.max(100,Math.min(320,viewportBottom-anchor.top-60))}}>{commands.map(([label,icon,fn])=><button type="button" key={label} onClick={()=>command(fn)}><Icon name={icon} size={17}/>{label}</button>)}{onInsertBlock&&<><div className="editor-menu-label">Инструменты задачи</div>{([['pipeline','Pipeline'],['image','Изображение'],['database','База данных'],['page_link','Ссылка на страницу']] as const).map(([type,label])=><button type="button" key={type} onClick={async()=>{flushRef.current();setMenu(false);await queue.current;if(!pending.current)onInsertBlock(type)}}><Icon name={type==='pipeline'?'list':type==='database'?'dashboard':'plus'} size={17}/>{label}</button>)}</>}</div>}
-  {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\/\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\/\/|mailto:)/i.test(link)}>Добавить</button></form>}
+ const controls=focused&&anchor.top>0&&anchor.top<viewportBottom-12&&<div data-editor-owner={block.id} className="editor-controls editor-gutter-controls" style={{position:'fixed',top:Math.max(12,anchor.top),left:anchor.left,width:anchor.width}} onMouseDown={e=>{if(!(e.target instanceof HTMLInputElement))e.preventDefault()}} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(false);setLink(null);editor.commands.focus()}}}>
+  <button className="editor-gutter-plus" type="button" aria-label="Добавить блок в текущей строке" title="Добавить блок" aria-expanded={menu} onClick={()=>setMenu(v=>!v)}><Icon name="plus" size={19}/></button>
+  {menu&&<div className="editor-block-menu editor-gutter-menu" style={{maxHeight:Math.max(120,Math.min(420,viewportBottom-anchor.top-50))}}>
+    <TaskBlockMenu onSelect={choose}/>
+    <div className="editor-format-actions" role="group" aria-label="Форматирование">
+     <button type="button" aria-label="Жирный" onClick={()=>command(()=>editor.chain().focus().toggleBold().run())}><b>B</b> Жирный</button>
+     <button type="button" aria-label="Курсив" onClick={()=>command(()=>editor.chain().focus().toggleItalic().run())}><i>I</i> Курсив</button>
+     <button type="button" aria-label="Ссылка" onClick={()=>{setMenu(false);setLink(editor.getAttributes('link').href||'')}}><Icon name="arrow-up-right" size={17}/> Ссылка</button>
+    </div>
+   </div>}
+  {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\\/\\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\\/\\/|mailto:)/i.test(link)}>Добавить</button></form>}
  </div>;
  return <div className={'task-document-wrap '+(empty?'is-empty ':'')+(focused?'is-editing':'')} onClick={e=>{if(e.target===e.currentTarget)editor.commands.focus('end')}}>
   {empty&&<span className="task-document-placeholder" aria-hidden="true">Напиши текст или нажми / для выбора блока</span>}
