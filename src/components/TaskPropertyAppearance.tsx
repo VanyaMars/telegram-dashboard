@@ -10,9 +10,10 @@ export const DEFAULT_NATIVE_PROPERTIES:Record<string,PropertyAppearance>={
 };
 export const isPropertyIcon=(s:string)=>PROPERTY_ICON_CHOICES.some(x=>x===s);
 
-export function TaskPropertyAppearance({fieldKey,name,icon,choices,fieldType,onChange}:{
+export function TaskPropertyAppearance({fieldKey,name,icon,choices,fieldType,onChange,onRemove}:{
  fieldKey:string;name:string;icon:string;choices?:string[];fieldType?:string;
  onChange:(name:string,icon:string,choices?:string[],fieldType?:string)=>void;
+ onRemove?:()=>void;
 }){
  const [open,setOpen]=useState(false),[draftType,setDraftType]=useState(fieldType||''),[draftName,setDraftName]=useState(name),[draftIcon,setDraftIcon]=useState(icon),[draftChoices,setDraftChoices]=useState((choices||[]).join(', ')),[busy,setBusy]=useState(false),[error,setError]=useState('');
  useEffect(()=>{if(!open){setDraftName(name);setDraftIcon(icon);setDraftType(fieldType||'');setDraftChoices((choices||[]).join(', '))}},[name,icon,open,fieldType,choices?.join(',')]);
@@ -37,6 +38,7 @@ export function TaskPropertyAppearance({fieldKey,name,icon,choices,fieldType,onC
    </div>
    {draftType==='select'&&<label>Варианты (через запятую)<input value={draftChoices} onChange={e=>setDraftChoices(e.target.value)} maxLength={1800}/></label>}
    {error&&<p className="os-inline-error" role="alert">{error}</p>}
+   {onRemove&&<button className="os-property-hide-action" type="button" disabled={busy} onClick={()=>{setOpen(false);onRemove()}}><Icon name="trash" size={15}/>Удалить из задачи</button>}
    <div className="os-property-settings-actions"><button type="button" className="os-btn os-btn-primary" disabled={busy||!draftName.trim()} onClick={()=>void save()}>{busy?'Сохраняется…':'Готово'}</button><button type="button" className="os-btn" onClick={()=>setOpen(false)} disabled={busy}>Отмена</button></div>
   </div>}
  </div>;

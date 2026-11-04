@@ -6,10 +6,10 @@ export type TaskField={id:string;name:string;field_type:'duration'|'number'|'tex
 const types:Record<TaskField['field_type'],string>={duration:'Время работы',number:'Число',text:'Текст',checkbox:'Флажок',date:'Дата',select:'Выбор'};
 const formatMinutes=(n:number)=>n>=60?`${Math.floor(n/60)} ч ${n%60} мин`:`${n} мин`;
 
-export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppearance={name:'Прогресс',icon:'chart'},onProgressAppearance=()=>{}}:{taskId:string;pipelineProperties?:Array<{blockId:string;label:string;percent:number;done:number;total:number}>;progressAppearance?:PropertyAppearance;onProgressAppearance?:(name:string,icon:string)=>void}){
+export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppearance={name:'Прогресс',icon:'chart'},onProgressAppearance=()=>{},onRemoveProgress=()=>{},hiddenNativeProperties=[],onRestoreNative=()=>{}}:{taskId:string;pipelineProperties?:Array<{blockId:string;label:string;percent:number;done:number;total:number}>;progressAppearance?:PropertyAppearance;onProgressAppearance?:(name:string,icon:string)=>void;onRemoveProgress?:()=>void;hiddenNativeProperties?:string[];onRestoreNative?:(key:string)=>void}){
  const [fields,setFields]=useState<TaskField[]>([]),[values,setValues]=useState<Record<string,string>>({}),[error,setError]=useState(''),[status,setStatus]=useState('');
  const [adding,setAdding]=useState(false),[name,setName]=useState(''),[type,setType]=useState<TaskField['field_type']>('duration'),[choices,setChoices]=useState('');
- const [options,setOptions]=useState<Record<string,any>>({}),[manage,setManage]=useState(false);
+ const [options,setOptions]=useState<Record<string,any>>({});
  useEffect(()=>{request('os8','task_options_get',{taskId}).then(r=>setOptions(r.options||{})).catch(e=>setError(e.message))},[taskId]);
  const hide=async(id:string,hidden:boolean)=>{try{const enabledProperties=[...(options.enabledProperties||[]).filter((x:string)=>x!==id),...(!hidden?[id]:[])];const hiddenProperties=[...(options.hiddenProperties||[]).filter((x:string)=>x!==id),...(hidden?[id]:[])];const r=await request('os8','task_options_set',{taskId,patch:{hiddenProperties,enabledProperties}});setOptions(r.options)}catch(e:any){setError(e.message)}};
  const [busy,setBusy]=useState(false);
@@ -34,22 +34,23 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
   {error&&<p role="alert" className="os-inline-error">{error}</p>}
   {status&&<p role="status" className="os-inline-hint">{status}</p>}
   {pipelineProperties.map(p=><div className="os-custom-property-row os-computed-progress" key={p.blockId}>
-   <TaskPropertyAppearance fieldKey="progress" name={pipelineProperties.length===1?progressAppearance.name:p.label.replace(/^Прогресс/,progressAppearance.name)} icon={progressAppearance.icon} onChange={onProgressAppearance}/><div className="os-computed-progress-value">
+   <TaskPropertyAppearance fieldKey="progress" name={pipelineProperties.length===1?progressAppearance.name:p.label.replace(/^Прогресс/,progressAppearance.name)} icon={progressAppearance.icon} onChange={onProgressAppearance} onRemove={onRemoveProgress}/><div className="os-computed-progress-value">
     <div className="os-computed-progress-track" role="progressbar" aria-label={p.label} aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100}><span style={{width:p.percent+'%'}}/></div>
     <strong>{p.percent}%</strong><small>{p.done} из {p.total} действий · автоматически</small>
    </div>
   </div>)}
   {fields.filter(f=>!f.options?.archived&&!(options.hiddenProperties||[]).includes(f.id)&&(values[f.id]!==undefined||(options.enabledProperties||[]).includes(f.id))).map(f=><div className="os-custom-property-row" key={f.id}>
-   <TaskPropertyAppearance fieldKey={f.id} name={f.name} fieldType={f.field_type} icon={f.options?.icon||PROPERTY_ICON_DEFAULTS[f.field_type]} choices={f.field_type==='select'?f.options?.choices||[]:undefined} onChange={(name,icon,choices,fieldType)=>setFields(prev=>prev.map(x=>x.id===f.id?{...x,name,field_type:(fieldType||x.field_type) as TaskField['field_type'],options:{...x.options,icon,choices:choices||x.options?.choices}}:x))}/>
+   <TaskPropertyAppearance fieldKey={f.id} name={f.name} fieldType={f.field_type} icon={f.options?.icon||PROPERTY_ICON_DEFAULTS[f.field_type]} choices={f.field_type==='select'?f.options?.choices||[]:undefined} onChange={(name,icon,choices,fieldType)=>setFields(prev=>prev.map(x=>x.id===f.id?{...x,name,field_type:(fieldType||x.field_type) as TaskField['field_type'],options:{...x.options,icon,choices:choices||x.options?.choices}}:x))} onRemove={()=>void hide(f.id,true)}/>
    {f.field_type==='checkbox'?<input id={'property-'+f.id} type="checkbox" disabled={busy} checked={values[f.id]==='true'} onChange={e=>void save(f,String(e.target.checked))}/>
    :f.field_type==='select'?<select id={'property-'+f.id} disabled={busy} value={values[f.id]||''} onChange={e=>void save(f,e.target.value)}><option value="">—</option>{(f.options?.choices||[]).map(x=><option key={x} value={x}>{x}</option>)}</select>
    :<input id={'property-'+f.id} key={f.id+'-'+(values[f.id]||'')} defaultValue={values[f.id]||''} disabled={busy} type={f.field_type==='duration'||f.field_type==='number'?'number':f.field_type==='date'?'date':'text'} min={f.field_type==='duration'?0:undefined} step={f.field_type==='duration'?1:'any'} placeholder={f.field_type==='duration'?'Минуты':'—'} onBlur={e=>{if(e.target.value!==(values[f.id]||''))void save(f,e.target.value)}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>}
-   <button type="button" className="task-field-remove" aria-label={'Убрать '+f.name} onClick={()=>void hide(f.id,true)}>×</button>
    {f.field_type==='duration'&&<small>{formatMinutes(Number(values[f.id]||0))}</small>}
   </div>)}
-  <button type="button" className="os-add-property-inline" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить свойство</button>
-  <button type="button" className="os-add-property-inline" onClick={()=>setManage(!manage)}>Управлять свойствами</button>
-  {manage&&<div>{fields.map(f=><div className="task-option-row" key={f.id}><span>{f.name}</span><button type="button" onClick={()=>void hide(f.id,(values[f.id]!==undefined||(options.enabledProperties||[]).includes(f.id))&&!(options.hiddenProperties||[]).includes(f.id))}>{(!(options.enabledProperties||[]).includes(f.id)&&values[f.id]===undefined||(options.hiddenProperties||[]).includes(f.id))?'Показать в задаче':'Убрать из задачи'}</button><button type="button" onClick={async()=>{if(!f.options?.archived&&!confirm('Убрать свойство из всех задач? Значения сохранятся, свойство можно восстановить.'))return;try{await request('os8','task_property_archive',{propertyId:f.id,archived:!f.options?.archived});await load()}catch(e:any){setError(e.message)}}}>{f.options?.archived?'Восстановить':'Удалить во всех задачах'}</button></div>)}</div>}
+  <button type="button" className="os-add-property-inline" aria-label="Добавить" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить</button>
+  {adding&&<div className="os-property-restore-list">
+   {hiddenNativeProperties.map(key=><button type="button" key={key} onClick={()=>{onRestoreNative(key);setAdding(false)}}>Вернуть: {({category:'Категория',day:'Дата',goal:'Связь с целью',progress:'Прогресс'} as Record<string,string>)[key]||key}</button>)}
+   {fields.filter(f=>!f.options?.archived&&(options.hiddenProperties||[]).includes(f.id)).map(f=><button type="button" key={f.id} onClick={()=>{void hide(f.id,false);setAdding(false)}}>Вернуть: {f.name}</button>)}
+  </div>}
   {adding&&<div className="os-custom-property-add">
    <label>Название<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Например, Время работы"/></label>
    <label>Тип<select aria-label="Тип свойства" value={type} onChange={e=>setType(e.target.value as TaskField['field_type'])}>{Object.entries(types).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>

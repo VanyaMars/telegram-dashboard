@@ -13,7 +13,9 @@ import {TaskCustomProperties} from '../components/TaskCustomProperties';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 import '../task-editor.css';
+import '../task-polish.css';
 import {TaskOptions} from '../components/TaskOptions';
+import {TaskBlockMenu,type TaskInsertKind,isTaskTool,taskInsertDocument} from '../components/TaskBlockMenu';
 const TaskDocument=React.lazy(()=>import('../components/TaskDocument').then(module=>({default:module.TaskDocument})));
 const DocumentLoader=({children}:{children:React.ReactNode})=><React.Suspense fallback={<p className="os-muted">Открываем редактор…</p>}>{children}</React.Suspense>;
 
@@ -61,7 +63,7 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
  const [propertiesOpen,setPropertiesOpen]=useState(false);
  const [insertAfter,setInsertAfter]=useState<string|null>(null);
  const [renaming,setRenaming]=useState<WBlock|null>(null),[blockName,setBlockName]=useState(''),[renameBusy,setRenameBusy]=useState(false),[renameError,setRenameError]=useState('');
- const [adding,setAdding]=useState(false);const [blockMenu,setBlockMenu]=useState<string|null>(null);const [blockDrag,setBlockDrag]=useState<string|null>(null);
+ const [adding,setAdding]=useState(false),[pickerOpen,setPickerOpen]=useState(false);const [blockMenu,setBlockMenu]=useState<string|null>(null);const [blockDrag,setBlockDrag]=useState<string|null>(null);
  const blockGesture=useRef<{id:string;startX:number;startY:number;active:boolean;target:string|null;timer:number|null}|null>(null);
  const [draftId]=useState(()=>{const key='os-new-document:'+page.id;try{const old=localStorage.getItem(key);if(old)return old;const id=crypto.randomUUID();localStorage.setItem(key,id);return id}catch{return crypto.randomUUID()}});
  const [blockHover,setBlockHover]=useState<string|null>(null);
@@ -70,8 +72,8 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
  useEffect(()=>()=>{if(blockGesture.current?.timer)window.clearTimeout(blockGesture.current.timer)},[]);
 
  const savePage=async(nextTitle=title,nextIcon=icon)=>{if(!nextTitle.trim())return;await write('page_save',{id:page.id,title:nextTitle,icon:nextIcon,parentId:page.parent_id});await refresh()};
- const addBlock=async(kind:BlockType,after=insertAfter)=>{
-   let content:Record<string,unknown>={};if(kind==='text'||kind==='heading'||kind==='checklist')content={text:'',checked:false};
+ const addBlock=async(kind:BlockType,after=insertAfter,document?:Record<string,unknown>)=>{
+   let content:Record<string,unknown>={};if(kind==='text'||kind==='heading'||kind==='checklist')content={text:'',checked:false,...(document?{document}:{})};
    if(kind==='pipeline')content={title:'План выполнения'};
    if(kind==='database'){
     let sid=sourceId;if(!sid){if(!sourceName.trim())return;const newSource=await write('source_save',{name:sourceName});sid=newSource.id;}
@@ -80,6 +82,16 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
    if(kind==='page_link'){if(!linkId)return;content={pageId:linkId};}
    const created=await write('block_save',{pageId:page.id,type:kind,content});if(after){const latest=await workspaceRequest<WPageResponse>('page_get',{id:page.id});const ids=latest.blocks.filter(b=>b.id!==created.id).map(b=>b.id);const index=ids.indexOf(after);ids.splice(index<0?ids.length:index+1,0,created.id);await write('block_reorder',{pageId:page.id,ids})}setAdding(false);setInsertAfter(null);await refresh();
  };
+ const insertKind=(kind:TaskInsertKind,after:string|null=null)=>{
+   setPickerOpen(false);setInsertAfter(after);
+   if(isTaskTool(kind)){
+    if(kind==='database'||kind==='page_link'){setType(kind);setAdding(true)}
+    else void addBlock(kind as BlockType,after);
+   }else{
+    const blockType:BlockType=kind==='heading'?'heading':kind==='taskList'?'checklist':'text';
+    void addBlock(blockType,after,taskInsertDocument(kind));
+   }
+  };
  const moveBlock=async(id:string,target:string)=>{if(id===target)return;const ids=blocks.map(x=>x.id);const a=ids.indexOf(id),b=ids.indexOf(target);if(a<0||b<0)return;ids.splice(a,1);ids.splice(b,0,id);await write('block_reorder',{pageId:page.id,ids});await refresh()};
   const blockOrder=async(id:string,delta:number)=>{const ids=blocks.map(x=>x.id),i=ids.indexOf(id),j=i+delta;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await write('block_reorder',{pageId:page.id,ids});await refresh()};
 
@@ -114,14 +126,20 @@ function PageContents({data,taskData,pages,sources,onOpen,onAddPage,onDeletePage
    <div className="os-blocks">{blocks.map(block=><div className={'os-block-shell '+(blockDrag===block.id?'is-block-dragging':'')+(blockHover===block.id&&blockDrag!==block.id?' os-block-hover':'')} key={block.id} data-block-id={block.id} onDragOver={e=>{if(blockDrag)e.preventDefault()}} onDrop={e=>{e.preventDefault();if(blockDrag){void moveBlock(blockDrag,block.id);setBlockDrag(null)}}}>
  <div className="os-block-control"><button type="button" className="os-block-grip" draggable title="Перетащить блок" aria-label="Меню блока" onDragStart={e=>{e.dataTransfer.effectAllowed='move';setBlockDrag(block.id)}} onDragEnd={()=>setBlockDrag(null)} onPointerDown={e=>blockPointerDown(e,block.id)} onPointerMove={blockPointerMove} onPointerUp={blockPointerUp} onPointerCancel={cancelBlockGesture} onClick={()=>{if(blockSkipClick.current){blockSkipClick.current=false;return}setBlockMenu(v=>v===block.id?null:block.id)}}><span aria-hidden="true">⋯</span></button>
  {blockMenu===block.id&&<div className="os-block-context">{block.type==='pipeline'&&<button type="button" onClick={()=>{setRenaming(block);setBlockName(block.content.title||'Pipeline');setRenameError('');setBlockMenu(null)}}>Переименовать</button>}<button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,-1)}}>Выше</button><button type="button" onClick={()=>{setBlockMenu(null);void blockOrder(block.id,1)}}>Ниже</button><button type="button" className="danger" onClick={()=>{setBlockMenu(null);if(window.confirm('Удалить блок?'))void write('block_delete',{id:block.id}).then(refresh)}}>Удалить блок</button></div>}</div>
- <PageBlock block={block} onInsertBlock={kind=>{setInsertAfter(block.id);if(kind==='pipeline'||kind==='image')void addBlock(kind,block.id);else{setType(kind);setAdding(true)}}} pages={pages} sources={sources} data={data} openPage={onOpen} write={write} refresh={refresh}/>
+ <PageBlock block={block} onInsertBlock={kind=>insertKind(kind,block.id)} pages={pages} sources={sources} data={data} openPage={onOpen} write={write} refresh={refresh}/>
  </div>)}</div>
- {!blocks.length&&<DocumentLoader><TaskDocument block={{id:draftId,page_id:page.id,type:'text',position:0,content:{}}} save={async content=>{await write('block_save',{clientId:draftId,pageId:page.id,type:'text',content})}} onInsertBlock={kind=>{setInsertAfter(draftId);if(kind==='pipeline'||kind==='image')void addBlock(kind,draftId);else{setType(kind);setAdding(true)}}}/></DocumentLoader>}
- <div className="os-new-block"><button className="os-add-block-mini" aria-label="Добавить блок" title="Добавить блок" onClick={()=>setAdding(v=>!v)}><Icon name="plus" size={17}/></button><Dialog open={adding} onClose={()=>{setAdding(false);setInsertAfter(null)}} title="Добавить блок"><div className="os-block-picker"><div className="os-block-picker-grid">{Object.entries(blockLabels).map(([k,v])=><button key={k} className={type===k?'active':''} onClick={()=>setType(k as BlockType)}>{v}</button>)}</div>
-     {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{!sourceId&&<input placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
-     {type==='page_link'&&<div className="os-block-options"><select value={linkId} onChange={e=>setLinkId(e.target.value)}><option value="">Выбери страницу</option>{pages.filter(p=>p.id!==page.id).map(p=><option key={p.id} value={p.id}>{p.icon} {p.title}</option>)}</select></div>}
-     <button className="os-btn os-btn-primary" disabled={(type==='database'&&!sourceId&&!sourceName.trim())||(type==='page_link'&&!linkId)} onClick={()=>void addBlock(type)}>Вставить {blockLabels[type].toLowerCase()}</button>
-    </div></Dialog></div>
+ {!blocks.length&&<DocumentLoader><TaskDocument block={{id:draftId,page_id:page.id,type:'text',position:0,content:{}}} save={async content=>{await write('block_save',{clientId:draftId,pageId:page.id,type:'text',content})}} onInsertBlock={kind=>insertKind(kind,draftId)}/></DocumentLoader>}
+ <div className="os-new-block">
+    <button className="os-add-block-mini" type="button" aria-label="Добавить блок" aria-expanded={pickerOpen} onClick={()=>{setInsertAfter(null);setPickerOpen(v=>!v)}}><Icon name="plus" size={17}/><span>Добавить блок</span></button>
+    {pickerOpen&&<TaskBlockMenu onSelect={kind=>insertKind(kind)}/>}
+    <Dialog open={adding} onClose={()=>{setAdding(false);setInsertAfter(null)}} title={'Добавить '+(blockLabels[type]||'блок')}>
+     <div className="os-block-picker">
+      {type==='database'&&<div className="os-block-options"><label>Существующая база <select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Создать новую</option>{sources.map(source=><option key={source.id} value={source.id}>{source.name}</option>)}</select></label>{!sourceId&&<input aria-label="Название базы" placeholder="Название новой базы" value={sourceName} onChange={e=>setSourceName(e.target.value)}/>}</div>}
+      {type==='page_link'&&<div className="os-block-options"><select aria-label="Страница для ссылки" value={linkId} onChange={e=>setLinkId(e.target.value)}><option value="">Выбери страницу</option>{pages.filter(p=>p.id!==page.id).map(p=><option key={p.id} value={p.id}>{p.icon} {p.title}</option>)}</select></div>}
+      <button type="button" className="os-btn os-btn-primary" disabled={(type==='database'&&!sourceId&&!sourceName.trim())||(type==='page_link'&&!linkId)} onClick={()=>void addBlock(type)}>Вставить {blockLabels[type].toLowerCase()}</button>
+     </div>
+    </Dialog>
+   </div>
    <Dialog open={!!renaming} title="Название блока" onClose={()=>{if(!renameBusy)setRenaming(null)}}><form className="editor-form" onSubmit={e=>{e.preventDefault();if(!renaming||!blockName.trim()||renameBusy)return;setRenameBusy(true);setRenameError('');void write('block_save',{id:renaming.id,pageId:page.id,type:renaming.type,content:{...renaming.content,title:blockName.trim()}}).then(refresh).then(()=>setRenaming(null)).catch(()=>setRenameError('Название не сохранилось. Попробуй ещё раз.')).finally(()=>setRenameBusy(false))}}><label>Название<input autoFocus value={blockName} maxLength={120} onChange={e=>setBlockName(e.target.value)}/></label>{renameError&&<p role="alert">{renameError}</p>}<button className="btn accent" disabled={renameBusy||!blockName.trim()}>Сохранить</button></form></Dialog>
    <details className="task-children-disclosure"><summary>Вложенные страницы{ sub.length?` · ${sub.length}`:''}</summary><section className="os-children"><div className="os-section-title"><h3>Вложенные страницы</h3><button className="os-btn" onClick={()=>void onAddPage('Новая страница',page.id)}>+ Страница</button></div>{sub.length>0&&<div className="os-children-grid">{sub.map(p=><button key={p.id} onClick={()=>onOpen(p.id)}><span>{p.icon}</span>{p.title}<Icon name="right" size={16}/></button>)}</div>}</section></details>
  </>;
@@ -143,6 +161,7 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
  const [day,setDay]=useState(task.day||'');
  const [categoryId,setCategoryId]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||'');
  const [notesVisible,setNotesVisible]=useState(task.task_options?.notesVisible ?? !!task.notes);
+ const [hiddenNative,setHiddenNative]=useState<string[]>(task.task_options?.hiddenNativeProperties||[]);
  const [notes,setNotes]=useState(task.notes||''),[categoryOpen,setCategoryOpen]=useState(false),[addingCategory,setAddingCategory]=useState(false),[categoryName,setCategoryName]=useState(''),[categoryBusy,setCategoryBusy]=useState(false);
  const link=os6.links.find(x=>x.task_id===task.id)?.goal_id||'';
  const [goalId,setGoalId]=useState(link?'amb:'+link:'');
@@ -152,6 +171,7 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
  const queue=useRef<Promise<void>>(Promise.resolve()),pending=useRef(0),notesTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const notesCurrent=useRef(notes),notesSent=useRef(task.notes||'');
  const names=(key:string)=>appearance[key]||DEFAULT_NATIVE_PROPERTIES[key];
+ const hideNative=async(key:string,hidden:boolean)=>{const next=hidden?[...new Set([...hiddenNative,key])]:hiddenNative.filter(x=>x!==key);setHiddenNative(next);try{await request('os8','task_options_set',{taskId:task.id,patch:{hiddenNativeProperties:next}});await onSaved()}catch(e:any){setHiddenNative(hiddenNative);setError(e.message||'Не удалось изменить видимость свойства')}};
  useEffect(()=>{let active=true;request<{fields:Record<string,PropertyAppearance>}>('os8','task_native_fields').then(r=>{if(active)setAppearance({...DEFAULT_NATIVE_PROPERTIES,...r.fields})}).catch(e=>{if(active)setError(e.message||'Не удалось загрузить настройки свойств')});return()=>{active=false}},[task.id]);
  useEffect(()=>{let active=true;void request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id}).then(r=>{if(active&&r.goalId)setGoalId('reg:'+r.goalId)}).catch(()=>{});return()=>{active=false}},[task.id]);
  const saveField=(key:string,value:any,kind?:string)=>{
@@ -177,7 +197,7 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
  return <section className="os-task-properties os-properties-v67" aria-label="Свойства задачи">
   <div className="os-property-head"><h3>Свойства задачи</h3>{status!=='idle'&&<small role={status==='error'?'alert':'status'} className={'os-auto-status '+status}>{status==='saving'?'Сохраняется…':status==='saved'?'Сохранено':'Не удалось сохранить'}</small>}</div>
   <div className="os-property-rows">
-   <div className="os-property-row"><TaskPropertyAppearance fieldKey="category" {...names('category')} onChange={(name,icon)=>changeAppearance('category',name,icon)}/>
+   {!hiddenNative.includes("category")&&<div className="os-property-row"><TaskPropertyAppearance fieldKey="category" {...names('category')} onChange={(name,icon)=>changeAppearance('category',name,icon)} onRemove={()=>void hideNative('category',true)}/>
     <div className="os-category-control" onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setCategoryOpen(false)}}>
      <button type="button" className="os-category-trigger" aria-label="Выбрать категорию" aria-expanded={categoryOpen} onClick={()=>setCategoryOpen(v=>!v)}>{categories.find(c=>c.id===categoryId)?.name||'Без категории'} <Icon name="down" size={15}/></button>
      {categoryOpen&&<div className="os-category-menu">
@@ -188,14 +208,13 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
       :<form className="os-category-create" onSubmit={e=>void createCategory(e)}><input autoFocus aria-label="Название новой категории" value={categoryName} maxLength={60} onChange={e=>setCategoryName(e.target.value)} placeholder="Новая категория"/><div><button type="submit" disabled={!categoryName.trim()||categoryBusy}>Создать</button><button type="button" onClick={()=>setAddingCategory(false)}>Отмена</button></div></form>}
      </div>}
     </div>
-   </div>
+   </div>}
 
-   <div className="os-property-row"><TaskPropertyAppearance fieldKey="day" {...names('day')} onChange={(name,icon)=>changeAppearance('day',name,icon)}/><div className="os-property-value"><input aria-label={names('day').name} type="date" value={day} onChange={e=>{const v=e.target.value;setDay(v);saveField('day',v||null)}}/>{day&&<button type="button" className="os-property-clear" onClick={()=>{setDay('');saveField('day',null)}}>В буфер</button>}</div></div>
-   <div className="os-property-row"><TaskPropertyAppearance fieldKey="goal" {...names('goal')} onChange={(name,icon)=>changeAppearance('goal',name,icon)}/><select aria-label={names('goal').name} value={goalId} onChange={e=>{const v=e.target.value;setGoalId(v);saveField('goal',v?v.slice(4):null,v.startsWith('amb:')?'strategic':v.startsWith('reg:')?'regular':'none')}}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></div>
-   {notesVisible&&<div className="os-property-row os-property-row-long"><TaskPropertyAppearance fieldKey="notes" {...names('notes')} onChange={(name,icon)=>changeAppearance('notes',name,icon)}/><textarea aria-label={names('notes').name} value={notes} rows={2} maxLength={6000} onChange={e=>onNotesChange(e.target.value)} onBlur={flushNotes} placeholder="Контекст и ссылки…"/><button className="task-field-remove" type="button" aria-label="Убрать заметки" onClick={()=>{setNotesVisible(false);void request('os8','task_options_set',{taskId:task.id,patch:{notesVisible:false}})}}>×</button></div>}
- {!notesVisible&&<button className="os-add-property-inline" type="button" onClick={()=>{setNotesVisible(true);void request('os8','task_options_set',{taskId:task.id,patch:{notesVisible:true}})}}>＋ Заметки</button>}
+   {!hiddenNative.includes("day")&&<div className="os-property-row"><TaskPropertyAppearance fieldKey="day" {...names('day')} onChange={(name,icon)=>changeAppearance('day',name,icon)} onRemove={()=>void hideNative('day',true)}/><div className="os-property-value"><input aria-label={names('day').name} type="date" value={day} onChange={e=>{const v=e.target.value;setDay(v);saveField('day',v||null)}}/>{day&&<button type="button" className="os-property-clear" onClick={()=>{setDay('');saveField('day',null)}}>В буфер</button>}</div></div>}
+   {!hiddenNative.includes("goal")&&<div className="os-property-row"><TaskPropertyAppearance fieldKey="goal" {...names('goal')} onChange={(name,icon)=>changeAppearance('goal',name,icon)} onRemove={()=>void hideNative('goal',true)}/><select aria-label={names('goal').name} value={goalId} onChange={e=>{const v=e.target.value;setGoalId(v);saveField('goal',v?v.slice(4):null,v.startsWith('amb:')?'strategic':v.startsWith('reg:')?'regular':'none')}}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></div>}
+   {notesVisible&&<div className="os-property-row os-property-row-long"><TaskPropertyAppearance fieldKey="notes" {...names('notes')} onChange={(name,icon)=>changeAppearance('notes',name,icon)} onRemove={()=>{setNotesVisible(false);void request('os8','task_options_set',{taskId:task.id,patch:{notesVisible:false}})}}/><textarea aria-label={names('notes').name} value={notes} rows={2} maxLength={6000} onChange={e=>onNotesChange(e.target.value)} onBlur={flushNotes} placeholder="Контекст и ссылки…"/></div>}
   </div>
-  <TaskCustomProperties taskId={task.id} pipelineProperties={pipelineProperties} progressAppearance={names('progress')} onProgressAppearance={(name,icon)=>changeAppearance('progress',name,icon)}/>
+  <TaskCustomProperties taskId={task.id} pipelineProperties={hiddenNative.includes('progress')?[]:pipelineProperties} progressAppearance={names('progress')} onProgressAppearance={(name,icon)=>changeAppearance('progress',name,icon)} onRemoveProgress={()=>void hideNative('progress',true)} hiddenNativeProperties={[...hiddenNative,...(!notesVisible?['notes']:[])]} onRestoreNative={key=>{if(key==='notes'){setNotesVisible(true);void request('os8','task_options_set',{taskId:task.id,patch:{notesVisible:true}})}else void hideNative(key,false)}}/>
   {error&&<div className="os-inline-error" role="alert">{error}{lastFailed&&<button type="button" onClick={()=>saveField(lastFailed.key,lastFailed.value,lastFailed.kind)}>Повторить</button>}</div>}
  </section>;
 }
