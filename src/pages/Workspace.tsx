@@ -15,6 +15,8 @@ import './workspace.css';
 import '../task-editor.css';
 import '../task-polish.css';
 import {TaskOptions} from '../components/TaskOptions';
+import {TaskPriorityField} from '../components/TaskPriorityField';
+import {TaskDeadlineField} from '../components/TaskDeadlineField';
 import {TaskBlockMenu,type TaskInsertKind,isTaskTool,taskInsertDocument} from '../components/TaskBlockMenu';
 const TaskDocument=React.lazy(()=>import('../components/TaskDocument').then(module=>({default:module.TaskDocument})));
 const DocumentLoader=({children}:{children:React.ReactNode})=><React.Suspense fallback={<p className="os-muted">Открываем редактор…</p>}>{children}</React.Suspense>;
@@ -210,7 +212,9 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
     </div>
    </div>}
 
+   {!hiddenNative.includes("priority")&&<TaskPriorityField task={task} onSaved={onSaved} appearance={names('priority')} onAppearanceChange={(name,icon)=>changeAppearance('priority',name,icon)} onRemove={()=>void hideNative('priority',true)}/>}
    {!hiddenNative.includes("day")&&<div className="os-property-row"><TaskPropertyAppearance fieldKey="day" {...names('day')} onChange={(name,icon)=>changeAppearance('day',name,icon)} onRemove={()=>void hideNative('day',true)}/><div className="os-property-value"><input aria-label={names('day').name} type="date" value={day} onChange={e=>{const v=e.target.value;setDay(v);saveField('day',v||null)}}/>{day&&<button type="button" className="os-property-clear" onClick={()=>{setDay('');saveField('day',null)}}>В буфер</button>}</div></div>}
+   {!hiddenNative.includes("deadline")&&<TaskDeadlineField task={task} onSaved={onSaved} appearance={names('deadline')} onAppearanceChange={(name,icon)=>changeAppearance('deadline',name,icon)} onRemove={()=>void hideNative('deadline',true)}/>}
    {!hiddenNative.includes("goal")&&<div className="os-property-row"><TaskPropertyAppearance fieldKey="goal" {...names('goal')} onChange={(name,icon)=>changeAppearance('goal',name,icon)} onRemove={()=>void hideNative('goal',true)}/><select aria-label={names('goal').name} value={goalId} onChange={e=>{const v=e.target.value;setGoalId(v);saveField('goal',v?v.slice(4):null,v.startsWith('amb:')?'strategic':v.startsWith('reg:')?'regular':'none')}}><option value="">Без цели</option><optgroup label="Обычные цели">{regularGoals.map(g=><option key={g.id} value={'reg:'+g.id}>{g.title}</option>)}</optgroup><optgroup label="Амбициозные цели">{goals.map(g=><option key={g.id} value={'amb:'+g.id}>{g.title}</option>)}</optgroup></select></div>}
    {notesVisible&&<div className="os-property-row os-property-row-long"><TaskPropertyAppearance fieldKey="notes" {...names('notes')} onChange={(name,icon)=>changeAppearance('notes',name,icon)} onRemove={()=>{setNotesVisible(false);void request('os8','task_options_set',{taskId:task.id,patch:{notesVisible:false}})}}/><textarea aria-label={names('notes').name} value={notes} rows={2} maxLength={6000} onChange={e=>onNotesChange(e.target.value)} onBlur={flushNotes} placeholder="Контекст и ссылки…"/></div>}
   </div>
