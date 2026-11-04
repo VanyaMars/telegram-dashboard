@@ -77,9 +77,10 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
   command(actions[kind]);
  };
  const viewportBottom=(window.visualViewport?.height||window.innerHeight)+(window.visualViewport?.offsetTop||0);
+ const menuAbove=viewportBottom-anchor.top<300&&anchor.top>260;
  const controls=focused&&anchor.top>0&&anchor.top<viewportBottom-12&&<div data-editor-owner={block.id} className="editor-controls editor-gutter-controls" style={{position:'fixed',top:Math.max(12,anchor.top),left:anchor.left,width:anchor.width}} onMouseDown={e=>{if(!(e.target instanceof HTMLInputElement))e.preventDefault()}} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(false);setLink(null);editor.commands.focus()}}}>
   <button className="editor-gutter-plus" type="button" aria-label="Добавить блок в текущей строке" title="Добавить блок" aria-expanded={menu} onClick={()=>setMenu(v=>!v)}><Icon name="plus" size={19}/></button>
-  {menu&&<div className="editor-block-menu editor-gutter-menu" style={{maxHeight:Math.max(120,Math.min(420,viewportBottom-anchor.top-50))}}>
+  {menu&&<div className="editor-block-menu editor-gutter-menu" style={{maxHeight:Math.max(150,Math.min(420,menuAbove?anchor.top-32:viewportBottom-anchor.top-58)),top:menuAbove?undefined:36,bottom:menuAbove?38:undefined}}>
     <TaskBlockMenu onSelect={choose}/>
     <div className="editor-format-actions" role="group" aria-label="Форматирование">
      <button type="button" aria-label="Жирный" onClick={()=>command(()=>editor.chain().focus().toggleBold().run())}><b>B</b> Жирный</button>
@@ -90,7 +91,7 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
   {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\/\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\/\/|mailto:)/i.test(link)}>Добавить</button></form>}
  </div>;
  return <div className={'task-document-wrap '+(empty?'is-empty ':'')+(focused?'is-editing':'')} onClick={e=>{if(e.target===e.currentTarget)editor.commands.focus('end')}}>
-  {empty&&<span className="task-document-placeholder" aria-hidden="true">Напиши текст или нажми / для выбора блока</span>}
+  {empty&&<span className="task-document-placeholder" aria-hidden="true">Начни писать или нажми + для добавления блока</span>}
   <EditorContent editor={editor}/>
   {status.startsWith('Не сохранено')&&<button className="task-save-status" type="button" onClick={flush} role="alert">{status}</button>}
   {focused&&<span className="editor-save-hint" role="status">{status||'Сохранено'}</span>}
