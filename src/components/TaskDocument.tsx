@@ -87,7 +87,7 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
      <button type="button" aria-label="Ссылка" onClick={()=>{setMenu(false);setLink(editor.getAttributes('link').href||'')}}><Icon name="arrow-up-right" size={17}/> Ссылка</button>
     </div>
    </div>}
-  {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\\/\\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\\/\\/|mailto:)/i.test(link)}>Добавить</button></form>}
+  {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\/\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\/\/|mailto:)/i.test(link)}>Добавить</button></form>}
  </div>;
  return <div className={'task-document-wrap '+(empty?'is-empty ':'')+(focused?'is-editing':'')} onClick={e=>{if(e.target===e.currentTarget)editor.commands.focus('end')}}>
   {empty&&<span className="task-document-placeholder" aria-hidden="true">Напиши текст или нажми / для выбора блока</span>}
