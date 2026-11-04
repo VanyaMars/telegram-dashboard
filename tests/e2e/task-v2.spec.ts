@@ -24,8 +24,8 @@ test('quick capture chooses existing category and preserves text on cancel',asyn
  await choices.first().click();
  await expect(dialog).toHaveCount(0);
  await expect(input).toHaveValue('');
- await expect(page.getByRole('button',{name:'Записаться к мастеру',exact:true})).toHaveCount(1);
- await expect(page.locator('.buffer-group').filter({hasText:categoryName}).getByRole('button',{name:'Записаться к мастеру',exact:true})).toBeVisible();
+ await expect(page.locator('.task-copy').filter({hasText:'Записаться к мастеру'})).toHaveCount(1);
+ await expect(page.locator('.buffer-group').filter({hasText:categoryName}).locator('.task-copy').filter({hasText:'Записаться к мастеру'})).toBeVisible();
 });
 test('quick capture creates category and deadline time persists with native priority',async({page})=>{
  await page.setViewportSize({width:390,height:830});
@@ -38,8 +38,8 @@ test('quick capture creates category and deadline time persists with native prio
  await dialog.getByRole('textbox',{name:'Название категории для задачи'}).fill('Календарь');
  await dialog.getByRole('button',{name:'Создать и добавить'}).click();
  await expect(dialog).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Записаться на стрижку',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Записаться на стрижку',exact:true}).click();
+ await expect(page.locator('.task-copy').filter({hasText:'Записаться на стрижку'})).toBeVisible();
+ await page.locator('.task-copy').filter({hasText:'Записаться на стрижку'}).click();
  await page.getByRole('button',{name:'Свойства',exact:true}).click();
  const inspector=page.locator('#task-inspector');
  await expect(inspector).toBeVisible();
