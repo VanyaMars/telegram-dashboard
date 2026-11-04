@@ -81,7 +81,7 @@ Deno.serve(async(req:Request)=>{
    if(!f)return reply({ok:false,error:'Свойство не найдено'},404);
    await must(db.from('os11_task_property_definitions').update({options:{...f.options,archived:body.archived!==false}}).eq('telegram_user_id',uid).eq('id',body.propertyId));return reply({ok:true});
   }
-  const nativeKeys=['category','priority','day','goal','notes','progress'];
+  const nativeKeys=['category','priority','day','deadline','goal','notes','progress'];
   const iconKeys=['folder','flag','calendar','target','list','chart','clock','wallet','briefcase','check-square','idea','book-open','heart-pulse','zap','star','settings','palette','inbox','timer','users','tag','hash','type','check','filter'];
   if(act==='task_native_fields'){
     const rows=await must(db.from('os11_task_property_definitions').select('slug,name,options').eq('telegram_user_id',uid).like('slug','native:%').limit(20));
