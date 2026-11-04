@@ -46,7 +46,7 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
    :<input id={'property-'+f.id} key={f.id+'-'+(values[f.id]||'')} defaultValue={values[f.id]||''} disabled={busy} type={f.field_type==='duration'||f.field_type==='number'?'number':f.field_type==='date'?'date':'text'} min={f.field_type==='duration'?0:undefined} step={f.field_type==='duration'?1:'any'} placeholder={f.field_type==='duration'?'Минуты':'—'} onBlur={e=>{if(e.target.value!==(values[f.id]||''))void save(f,e.target.value)}} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>}
    {f.field_type==='duration'&&<small>{formatMinutes(Number(values[f.id]||0))}</small>}
   </div>)}
-  <button type="button" className="os-add-property-inline" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить</button>
+  <button type="button" className="os-add-property-inline" aria-label="Добавить" onClick={()=>setAdding(x=>!x)} aria-expanded={adding}>+ Добавить</button>
   {adding&&<div className="os-property-restore-list">
    {hiddenNativeProperties.map(key=><button type="button" key={key} onClick={()=>{onRestoreNative(key);setAdding(false)}}>Вернуть: {({category:'Категория',day:'Дата',goal:'Связь с целью',progress:'Прогресс'} as Record<string,string>)[key]||key}</button>)}
    {fields.filter(f=>!f.options?.archived&&(options.hiddenProperties||[]).includes(f.id)).map(f=><button type="button" key={f.id} onClick={()=>{void hide(f.id,false);setAdding(false)}}>Вернуть: {f.name}</button>)}
