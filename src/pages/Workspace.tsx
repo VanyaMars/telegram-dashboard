@@ -14,6 +14,7 @@ import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 import '../task-editor.css';
 import '../task-polish.css';
+import '../task-polish-v2.css';
 import {TaskOptions} from '../components/TaskOptions';
 import {TaskPriorityField} from '../components/TaskPriorityField';
 import {TaskDeadlineField} from '../components/TaskDeadlineField';
