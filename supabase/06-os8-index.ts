@@ -57,10 +57,11 @@ Deno.serve(async(req:Request)=>{
    const task=await must(db.from('personal_tasks').select('id,task_options').eq('telegram_user_id',uid).eq('id',body.taskId).maybeSingle());
    if(!task)return reply({ok:false,error:'Задача не найдена'},404);
    if(act==='task_options_set'){
-    const patch=body.patch||{};if(typeof patch!=='object'||Array.isArray(patch))return reply({ok:false,error:'Неверные настройки'},400);const allowed=['hiddenProperties','enabledProperties','hiddenNativeProperties','notesVisible','deadline','customPriority','archived','template'];
+    const patch=body.patch||{};if(typeof patch!=='object'||Array.isArray(patch))return reply({ok:false,error:'Неверные настройки'},400);const allowed=['hiddenProperties','enabledProperties','hiddenNativeProperties','notesVisible','deadline','deadlineTime','customPriority','archived','template'];
     if(Object.keys(patch).some(k=>!allowed.includes(k))||JSON.stringify(patch).length>12000)return reply({ok:false,error:'Неверные настройки'},400);
-    if(['archived','template','notesVisible'].some(k=>k in patch&&typeof patch[k]!=='boolean')||['hiddenProperties','enabledProperties'].some(k=>k in patch&&(!Array.isArray(patch[k])||patch[k].length>100||patch[k].some((id:any)=>!idOk(id))))||('hiddenNativeProperties' in patch&&(!Array.isArray(patch.hiddenNativeProperties)||patch.hiddenNativeProperties.length>5||patch.hiddenNativeProperties.some((key:any)=>!['category','day','goal','progress'].includes(key))))||('customPriority' in patch&&patch.customPriority!==null&&!idOk(patch.customPriority)))return reply({ok:false,error:'Неверные настройки'},400);
+    if(['archived','template','notesVisible'].some(k=>k in patch&&typeof patch[k]!=='boolean')||['hiddenProperties','enabledProperties'].some(k=>k in patch&&(!Array.isArray(patch[k])||patch[k].length>100||patch[k].some((id:any)=>!idOk(id))))||('hiddenNativeProperties' in patch&&(!Array.isArray(patch.hiddenNativeProperties)||patch.hiddenNativeProperties.length>5||patch.hiddenNativeProperties.some((key:any)=>!['category','priority','day','deadline','goal','progress'].includes(key))))||('customPriority' in patch&&patch.customPriority!==null&&!idOk(patch.customPriority)))return reply({ok:false,error:'Неверные настройки'},400);
     if(patch.deadline&&!iso(patch.deadline))return reply({ok:false,error:'Неверный срок'},400);
+    if('deadlineTime' in patch&&(typeof patch.deadlineTime!=='string'||(patch.deadlineTime!==''&&!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(patch.deadlineTime))))return reply({ok:false,error:'Неверное время дедлайна'},400);
     const options=await must(db.rpc('os12_patch_task_options',{owner_id:uid,task_id:task.id,patch}));return reply({ok:true,options});
    }
    return reply({ok:true,options:task.task_options||{}});
