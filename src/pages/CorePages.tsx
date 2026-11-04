@@ -14,6 +14,7 @@ import {PlanScore} from '../components/PlanScore';
 import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
 import {QuickCategory} from '../components/QuickCategory';
+import '../task-polish-v2.css';
 
 const sums=(days:Record<string,DayMetrics>,dates:string[])=>dates.reduce((a,d)=>{const m=days[d];return {tasks:a.tasks+(m?.tasks||0),sales:a.sales+(m?.sales||0),sport:a.sport+(m?.sport||0)};},{tasks:0,sales:0,sport:0});
 function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important');const extra=tasks.filter(t=>t.priority==='extra');
