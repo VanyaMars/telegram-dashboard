@@ -9,7 +9,7 @@ for(const width of [320,390,1440])test('editor caret, contextual controls and un
  const doc=page.getByRole('textbox',{name:'Содержимое задачи'});await doc.click({position:{x:15,y:16}});await doc.pressSequentially('Первая строка');
  await expect(page.getByRole('toolbar')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Добавить блок в текущей строке'})).toBeVisible();
- await expect.poll(async()=>Math.abs((await caret(page)).top-(await page.evaluate(()=>window.getSelection()!.getRangeAt(0).getBoundingClientRect().top))).toBeLessThan(8);
+ await expect.poll(async()=>{const c=await caret(page);const top=await page.evaluate(()=>window.getSelection()!.getRangeAt(0).getBoundingClientRect().top);return Math.abs(c.top-top)}).toBeLessThan(8);
  const first=await caret(page);expect(first.focused).toBe('true');expect(first.color).toBe('rgb(0, 104, 217)');
  await doc.press('Enter');await doc.pressSequentially('Вторая строка');await expect.poll(async()=>(await caret(page)).top).toBeGreaterThan(first.top+15);
  await doc.press('ArrowUp');await expect.poll(async()=>(await caret(page)).top).toBeLessThan(first.top+5);
