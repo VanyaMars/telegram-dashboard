@@ -15,6 +15,15 @@ assert.doesNotMatch(pages,/workspaceMode|showPages|mvp-pages-toggle/);
 assert.match(pages,/taskPage/);
 assert.match(pipeline,/LayoutGroup/);assert.match(pipeline,/useReducedMotion/);
 assert.match(read('package.json'),/"version": "6\.14\.0"/);
+
+// ProDesk brand identity and non-destructive property presentation.
+assert.match(read('src/App.tsx'),/>ProDesk<\/strong>/);
+assert.match(read('src/App.tsx'),/Оседлай хаос/);
+assert.match(read('src/lib/version.ts'),/ProDesk · v/);
+assert.match(read('index.html'),/ProDesk — Оседлай хаос/);
+assert.match(read('src/prodesk-brand.css'),/\.task-inspector \.os-property-rows\{border-top:0!important\}/);
+assert.match(read('src/prodesk-brand.css'),/font-variant-numeric:tabular-nums/);
+assert.match(read('public/prodesk-mark.svg'),/<svg[\s\S]*<path /);
 assert.ok(!read('src/lib/api.ts').includes('goal_target_mode'),'No invented backend contract');
 console.log('6.8 integrated static checks: Home, Goals, Pages, Income, Pipeline and build label OK');
 

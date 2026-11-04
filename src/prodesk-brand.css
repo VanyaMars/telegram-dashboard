@@ -1,0 +1,23 @@
+/* ProDesk identity and task properties alignment — presentation only. */
+.brand .brand-logo{width:44px;height:44px;min-width:44px;background:#080a08!important;border:1px solid rgba(196,242,86,.15);border-radius:13px;box-shadow:none!important;display:grid;place-items:center;overflow:hidden}
+.brand .brand-logo img{display:block;width:39px;height:39px;object-fit:contain}
+.brand strong{font-weight:760;letter-spacing:-.45px}
+.brand small{letter-spacing:.02em;color:var(--muted)}
+.loading-orb{background:#080a08!important;box-shadow:0 8px 24px rgba(15,19,10,.14)!important}.loading-orb img{display:block;width:35px;height:35px;object-fit:contain}
+.task-inspector .os-property-rows{border-top:0!important}
+.task-inspector .os-property-rows>.os-property-row:first-child{border-top:0!important}
+.task-inspector .os-property-rows>.os-property-row{margin-top:0}
+.task-inspector .os-property-row :is(.os-category-trigger,.os-deadline-trigger,select,input[type="date"],input[type="text"],input[type="number"],textarea),
+.task-inspector .os-custom-property-row :is(select,input[type="text"],input[type="date"],input[type="number"]){
+ font-size:14px!important;font-weight:400!important;line-height:1.45!important;letter-spacing:0!important;font-variant-numeric:tabular-nums;color:var(--text)!important;
+}
+.task-inspector .os-property-row .os-category-trigger{padding-inline:6px!important}
+.task-inspector .os-property-row .os-deadline-trigger{padding-inline:6px!important}
+.task-inspector .os-property-row :is(input[type="date"],select){font-family:inherit!important}
+.task-inspector .os-deadline-trigger small,.task-inspector .os-computed-progress-value small,
+.task-inspector .os-computed-progress-value>small,.task-inspector .os-custom-property-row>small{
+ font-size:12px!important;line-height:1.35!important;color:var(--muted)!important;font-weight:400!important;
+}
+.task-inspector .os-deadline-trigger.is-overdue small{color:#b33442!important}
+.task-inspector .os-computed-progress-value strong{font-variant-numeric:tabular-nums}
+@media(max-width:430px){.brand .brand-logo{height:42px;width:42px;min-width:42px}.brand .brand-logo img{height:37px;width:37px}}

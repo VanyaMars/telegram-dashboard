@@ -1,4 +1,4 @@
-name: Publish Personal OS 6.9
+name: Publish ProDesk
 on:
   push:
     branches: [main]
