@@ -33,8 +33,8 @@ test('6.11 task cards: emoji persistence, Pipeline progress, grip menu and edito
  await saved.getByRole('button',{name:'Редактировать задачу'}).click();
  await expect(page.locator('.os-page-editor')).toBeVisible();
  await page.getByRole('button',{name:'Свойства',exact:true}).click();
- await expect(page.getByRole('button',{name:'Добавить свойство'})).toBeVisible();
- await page.getByRole('button',{name:'Добавить свойство'}).click();
+ await expect(page.getByRole('button',{name:'Добавить',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Добавить',exact:true}).click();
  await expect(page.getByRole('button',{name:'Отмена'})).toBeVisible();
  await page.getByRole('button',{name:'Отмена'}).click();
  await expect(page.locator('.os-block-grip').first()).toBeVisible();
@@ -58,7 +58,7 @@ test('task properties autosave: category, notes and icon/title persist',async({p
  await panel.getByRole('button',{name:'Выбрать категорию'}).click();
  await panel.locator('.os-category-menu').getByRole('button',{name:'Без категории'}).click();
  await expect(panel.getByRole('button',{name:'Выбрать категорию'})).toContainText('Без категории');
- if(await panel.getByRole('button',{name:'＋ Заметки',exact:true}).count())await panel.getByRole('button',{name:'＋ Заметки',exact:true}).click();
+ if(!await panel.getByRole('textbox',{name:'Заметки'}).count()){await panel.getByRole('button',{name:'Добавить',exact:true}).click();await panel.getByRole('button',{name:'Вернуть: Заметки'}).click();}
  const notes=panel.getByRole('textbox',{name:'Заметки'});
  await notes.fill('Заметки сохраняются автоматически');
  await notes.blur();
@@ -66,17 +66,16 @@ test('task properties autosave: category, notes and icon/title persist',async({p
  await page.reload();
  await page.getByRole('button',{name:'Свойства',exact:true}).click();
  await expect(page.locator('.os-task-properties').getByRole('textbox',{name:'Заметки'})).toHaveValue('Заметки сохраняются автоматически');
- await page.getByLabel('Действия с задачей',{exact:true}).click();
- const configure=page.locator('.task-options').getByRole('button',{name:'Настроить свойство Приоритет'});
+ const configure=page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Категория'});
  await configure.click();
  const modal=page.locator('.os-property-settings').filter({hasText:'Настроить свойство'});
- await modal.getByRole('textbox',{name:'Название'}).fill('Важность');
+ await modal.getByRole('textbox',{name:'Название'}).fill('Раздел');
  await modal.getByRole('button',{name:'Иконка star'}).click();
  await modal.getByRole('button',{name:'Готово'}).click();
- await expect(page.locator('.task-options').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
+ await expect(page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Раздел'})).toBeVisible();
  await page.reload();
- await page.getByLabel('Действия с задачей',{exact:true}).click();
- await expect(page.locator('.task-options').getByRole('button',{name:'Настроить свойство Важность'})).toBeVisible();
+ await page.getByRole('button',{name:'Свойства',exact:true}).click();
+ await expect(page.locator('.os-task-properties').getByRole('button',{name:'Настроить свойство Раздел'})).toBeVisible();
 });
 
 test('guest sign-in, UI actions, local persistence and no Supabase calls',async({page})=>{
@@ -93,8 +92,7 @@ test('guest sign-in, UI actions, local persistence and no Supabase calls',async(
  await page.getByRole('button',{name:'QA задача для проверки',exact:true}).click();
  await expect(page.locator('.os-task-properties')).toBeHidden();
  await page.getByRole('button',{name:'Добавить блок'}).click();
- await page.locator('.os-block-picker').getByRole('button',{name:'Чеклист'}).click();
- await page.locator('.os-block-picker').getByRole('button',{name:'Вставить чеклист'}).click();
+ await page.locator('.os-new-block .task-block-menu').getByRole('button',{name:'Чеклист'}).click();
  const input=page.locator('.task-document').filter({has:page.locator('[data-type="taskList"]')}).first();
  await input.locator('[data-type=taskItem] p').first().click();
  await page.keyboard.type('Первый пункт QA');
