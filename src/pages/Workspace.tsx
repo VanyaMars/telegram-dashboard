@@ -13,6 +13,7 @@ import {TaskCustomProperties} from '../components/TaskCustomProperties';
 import {useRegularGoals} from '../components/RegularGoals';
 import './workspace.css';
 import '../task-editor.css';
+import '../task-polish.css';
 import {TaskOptions} from '../components/TaskOptions';
 import {TaskBlockMenu,type TaskInsertKind,isTaskTool,taskInsertDocument} from '../components/TaskBlockMenu';
 const TaskDocument=React.lazy(()=>import('../components/TaskDocument').then(module=>({default:module.TaskDocument})));
