@@ -11,8 +11,37 @@ const sameOrder=(a:string[],b:string[])=>a.length===b.length&&a.every((id,i)=>id
 /** Local optimistic order only: the backend remains authoritative after each commit. */
 export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialItems,write,reload}:Props){
  const reduced=useReducedMotion();
- const splits=useMemo(()=>initialSplits.filter(s=>s.block_id===blockId).sort((a,b)=>a.position-b.position),[initialSplits,blockId]);
- const items=useMemo(()=>initialItems.filter(t=>splits.some(s=>s.id===t.split_id)).sort((a,b)=>a.position-b.position),[initialItems,splits]);
+ const [localSplits,setLocalSplits]=useState<WSplit[]>([]);
+ const [localItems,setLocalItems]=useState<WItem[]>([]);
+ const [patches,setPatches]=useState<Record<string,Partial<WItem>>>({});
+ const newStages=useRef(new Map<string,Promise<string>>()),stableKeys=useRef(new Map<string,string>());
+ const serverSplits=useMemo(()=>initialSplits.filter(s=>s.block_id===blockId).sort((a,b)=>a.position-b.position),[initialSplits,blockId]);
+ const splits=useMemo(()=>{
+  const ids=new Set(serverSplits.map(s=>s.id));
+  return [...serverSplits,...localSplits.filter(s=>!ids.has(s.id))].sort((a,b)=>a.position-b.position);
+ },[serverSplits,localSplits]);
+ const serverItems=useMemo(()=>initialItems.filter(t=>splits.some(s=>s.id===t.split_id)).sort((a,b)=>a.position-b.position),[initialItems,splits]);
+ const items=useMemo(()=>{
+  const ids=new Set(serverItems.map(t=>t.id));
+  return [...serverItems,...localItems.filter(t=>!ids.has(t.id))]
+   .map(t=>({...t,...patches[t.id]})).sort((a,b)=>a.position-b.position);
+ },[serverItems,localItems,patches]);
+ useEffect(()=>{
+  const ids=new Set(serverSplits.map(s=>s.id));
+  setLocalSplits(prev=>prev.some(s=>ids.has(s.id))?prev.filter(s=>!ids.has(s.id)):prev);
+ },[serverSplits]);
+ useEffect(()=>{
+  const ids=new Set(serverItems.map(t=>t.id));
+  setLocalItems(prev=>prev.some(t=>ids.has(t.id))?prev.filter(t=>!ids.has(t.id)):prev);
+  setPatches(prev=>{
+   let changed=false;const next={...prev};
+   for(const [id,patch] of Object.entries(prev)){
+    const item=serverItems.find(t=>t.id===id);
+    if(item&&Object.entries(patch).every(([k,v])=>item[k as keyof WItem]===v)){delete next[id];changed=true}
+   }
+   return changed?next:prev;
+  });
+ },[serverItems]);
  const [active,setActive]=useState<string>('');
  const [newSplit,setNewSplit]=useState(''),[newSplitError,setNewSplitError]=useState(''),[pending,setPending]=useState(false);
  const [localOrder,setLocalOrder]=useState<string[]|null>(null),[orderError,setOrderError]=useState(''),[failedOrder,setFailedOrder]=useState<string[]|null>(null),[moving,setMoving]=useState(false);
@@ -23,7 +52,25 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
  const total=items.length,done=items.filter(x=>x.completed).length;
  const completed=pipelineProgress(splits,items);
  const nextAction=arranged.flatMap(s=>items.filter(i=>i.split_id===s.id)).find(i=>!i.completed);
+ const refreshLater=()=>{void reload().catch(()=>{})};
  const action=async(name:string,body:Record<string,unknown>)=>{const result=await write(name,body);await reload();return result};
+ const createWorkflow=async(splitId:string,title:string)=>{
+  const draft='pending-item-'+crypto.randomUUID();
+  const position=Math.max(0,...items.filter(i=>i.split_id===splitId).map(i=>i.position))+1024;
+  setLocalItems(prev=>[...prev,{id:draft,split_id:splitId,title,position,completed:false}]);
+  try{
+   const actualSplitId=await (newStages.current.get(splitId)||Promise.resolve(splitId));
+   const saved=await write('workflow_save',{splitId:actualSplitId,title});
+   if(typeof saved?.id!=='string')throw Error('Сервер не вернул ID действия');
+   setLocalItems(prev=>prev.map(i=>i.id===draft?{...i,id:saved.id,split_id:actualSplitId}:i));
+   refreshLater();
+  }catch(e){setLocalItems(prev=>prev.filter(i=>i.id!==draft));throw e}
+ };
+ const updateWorkflow=async(item:WItem,patch:Partial<Pick<WItem,'completed'|'title'>>)=>{
+  setPatches(prev=>({...prev,[item.id]:{...prev[item.id],...patch}}));
+  try{await write('workflow_save',{id:item.id,splitId:item.split_id,...patch});refreshLater()}
+  catch(e){setPatches(prev=>{const next={...prev};delete next[item.id];return next});throw e}
+ };
  const commitOrder=async(ids:string[])=>{
   if(movingRef.current)return;
   movingRef.current=true;setMoving(true);setLocalOrder(ids);setOrderError('');setFailedOrder(null);
@@ -40,11 +87,33 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
  };
  const addSplit=async(e:React.FormEvent)=>{
   e.preventDefault();if(creatingRef.current)return;
-  if(!newSplit.trim()){setNewSplitError('Сначала введи название этапа');splitRef.current?.focus();return}
+  const title=newSplit.trim();
+  if(!title){setNewSplitError('Сначала введи название этапа');splitRef.current?.focus();return}
   creatingRef.current=true;setPending(true);setNewSplitError('');
-  try{const created=await action('split_save',{blockId,title:newSplit.trim()});setActive(created.id);setNewSplit('');splitRef.current?.focus()}
-  catch{setNewSplitError('Не удалось сохранить этап. Повтори попытку.')}
-  finally{creatingRef.current=false;setPending(false)}
+  const draft='pending-split-'+crypto.randomUUID();
+  const position=Math.max(0,...splits.map(s=>s.position))+1024;
+  setLocalSplits(prev=>[...prev,{id:draft,block_id:blockId,title,position}]);
+  setActive(draft);setNewSplit('');splitRef.current?.focus();
+  const creation=write('split_save',{blockId,title}).then((result:any)=>{
+   if(typeof result?.id!=='string')throw Error('Сервер не вернул ID этапа');
+   return result.id as string;
+  });
+  newStages.current.set(draft,creation);
+  try{
+   const id=await creation;
+   stableKeys.current.set(id,draft);
+   setLocalSplits(prev=>prev.map(s=>s.id===draft?{...s,id}:s));
+   setLocalItems(prev=>prev.map(i=>i.split_id===draft?{...i,split_id:id}:i));
+   setActive(current=>current===draft?id:current);
+   refreshLater();
+  }catch{
+   setLocalSplits(prev=>prev.filter(s=>s.id!==draft));
+   setNewSplit(current=>current||title);
+   setNewSplitError('Не удалось подтвердить этап. Проверь список перед повтором.');
+  }finally{
+   newStages.current.delete(draft);
+   creatingRef.current=false;setPending(false);
+  }
  };
  return <section className="os-pipeline os-pipeline-premium" aria-label="Pipeline">
   <div className="os-pipe-summary"><div><strong>{title}</strong><span>{total?done+' из '+total+' действий':'Нет задач'}</span></div><b>{completed}%</b></div>
