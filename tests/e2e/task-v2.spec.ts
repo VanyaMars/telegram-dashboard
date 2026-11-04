@@ -50,7 +50,7 @@ test('quick capture creates category and deadline time persists with native prio
  expect(bg).toBe('rgba(0, 0, 0, 0)');
  await inspector.getByRole('button',{name:/Выбрать срок/}).click();
  await inspector.getByRole('button',{name:'Завтра',exact:true}).click();
- const date=await inspector.getByRole('textbox',{name:'Дата дедлайна'}).inputValue();
+ const date=await inspector.getByLabel('Дата дедлайна').inputValue();
  expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
  await inspector.getByLabel('Время дедлайна').fill('17:30');
  await inspector.getByRole('button',{name:'Сохранить',exact:true}).click();
