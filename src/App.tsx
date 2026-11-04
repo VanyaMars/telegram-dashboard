@@ -50,7 +50,7 @@ function Sidebar(){
  return <>
   <div className={'sidebar-scrim '+(sidebar?'visible':'')} onClick={()=>setSidebar(false)} aria-hidden="true"/>
   <aside className={'app-sidebar '+(sidebar?'is-open':'')} aria-label="Боковая навигация">
-   <div className="brand"><div className="brand-logo"><Icon name="sparkles" size={23}/></div><div><strong>Personal OS</strong><small>Твоя система прогресса</small></div><button className="mobile-close icon-btn" onClick={()=>setSidebar(false)} aria-label="Закрыть меню"><Icon name="x"/></button></div>
+   <div className="brand"><div className="brand-logo"><img src="/telegram-dashboard/prodesk-mark.svg" alt="" width={35} height={35}/></div><div><strong>ProDesk</strong><small>Оседлай хаос</small></div><button className="mobile-close icon-btn" onClick={()=>setSidebar(false)} aria-label="Закрыть меню"><Icon name="x"/></button></div>
    <nav className="sidebar-scroll">
     <span className="sidebar-section-label">ОСНОВНОЕ</span>
     {primary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
@@ -66,7 +66,7 @@ function Sidebar(){
  </>;
 }
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
-  const mobileLabel=appNames[tab]||'Personal OS';
+  const mobileLabel=appNames[tab]||'ProDesk';
   const qa=isQAMode();
   const cloud=qa?'refresh':status==='saved'?'cloud-check':status==='error'?'cloud-off':'cloud';
   return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
@@ -103,7 +103,7 @@ function ActiveModal(){const{editor,setEditor}=useApp();if(!editor)return null;
   </Dialog>;
 }
 function HelpSheet(){const{help,setHelp,open}=useApp();return <Dialog open={help} onClose={()=>setHelp(false)} title="Справка"><div className="help-sheet">
-  <p>Personal OS помогает действовать: выбери главную задачу, отмечай сделанное и следи за результатами.</p>
+  <p>ProDesk помогает действовать: выбери главную задачу, отмечай сделанное и следи за результатами.</p>
   <div className="help-tip"><Icon name="grip"/><span>Зажми ручку задачи и перетащи её в нужное место.</span></div>
   <div className="help-tip"><Icon name={isQAMode()?'check-circle':'cloud-check'}/><span>{isQAMode()?'QA Sandbox хранит тестовые данные только в этом браузере.':'Облако вверху показывает состояние синхронизации с Supabase.'}</span></div>
   <div className="help-tip"><Icon name="calendar"/><span>«Сегодня» определяется по часовому поясу твоего профиля.</span></div>
@@ -114,7 +114,7 @@ export default function App(){const{ready,error,refresh,tab}=useApp();
   useEffect(()=>{const app=telegram();const back=()=>{const modal=document.querySelector('.modal-backdrop');if(modal){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));return;}window.history.back()};
     app?.BackButton?.onClick?.(back);return()=>{app?.BackButton?.offClick?.(back)}},[]);
   return <div className="app-shell"><Sidebar/><div className="app-center"><Header/>
-    {!ready?<div className="full-loading"><div className="loading-orb"><Icon name="sparkles" size={29}/></div><strong>Personal OS</strong><span>Загружаем твой прогресс…</span></div>
+    {!ready?<div className="full-loading"><div className="loading-orb"><img src="/telegram-dashboard/prodesk-mark.svg" width={35} height={35} alt=""/></div><strong>ProDesk</strong><span>Загружаем твой прогресс…</span></div>
       :error?<div className="full-loading error-view"><div className="loading-orb"><Icon name="cloud-off" size={28}/></div><strong>Не удалось подключиться</strong><p>{error}</p><button className="btn accent" onClick={()=>void refresh()}><Icon name="refresh"/> Повторить</button></div>
       :<main className="app-content"><MotionRoute screen={tab}><Route/></MotionRoute></main>}
     <footer className="mobile-footer-version">{isQAMode()?'QA · Локальные данные · ':''}{APP_BUILD_LABEL}</footer><BottomNav/>
