@@ -22,6 +22,7 @@ import './premium.css';
 import './shell.css';
 import './goals-workspace.css';
 import './design-system.css';
+import './prodesk-brand.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
 const mobilePrimary=[primary[1],workspaceNav,primary[2]];
