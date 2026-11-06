@@ -161,7 +161,16 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
  }
  if(fn==='os8'){
   db.propertyFields||=[];db.propertyValues||={};
-  if(action==='task_library'){const rows=db.tasks.filter(t=>f.view==='completed'?t.completed:f.view==='templates'?t.task_options?.template:f.view==='archive'?t.task_options?.archived:t.task_options?.archived||t.task_options?.template).filter(t=>!f.query||t.title.toLocaleLowerCase().includes(asStr(f.query).toLocaleLowerCase()));const start=Number(f.offset)||0;return ok({tasks:rows.slice(start,start+50),hasMore:rows.length>start+50})}
+  if(action==='task_rollover'){
+   const target=asStr(f.today);
+   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(target))throw Error('Неверная дата переноса');
+   let moved=0;
+   for(const task of db.tasks){
+    if(task.day&&task.day<target&&!task.completed&&!task.task_options?.archived&&!task.task_options?.template){task.day=target;moved++}
+   }
+   return ok({moved});
+  }
+  if(action==='task_library'){const linked=new Set([...db.os6.links.map(l=>l.task_id),...Object.keys(db.regularLinks)]);const rows=db.tasks.filter(t=>f.view==='working'?(!t.completed&&!t.task_options?.archived&&!t.task_options?.template&&(!!t.day||linked.has(t.id))):f.view==='completed'?t.completed:f.view==='templates'?t.task_options?.template:f.view==='archive'?t.task_options?.archived:t.task_options?.archived||t.task_options?.template).filter(t=>!f.query||t.title.toLocaleLowerCase().includes(asStr(f.query).toLocaleLowerCase()));const start=Number(f.offset)||0;return ok({tasks:rows.slice(start,start+50),hasMore:rows.length>start+50})}
   if(action==='task_duplicate'){
    const t=db.tasks.find(t=>t.id===taskId);if(!t)throw Error('Задача не найдена');
    const next={...copy(t),id:newId(),title:t.title+' — копия',day:null,completed:false,task_options:{...copy(t.task_options||{}),archived:false,template:false,deadline:null}};db.tasks.push(next);
