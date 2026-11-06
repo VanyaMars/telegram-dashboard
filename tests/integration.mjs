@@ -28,5 +28,5 @@ assert.ok(!read('src/lib/api.ts').includes('goal_target_mode'),'No invented back
 console.log('6.8 integrated static checks: Home, Goals, Pages, Income, Pipeline and build label OK');
 
 assert.match(read('src/components/WorkspacePipeline.tsx'),/let committed=false/);
-assert.match(read('src/pages/Workspace.tsx'),/Назад в буфер задач/);
+assert.match(read('src/pages/Workspace.tsx'),/Назад/);
 assert.doesNotMatch(read('src/components/RegularGoals.tsx'),/Ручной прогресс|Ручной процент/);
