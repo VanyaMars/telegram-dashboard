@@ -100,7 +100,7 @@ test('guest sign-in, UI actions, local persistence and no Supabase calls',async(
  await page.keyboard.press('Enter');
  await page.keyboard.type('Второй пункт QA');
  await expect(input.locator('[data-type="taskItem"]')).toHaveCount(2);
- await expect(page.locator('.editor-save-hint')).toHaveText('Сохранено');
+ await expect(page.getByRole('button',{name:'Все изменения сохранены'})).toBeVisible();
  await input.blur();
  await page.reload();
  await expect(page.locator('.task-document').filter({hasText:'Первый пункт QA'})).toContainText('Второй пункт QA');
@@ -150,7 +150,7 @@ test('F02: a task-page editor and nested blocks return directly to Buffer',async
  await page.locator('.task-children-disclosure>summary').click();
  await page.locator('.os-children').getByRole('button',{name:'+ Страница'}).click();
  await expect(page.locator('.os-page-editor')).toBeVisible();
- await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
  await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
 });
@@ -395,7 +395,7 @@ test('6.9.1: task page Back returns to Buffer and old Pages route redirects',asy
  await expect.poll(()=>new URL(page.url()).hash).toMatch(/^#\/page\//);
  await page.reload();
  await expect(page.locator('.os-page-editor')).toBeVisible();
- await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
  await expect.poll(()=>new URL(page.url()).hash).toBe('#/tab/buffer');
  await page.goto(entry+'#/workspace');
@@ -419,7 +419,7 @@ test('6.9.1: mobile task page has Back to Buffer, not a Pages tab',async({page})
  await expect(page.locator('.sidebar-scroll').getByRole('button',{name:'Страницы'})).toHaveCount(0);
  await openSampleTaskPage(page);
  await expect(bottom.getByRole('button',{name:'Буфер задач'})).toHaveAttribute('aria-current','page');
- await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
  await bottom.getByRole('button',{name:'Сегодня'}).click();
  await expect(bottom.getByRole('button',{name:'Сегодня'})).toHaveAttribute('aria-current','page');
@@ -563,7 +563,7 @@ test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await expect(page.locator('.goal-work-grid').first()).toBeVisible();
  await openSampleTaskPage(page);
- await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();
@@ -595,7 +595,7 @@ test('6.9.1: mobile Buffer active in task page and after Back',async({page})=>{
  await openSampleTaskPage(page);
  await expect(nav.getByRole('button',{name:'Буфер задач'})).toHaveClass(/current/);
  await expect(nav.getByRole('button',{name:'Ещё'})).not.toHaveClass(/current/);
- await page.getByRole('button',{name:'Назад в буфер задач'}).click();
+ await page.getByRole('button',{name:'Назад'}).click();
  await expect(page.locator('.buffer-mvp')).toBeVisible();
 });
 
