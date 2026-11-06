@@ -17,6 +17,7 @@ import '../task-polish.css';
 import '../task-polish-v2.css';
 import '../prodesk-brand.css';
 import {TaskOptions} from '../components/TaskOptions';
+import {reportSaveState} from '../lib/saveStatus';
 import {TaskPriorityField} from '../components/TaskPriorityField';
 import {TaskDeadlineField} from '../components/TaskDeadlineField';
 import {TaskBlockMenu,type TaskInsertKind,isTaskTool,taskInsertDocument} from '../components/TaskBlockMenu';
@@ -27,31 +28,44 @@ const icons=['📋','📄','📁','🎯','💼','🧠','📝','🚀','🏡','�
 const blockLabels:Record<BlockType,string>={text:'Текст',heading:'Заголовок',checklist:'Чеклист',image:'Изображение',divider:'Разделитель',database:'База данных',pipeline:'Pipeline',page_link:'Ссылка на страницу'};
 const uuidRoute=()=>{const match=window.location.hash.match(/^#\/page\/([0-9a-f-]{36})$/i);return match?.[1]||null};
 export function WorkspacePage({embedded=false}:{embedded?:boolean}){
- const {demo}=useApp(),[pages,setPages]=useState<WPage[]>([]),[sources,setSources]=useState<WSource[]>([]);
+ const {demo,today}=useApp(),[pages,setPages]=useState<WPage[]>([]),[sources,setSources]=useState<WSource[]>([]);
  const [selectedId,setSelectedId]=useState<string|null>(uuidRoute),[details,setDetails]=useState<WPageResponse|null>(null),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[recordPageIds,setRecordPageIds]=useState<string[]>([]),[newTitle,setNewTitle]=useState(''),[working,setWorking]=useState(false),[taskData,setTaskData]=useState<Task|null>(null);
- const pageRequest=useRef(0);
+ const pageRequest=useRef(0),writes=useRef(0);
  const openPage=useCallback((id:string)=>{window.location.hash=pageLink(id);window.scrollTo({top:0,behavior:'smooth'})},[]);
- const home=()=>{window.location.hash='#/tab/buffer'};
+ const home=()=>{
+  let stored='';try{stored=selectedId?sessionStorage.getItem('prodesk:task-return:'+selectedId)||'':''}catch{}
+  // Direct page links have no origin: infer Today for today's tasks, or Calendar for other dated tasks.
+  const fallback=taskData?.day?(taskData.day===today?'#/tab/today':'#/tab/calendar'):'#/tab/buffer';
+  window.location.hash=/^#\/tab\/(home|today|buffer|goals|calendar|tomorrow|analytics|challenges|settings|help)$/.test(stored)?stored:fallback;
+ };
  const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const [data,taskPages,archives]=await Promise.all([workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap'),request<{pageIds:string[]}>('os8','task_page_links'),request<{pageIds:string[]}>('os9','archived_pages').catch((): {pageIds:string[]}=>({pageIds:[]}))]);setPages((data.pages||[]).filter(page=>!archives.pageIds.includes(page.id)));setSources(data.sources||[]);setRecordPageIds([...new Set([...(data.recordPageIds||[]),...(taskPages.pageIds||[])])]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
  const loadPage=useCallback(async(id:string)=>{if(demo)return;const version=++pageRequest.current;setWorking(true);setError('');try{const [data,linked]=await Promise.all([workspaceRequest<WPageResponse>('page_get',{id}),request<{task:Task|null}>('os8','task_page_find',{pageId:id})]);if(version!==pageRequest.current)return;setDetails(data);setTaskData(linked.task||null);setError('')}catch(e:any){if(version!==pageRequest.current)return;setError(e.message||'Страница не загрузилась');setDetails(null);setTaskData(null)}finally{if(version===pageRequest.current)setWorking(false)}},[demo]);
  const refresh=useCallback(async()=>{if(selectedId)await loadPage(selectedId)},[loadList,loadPage,selectedId]);
  useEffect(()=>{const change=()=>{pageRequest.current++;setDetails(null);setTaskData(null);setSelectedId(uuidRoute())};window.addEventListener('hashchange',change);return()=>{window.removeEventListener('hashchange',change);pageRequest.current++}},[]);
  useEffect(()=>{void loadList()},[loadList]);
  useEffect(()=>{if(selectedId)void loadPage(selectedId);else setDetails(null)},[selectedId,loadPage]);
- const run=async(action:string,data:Record<string,unknown>)=>{try{
+ const run=async(action:string,data:Record<string,unknown>)=>{
+  const key='workspace:'+String(selectedId||'root')+':'+(++writes.current);
+  reportSaveState(key,'saving');
+  try{
+   let result:any;
    if(action==='page_save'&&taskData&&data.id===details?.page.id){
-     await request('os8','task_page_title',{pageId:data.id,title:data.title});return workspaceRequest<any>(action,data);
-   }return await workspaceRequest<any>(action,data);
-  }catch(e:any){setError(e.message||'Изменение не сохранилось');throw e}};
+     await request('os8','task_page_title',{pageId:data.id,title:data.title});
+   }
+   result=await workspaceRequest<any>(action,data);
+   reportSaveState(key,'saved');
+   return result;
+  }catch(e:any){reportSaveState(key,'error');setError(e.message||'Изменение не сохранилось');throw e}
+ };
  const createPage=async(title:string,parentId:string|null=null)=>{if(!title.trim())return;setWorking(true);try{const res=await run('page_save',{title,parentId});await loadList();openPage(res.id);setNewTitle('');return res.id}finally{setWorking(false)}};
  const deletePage=async(page:WPage)=>{if(taskData&&page.id===details?.page.id){setError('Это страница задачи: удаляй задачу через её меню, чтобы не потерять свойства.');return;}if(!window.confirm(`Удалить страницу «${page.title}» вместе со всеми вложенными блоками?`))return;await run('page_delete',{id:page.id});home();await loadList()};
  const parents=useMemo(()=>{const out:WPage[]=[];let at=details?.page.parent_id||null;for(let i=0;at&&i<50;i++){const p=pages.find(x=>x.id===at);if(!p)break;out.unshift(p);at=p.parent_id}return out},[details,pages]);
  return <div className="os-workspace">
   {error&&<div role="alert" className="os-error-banner">{error}<button onClick={()=>void refresh()}>Повторить</button></div>}
   <div className="os-task-page-only">
-   <div className="os-page-editor-navigation"><button className="os-back-to-buffer" type="button" onClick={home}><Icon name="left" size={18}/> Назад в буфер задач</button>
-    {selectedId&&<div className="os-breadcrumbs"><span>Буфер задач</span>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>}
+   <div className="os-page-editor-navigation"><button className="os-back-to-buffer" type="button" onClick={home}><Icon name="left" size={18}/> Назад</button>
+    {selectedId&&<div className="os-breadcrumbs"><span>Страницы</span>{parents.map(p=><React.Fragment key={p.id}><span>/</span><button onClick={()=>openPage(p.id)}>{p.title}</button></React.Fragment>)}</div>}
    </div>
    {!selectedId?<p className="os-muted">Эта страница больше не используется. <button type="button" className="os-btn" onClick={home}>Открыть Буфер</button></p>
    :working&&!details?<p className="os-muted" role="status">Открываем задачу…</p>
@@ -180,13 +194,14 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
  useEffect(()=>{let active=true;void request<{goalId:string|null}>('os9','regular_goal_get',{taskId:task.id}).then(r=>{if(active&&r.goalId)setGoalId('reg:'+r.goalId)}).catch(()=>{});return()=>{active=false}},[task.id]);
  const saveField=(key:string,value:any,kind?:string)=>{
   const patch={key,value,kind};pending.current+=1;setStatus('saving');setError('');
+  const savingKey='native:'+task.id+':'+key+':'+pending.current;reportSaveState(savingKey,'saving');
   queue.current=queue.current.catch(()=>{}).then(async()=>{
    await request('os8','task_native_patch',{taskId:task.id,...patch});
    if(key==='notes')notesSent.current=String(value);
    if(key==='goal')window.dispatchEvent(new Event('os8:goals-changed'));
    await onSaved();
-  }).then(()=>{pending.current=Math.max(0,pending.current-1);if(pending.current===0){setStatus('saved');setLastFailed(null)}})
-   .catch((e:any)=>{pending.current=Math.max(0,pending.current-1);setStatus('error');setError(e.message||'Не удалось сохранить изменение');setLastFailed(patch)});
+  }).then(()=>{reportSaveState(savingKey,'saved');pending.current=Math.max(0,pending.current-1);if(pending.current===0){setStatus('saved');setLastFailed(null)}})
+   .catch((e:any)=>{reportSaveState(savingKey,'error');pending.current=Math.max(0,pending.current-1);setStatus('error');setError(e.message||'Не удалось сохранить изменение');setLastFailed(patch)});
  };
  const flushNotes=()=>{if(notesTimer.current){clearTimeout(notesTimer.current);notesTimer.current=null}if(notesCurrent.current!==notesSent.current)saveField('notes',notesCurrent.current)};
  const onNotesChange=(text:string)=>{setNotes(text);notesCurrent.current=text;if(notesTimer.current)clearTimeout(notesTimer.current);notesTimer.current=setTimeout(flushNotes,750)};
@@ -198,8 +213,8 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
   finally{setCategoryBusy(false)}
  };
  const changeAppearance=(key:string,name:string,icon:string)=>setAppearance(old=>({...old,[key]:{name,icon}}));
- return <section className="os-task-properties os-properties-v67" aria-label="Свойства задачи">
-  <div className="os-property-head"><h3>Свойства задачи</h3>{status!=='idle'&&<small role={status==='error'?'alert':'status'} className={'os-auto-status '+status}>{status==='saving'?'Сохраняется…':status==='saved'?'Сохранено':'Не удалось сохранить'}</small>}</div>
+ return <section className="os-task-properties os-properties-v67" data-save-status={status} aria-label="Свойства задачи">
+  <div className="os-property-head"><h3>Свойства задачи</h3></div>
   <div className="os-property-rows">
    {!hiddenNative.includes("category")&&<div className="os-property-row"><TaskPropertyAppearance fieldKey="category" {...names('category')} onChange={(name,icon)=>changeAppearance('category',name,icon)} onRemove={()=>void hideNative('category',true)}/>
     <div className="os-category-control" onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setCategoryOpen(false)}}>
