@@ -5,6 +5,7 @@ import {Dialog,StatusToast} from './components/UI';
 import {MotionRoute} from './components/OSMotion';
 import {isQAMode} from './qa/sandbox';
 import {APP_BUILD_LABEL} from './lib/version';
+import {readSaveState,retrySaveEvent} from './lib/saveStatus';
 import * as m from 'motion/react-m';
 import {useReducedMotion} from 'motion/react';
 import {motionTokens} from './components/motionTokens';
@@ -23,6 +24,7 @@ import './shell.css';
 import './goals-workspace.css';
 import './design-system.css';
 import './prodesk-brand.css';
+import './prodesk-flow.css';
 const primary:Array<{id:Tab;label:string;icon:string}>=[{id:'home',label:'Главное',icon:'home'},{id:'today',label:'Сегодня',icon:'calendar-check'},{id:'goals',label:'Цели',icon:'target'},{id:'analytics',label:'Аналитика',icon:'chart'}];
 const workspaceNav:{id:Tab;label:string;icon:string}={id:'buffer',label:'Буфер задач',icon:'inbox'};
 const mobilePrimary=[primary[1],workspaceNav,primary[2]];
@@ -47,20 +49,26 @@ function NavItem({id,label,icon,routeHash}:{id:Tab;label:string;icon:string;rout
  </button>;
 }
 function Sidebar(){
- const {sidebar,setSidebar}=useApp(),hash=useRouteHash();
+ const {sidebar,setSidebar,recentTasks,openTaskPage}=useApp(),hash=useRouteHash();
+ const [collapsed,setCollapsed]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem('prodesk:sidebar:collapsed:v1')||'{}')}catch{return {}}});
+ const toggle=(key:string)=>setCollapsed(prev=>{const next={...prev,[key]:!prev[key]};try{localStorage.setItem('prodesk:sidebar:collapsed:v1',JSON.stringify(next))}catch{}return next});
+ const label=(key:string,title:string)=><button type="button" className="sidebar-section-toggle" aria-expanded={!collapsed[key]} aria-label={title+' — '+(collapsed[key]?'раскрыть':'свернуть')} onClick={()=>toggle(key)}><span>{title}</span><Icon name={collapsed[key]?'down':'up'} size={14}/></button>;
+
  return <>
   <div className={'sidebar-scrim '+(sidebar?'visible':'')} onClick={()=>setSidebar(false)} aria-hidden="true"/>
   <aside className={'app-sidebar '+(sidebar?'is-open':'')} aria-label="Боковая навигация">
    <div className="brand"><div className="brand-logo"><img src="/telegram-dashboard/prodesk-mark.svg" alt="" width={35} height={35}/></div><div><strong>ProDesk</strong><small>Оседлай хаос</small></div><button className="mobile-close icon-btn" onClick={()=>setSidebar(false)} aria-label="Закрыть меню"><Icon name="x"/></button></div>
    <nav className="sidebar-scroll">
-    <span className="sidebar-section-label">ОСНОВНОЕ</span>
-    {primary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
-    <NavItem {...workspaceNav} routeHash={hash}/>
-    <span className="sidebar-section-label">ИНСТРУМЕНТЫ</span>
-    {secondary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
-    <span className="sidebar-section-label">НАСТРОЙКА</span>
-    <NavItem id="settings" label="Настройки" icon="settings" routeHash={hash}/>
-    <NavItem id="help" label="Помощь" icon="help" routeHash={hash}/>
+    {label('main','ОСНОВНОЕ')}
+    {!collapsed.main&&<>{primary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
+    <NavItem {...workspaceNav} routeHash={hash}/></>}
+    {label('tools','ИНСТРУМЕНТЫ')}
+    {!collapsed.tools&&secondary.map(n=><NavItem key={n.id} {...n} routeHash={hash}/>)}
+    {label('setup','НАСТРОЙКА')}
+    {!collapsed.setup&&<><NavItem id="settings" label="Настройки" icon="settings" routeHash={hash}/>
+    <NavItem id="help" label="Помощь" icon="help" routeHash={hash}/></>}
+    <div className="sidebar-recent"><span className="sidebar-section-label">ПОСЛЕДНИЕ ЗАДАЧИ</span>
+     {recentTasks.length?recentTasks.slice(0,10).map(task=><button key={task.id} type="button" className="sidebar-recent-link" title={task.title} onClick={()=>void openTaskPage(task)}><Icon name="file-text" size={15}/><span>{task.title}</span></button>):<p className="sidebar-recent-empty">Открытые задачи появятся здесь</p>}</div>
    </nav>
    <div className="sidebar-bottom"><div className="sidebar-footer-logo">{isQAMode()?<><Icon name="check-circle" size={16}/> Данные только в браузере</>:<><Icon name="cloud-check" size={16}/> Синхронизация с облаком</>}</div><span className="version">{APP_BUILD_LABEL}</span></div>
   </aside>
@@ -69,10 +77,16 @@ function Sidebar(){
 function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
   const mobileLabel=appNames[tab]||'ProDesk';
   const qa=isQAMode();
-  const cloud=qa?'refresh':status==='saved'?'cloud-check':status==='error'?'cloud-off':'cloud';
+  const [editorSave,setEditorSave]=useState(readSaveState);
+  useEffect(()=>{const update=()=>setEditorSave(readSaveState());window.addEventListener('prodesk:save-state',update);return()=>window.removeEventListener('prodesk:save-state',update)},[]);
+  const failed=editorSave==='error'||status==='error',saving=!failed&&(editorSave==='saving'||status==='saving'||status==='connecting');
+  const cloud=failed?'cloud-off':saving?'cloud':'cloud-check';
+  const cloudLabel=failed?'Не сохранено — нажми для повтора':saving?'Сохраняется…':'Все изменения сохранены';
+  const onCloudClick=()=>{if(editorSave==='error'){window.dispatchEvent(new Event(retrySaveEvent));return}void refresh()};
   return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
-    <div className="topbar-right">{isQAMode()?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}<button className={'icon-btn cloud-button '+(qa?'local':status)} onClick={()=>void refresh()} title={qa?'Обновить локальные тестовые данные':status==='saved'?'Синхронизировано':status==='saving'?'Сохраняем':'Обновить облако'} aria-label={qa?'Обновить локальные тестовые данные':'Обновить облачные данные'}><Icon name={cloud} size={21}/></button>
-      <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button></div>
+    <div className="topbar-right">{qa?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}
+     <button className={'icon-btn cloud-button '+(failed?'error':saving?'saving':'saved')} onClick={onCloudClick} title={cloudLabel} aria-label={cloudLabel} aria-live="polite"><Icon name={cloud} size={21}/></button>
+     <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button></div>
   </header>;
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{mobilePrimary.map(n=><BottomItem key={n.id} {...n}/>) }<MoreBottomItem/></nav>}
