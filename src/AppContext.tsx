@@ -1,20 +1,23 @@
 import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {Category,CloudStatus,DayMetrics,Goal,GoalPoint,OS6Data,Tab,Task,TaskPriority} from './types';
 import {request} from './lib/api';
-import {initData,setupTelegram,haptic} from './lib/telegram';
-import {isQAMode} from './qa/sandbox';
+import {initData,setupTelegram,haptic,telegram} from './lib/telegram';
+import {isQAMode,readQASession} from './qa/sandbox';
 import {dateInZone,initialTimezone,mondayOf,metricRange,dateAdd} from './lib/date';
 import {tabFromHash,hashForTab,loadSelectedDay,rememberSelectedDay} from './lib/navigation';
 import {demoToday,demoTasks,demoGoals,demoCategories,demoOS6,demoGoalHistory} from './lib/demo';
 
+export type RecentTask={id:string;title:string};
+const recentKey=()=>isQAMode()?'prodesk:recent:qa:'+(readQASession()?.id||'guest'):'prodesk:recent:tg:'+(telegram()?.initDataUnsafe?.user?.id||'anonymous');
+const readRecent=():RecentTask[]=>{try{const parsed=JSON.parse(localStorage.getItem(recentKey())||'[]');return Array.isArray(parsed)?parsed.filter(x=>typeof x?.id==='string'&&typeof x?.title==='string').slice(0,10):[]}catch{return[]}};
 type Editor={type:'task'|'goal'|'finance'|'workout'|'weight'|'exercise'|'repeat'|'challenge';item?:any;day?:string|null;priority?:TaskPriority} | null;
 type AppContextValue={
   demo:boolean;ready:boolean;error:string;status:CloudStatus;tz:string;today:string;day:string;setDay:(d:string)=>void;
   tab:Tab;open:(t:Tab)=>void;sidebar:boolean;setSidebar:(v:boolean)=>void;help:boolean;setHelp:(v:boolean)=>void;
-  tasks:Task[];buffer:Task[];goals:Goal[];goalHistory:GoalPoint[];categories:Category[];os6:OS6Data;
+  tasks:Task[];buffer:Task[];recentTasks:RecentTask[];goals:Goal[];goalHistory:GoalPoint[];categories:Category[];os6:OS6Data;
   metrics:Record<string,DayMetrics>;previousMetrics:Record<string,DayMetrics>;legacyRows:any[];
   editor:Editor;setEditor:(e:Editor)=>void;message:string;notify:(m:string)=>void;recentDeleted:Task|null;undoDelete:()=>Promise<void>;
-  openTaskPage:(task:Task)=>Promise<void>;refresh:()=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
+  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
   reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
   saveCategory:(form:any)=>Promise<{id:string}|undefined>;deleteCategory:(cat:Category)=>Promise<void>;
@@ -39,6 +42,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [tab,setTab]=useState<Tab>(()=>tabFromHash(location.hash));const [sidebar,setSidebar]=useState(false);const [help,setHelp]=useState(false);
   const [ready,setReady]=useState(false);const [error,setError]=useState('');const [status,setStatus]=useState<CloudStatus>('connecting');
   const [tasks,setTasks]=useState<Task[]>([]);const [buffer,setBuffer]=useState<Task[]>([]);
+  const [recentTasks,setRecentTasks]=useState<RecentTask[]>(readRecent);
   const [goals,setGoals]=useState<Goal[]>([]);const [goalHistory,setGoalHistory]=useState<GoalPoint[]>([]);
   const [categories,setCategories]=useState<Category[]>([]);const [os6,setOS6]=useState<OS6Data>(emptyOS6);
   const [metrics,setMetrics]=useState<Record<string,DayMetrics>>({});const [previousMetrics,setPrevMetrics]=useState<Record<string,DayMetrics>>({});
@@ -67,6 +71,8 @@ export function AppProvider({children}:{children:React.ReactNode}){
       const firstOS6=await request<OS6Data>('os6','bootstrap');
       const initialized=await request<{tz:string;today:string;categories:Category[]}>('os61','bootstrap',{deviceTimezone:initialTimezone()});
       const actualTZ=initialized.tz;const actualToday=initialized.today;
+      // Same task ID is carried to today on reconnect; the server checks ownership and never moves completed tasks.
+      await request('os8','task_rollover',{today:actualToday});
       setTZ(actualTZ);setToday(actualToday);setCategories(initialized.categories||[]);setOS6({...firstOS6,settings:{...firstOS6.settings,tz:actualTZ}});
       setDay(prev=>prev===today?actualToday:prev);
       const actualDay=dayRef.current===today?actualToday:dayRef.current;
@@ -102,9 +108,13 @@ export function AppProvider({children}:{children:React.ReactNode}){
   },[day,ready,readDays]);
   useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},recentDeleted&&message==='Задача удалена'?8000:5500);return()=>clearTimeout(t)},[message,recentDeleted]);
   const refresh=async()=>{await reload(dayRef.current,tz);};
-  const openTaskPage=async(task:Task)=>{
+  const openTaskPage=async(task:Pick<Task,'id'|'title'>)=>{
     if(demo){notify('Открой Mini App через Telegram для редактирования страниц задач');return;}
-    try{setStatus('saving');const r=await request<{pageId:string}>('os8','task_page_ensure',{taskId:task.id});
+    try{setStatus('saving');const from=window.location.hash;
+      const r=await request<{pageId:string}>('os8','task_page_ensure',{taskId:task.id});
+      const route=/^#\/tab\/[a-z]+$/.test(from)?from:'#/tab/buffer';
+      try{sessionStorage.setItem('prodesk:task-return:'+r.pageId,route)}catch{}
+      setRecentTasks(prev=>{const next=[{id:task.id,title:task.title},...prev.filter(t=>t.id!==task.id)].slice(0,10);try{localStorage.setItem(recentKey(),JSON.stringify(next))}catch{}return next});
       setTab('buffer');setSidebar(false);window.location.hash='#/page/'+r.pageId;setStatus('saved');
     }catch(e:any){setStatus('error');notify(e.message||'Не удалось открыть страницу задачи');}
   }; 
@@ -146,6 +156,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const deleteTask=async(task:Task)=>{
     if(!demo){await request('dashboard','task_delete',{id:task.id});await reload(dayRef.current,tz);}
     else {setTasks(x=>x.filter(t=>t.id!==task.id));setBuffer(x=>x.filter(t=>t.id!==task.id));}
+    setRecentTasks(prev=>{const next=prev.filter(t=>t.id!==task.id);try{localStorage.setItem(recentKey(),JSON.stringify(next))}catch{}return next});
     setRecentDeleted(task);notify('Задача удалена');
   };
   const undoDelete=async()=>{
@@ -189,7 +200,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
     try{const r=await request<{tasks:Task[]}>('os6','calendar',{start,end});setCalendarTasks((r.tasks||[]).filter(t=>!t.task_options?.archived));}catch(e:any){notify(e.message);}
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
-    tasks,buffer,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
+    tasks,buffer,recentTasks,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
     openTaskPage,refresh,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
