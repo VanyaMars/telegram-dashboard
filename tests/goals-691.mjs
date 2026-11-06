@@ -24,7 +24,7 @@ assert.match(read('supabase/06-os8-index.ts'),/os9_regular_goal_tasks/);
 assert.match(qa,/task_reschedule/);
 assert.match(buffer,/taskPage/);
 assert.doesNotMatch(buffer,/mvp-pages-toggle|workspaceMode/);
-assert.match(workspace,/Назад в буфер задач/);
+assert.match(workspace,/prodesk:task-return:/);
 assert.doesNotMatch(workspace,/#\/workspace/);
 assert.match(read('supabase/09-goal-documents.sql'),/enable row level security/);
 assert.match(read('supabase/06-os8-index.ts'),/telegram_user_id/);
