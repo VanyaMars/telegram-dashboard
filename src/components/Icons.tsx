@@ -1,5 +1,5 @@
 import React from 'react';
-import {House,Menu,Cloud,CloudOff,HelpCircle,Check,CheckCircle2,MoreHorizontal,Plus,
+import {House,Menu,Cloud,CloudCheck,CloudOff,FileText,HelpCircle,Check,CheckCircle2,MoreHorizontal,Plus,
   ChevronRight,ChevronLeft,ChevronDown,ChevronUp,X,GripVertical,Inbox,Target,BarChart3,CalendarDays,
   CalendarCheck2,Wallet,Dumbbell,Timer,Repeat2,Trophy,Settings,BookOpen,Briefcase,HeartPulse,Sparkles,
   Folder,Users,Car,ShoppingBag,Palette,GraduationCap,Clock,ArrowUpRight,ArrowDownRight,ArrowLeftRight,
@@ -7,7 +7,7 @@ import {House,Menu,Cloud,CloudOff,HelpCircle,Check,CheckCircle2,MoreHorizontal,P
   RotateCcw,Bell,Info,ArrowRight,Focus,TrendingUp,TrendingDown,CircleHelp,Sun,ShieldCheck,
   ListChecks,LayoutDashboard,Calendar,Lightbulb,Zap,Lock,Play,Pause,Square,CheckSquare,
   Tag,Hash,Type,Flag,Star,Clock3,type LucideIcon} from 'lucide-react';
-const icons:Record<string,LucideIcon>={home:House,menu:Menu,cloud:Cloud,'cloud-check':Cloud,'cloud-off':CloudOff,
+const icons:Record<string,LucideIcon>={home:House,menu:Menu,cloud:Cloud,'cloud-check':CloudCheck,'cloud-off':CloudOff,'file-text':FileText,
   help:HelpCircle,check:Check,'check-circle':CheckCircle2,more:MoreHorizontal,plus:Plus,right:ChevronRight,
   left:ChevronLeft,down:ChevronDown,up:ChevronUp,x:X,grip:GripVertical,inbox:Inbox,target:Target,
   chart:BarChart3,calendar:CalendarDays,'calendar-check':CalendarCheck2,wallet:Wallet,dumbbell:Dumbbell,
