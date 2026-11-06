@@ -1,7 +1,7 @@
 {
   "name": "prodesk",
   "private": true,
-  "version": "6.14.0",
+  "version": "6.15.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
