@@ -279,7 +279,7 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
       {workflowEditError&&<small role="alert" className="os-inline-error">{workflowEditError}</small>}
      </div>:<button type="button" disabled={item.id.startsWith('pending-item-')} className={'os-workflow-name '+(item.completed?'completed':'')} aria-label={'Изменить действие: '+item.title} onClick={()=>startEdit(item)}>{item.title}</button>}
      {!item.id.startsWith('pending-item-')&&<details className="workflow-actions task-actions" onClickCapture={e=>{if(suppressGripClick.current){e.preventDefault();e.stopPropagation();suppressGripClick.current=false}}}>
-      <summary className="os-workflow-drag-grip" aria-label={'Перетащить или открыть действия: '+item.title} title="Зажми и перетащи · стрелки вверх/вниз для клавиатуры"
+      <summary className="os-workflow-drag-grip" aria-label={'Действия Workflow: '+item.title} title="Зажми и перетащи · стрелки вверх/вниз для клавиатуры"
        onPointerDown={e=>startGrip(e,item.id)} onPointerMove={moveGrip} onPointerUp={endGrip} onPointerCancel={stopGrip} onKeyDown={e=>gripKeyboard(e,item)}>
        <span className="os-four-dot-grip" aria-hidden="true"><i/><i/><i/><i/></span></summary><div className="os-task-mini-controls task-action-menu">
       {allSplits.length>1&&<select className="os-workflow-move" aria-label={'Перенести действие: '+item.title} value="" onChange={e=>void action('workflow_move',{id:item.id,splitId:e.target.value}).catch(()=>setWorkflowEditError('Не удалось перенести действие.'))}><option value="" disabled>Перенести в этап…</option>{allSplits.filter(s=>s.id!==split.id).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select>}
