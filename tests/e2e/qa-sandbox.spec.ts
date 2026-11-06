@@ -192,7 +192,7 @@ test('6.7.2 F03: selected section, date and Back/Forward survive reload',async({
 test('6.9.1 guest: task editor accessible, no separate Pages catalog',async({page})=>{
  await enter(page);
  await expect(page.getByText('Синхронизация с облаком')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Обновить локальные тестовые данные'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Все изменения сохранены'})).toBeVisible();
  await expect(page.locator('.sidebar-bottom')).toContainText('v6.15.0');
  await openSampleTaskPage(page);
  await expect(page.locator('.os-page-editor')).toBeVisible();
