@@ -149,6 +149,46 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
  const [localOrder,setLocalOrder]=useState<string[]|null>(null),[orderError,setOrderError]=useState(''),[failedOrder,setFailedOrder]=useState<string[]|null>(null),[reordering,setReordering]=useState(false);
  const [pendingItems,setPendingItems]=useState<string[]>([]),[renameError,setRenameError]=useState(''),[addingBusy,setAddingBusy]=useState(false);
  const busyItemsRef=useRef(new Set<string>()),orderRef=useRef(false),renameRef=useRef(false),addRef=useRef(false),addInputRef=useRef<HTMLInputElement>(null);
+ const [dragging,setDragging]=useState<string|null>(null),[dragOver,setDragOver]=useState<string|null>(null);
+ const gesture=useRef<{id:string;startX:number;startY:number;active:boolean;over:string|null;moved:boolean;timer:number|null;pointerType:string}|null>(null);
+ const suppressGripClick=useRef(false);
+ const stopGrip=()=>{const g=gesture.current;if(g?.timer)window.clearTimeout(g.timer);gesture.current=null;setDragging(null);setDragOver(null)};
+ useEffect(()=>()=>{if(gesture.current?.timer)window.clearTimeout(gesture.current.timer)},[]);
+ const startGrip=(e:React.PointerEvent<HTMLElement>,id:string)=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const g={id,startX:e.clientX,startY:e.clientY,active:false,over:null as string|null,moved:false,timer:null as number|null,pointerType:e.pointerType};
+  if(e.pointerType==='touch')g.timer=window.setTimeout(()=>{g.active=true;setDragging(id)},200);
+  gesture.current=g;
+  try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}
+ };
+ const moveGrip=(e:React.PointerEvent<HTMLElement>)=>{
+  const g=gesture.current;if(!g)return;
+  const distance=Math.abs(e.clientY-g.startY)+Math.abs(e.clientX-g.startX);
+  if(!g.active){
+   if(g.pointerType==='touch'){if(distance>12)stopGrip();return}
+   if(distance<6)return;g.active=true;setDragging(g.id);
+  }
+  if(e.cancelable)e.preventDefault();
+  g.moved=true;
+  const hit=(document.elementFromPoint(e.clientX,e.clientY) as HTMLElement|null)?.closest<HTMLElement>('[data-workflow-id]');
+  const id=hit?.dataset.workflowId||null;
+  if(id&&id!==g.id){g.over=id;setDragOver(id)}
+ };
+ const endGrip=()=>{
+  const g=gesture.current;
+  if(g?.active&&g.moved){
+   suppressGripClick.current=true;
+   if(g.over&&g.over!==g.id){
+    const ids=arranged.map(t=>t.id),from=ids.indexOf(g.id),to=ids.indexOf(g.over);
+    if(from>=0&&to>=0){ids.splice(from,1);ids.splice(to,0,g.id);void commitRowOrder(ids)}
+   }
+  }
+  stopGrip();
+ };
+ const gripKeyboard=(e:React.KeyboardEvent,item:WItem)=>{
+  if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;
+  e.preventDefault();e.stopPropagation();void reorder(item.id,e.key==='ArrowUp'?-1:1);
+ };
  useEffect(()=>setTitle(split.title),[split.id,split.title]);
  useEffect(()=>{if(localOrder&&sameOrder(items.map(t=>t.id),localOrder))setLocalOrder(null)},[items,localOrder]);
  const arranged=useMemo(()=>localOrder?[...items].sort((a,b)=>localOrder.indexOf(a.id)-localOrder.indexOf(b.id)):items,[items,localOrder]);
@@ -218,7 +258,6 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
    </div></details>
   </div>
   <div className="os-split-body" id={'os-split-body-'+split.id}>
-   {split.id.startsWith('pending-split-')&&<small className="os-workflow-pending" role="status">Создаём этап…</small>}
     <input className="os-split-title" disabled={split.id.startsWith('pending-split-')} value={title} onChange={e=>{setTitle(e.target.value);setRenameError('')}} maxLength={120} aria-label="Название этапа" onBlur={()=>void rename()} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
    {renameError&&<p className="os-inline-error" role="alert">{renameError}</p>}
    <div className="os-split-metrics"><span>{done} / {items.length} выполнено</span><b>{progress}%</b></div>
@@ -226,7 +265,7 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
    {orderError&&<p className="os-inline-error" role="alert">{orderError}{failedOrder&&<button type="button" className="os-pipe-retry" disabled={reordering} onClick={()=>void commitRowOrder(failedOrder)}>Повторить порядок</button>}</p>}
    {workflowEditError&&editing===null&&<p className="os-inline-error" role="alert">{workflowEditError}</p>}
    <LayoutGroup id={'workflow-'+split.id}><div className="os-workflow-list">
-    <AnimatePresence initial={false}>{arranged.map(item=><m.div className="os-workflow-row" key={item.id}
+    <AnimatePresence initial={false}>{arranged.map(item=><m.div data-workflow-id={item.id} className={'os-workflow-row '+(dragging===item.id?'is-grip-dragging ':'')+(dragOver===item.id?'is-grip-target':'')} key={item.id}
      layout={reduced?false:'position'} initial={false} animate={{opacity:1}} exit={reduced?{opacity:0}:{opacity:0,y:-4}}
      transition={reduced?{duration:0}:{type:'spring',stiffness:380,damping:34,mass:.8}}>
      <m.input type="checkbox" checked={item.completed} disabled={item.id.startsWith('pending-item-')||pendingItems.includes(item.id)}
@@ -239,8 +278,10 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
       <button type="button" disabled={editBusy} onClick={cancelEdit}>Отмена</button>
       {workflowEditError&&<small role="alert" className="os-inline-error">{workflowEditError}</small>}
      </div>:<button type="button" disabled={item.id.startsWith('pending-item-')} className={'os-workflow-name '+(item.completed?'completed':'')} aria-label={'Изменить действие: '+item.title} onClick={()=>startEdit(item)}>{item.title}</button>}
-     {(item.id.startsWith('pending-item-')||pendingItems.includes(item.id))&&<span className="os-workflow-pending" role="status">Сохраняем…</span>}
-     {!item.id.startsWith('pending-item-')&&<details className="workflow-actions task-actions"><summary aria-label={'Действия Workflow: '+item.title}><Icon name="more" size={18}/></summary><div className="os-task-mini-controls task-action-menu">
+     {!item.id.startsWith('pending-item-')&&<details className="workflow-actions task-actions" onClickCapture={e=>{if(suppressGripClick.current){e.preventDefault();e.stopPropagation();suppressGripClick.current=false}}}>
+      <summary className="os-workflow-drag-grip" aria-label={'Перетащить или открыть действия: '+item.title} title="Зажми и перетащи · стрелки вверх/вниз для клавиатуры"
+       onPointerDown={e=>startGrip(e,item.id)} onPointerMove={moveGrip} onPointerUp={endGrip} onPointerCancel={stopGrip} onKeyDown={e=>gripKeyboard(e,item)}>
+       <span className="os-four-dot-grip" aria-hidden="true"><i/><i/><i/><i/></span></summary><div className="os-task-mini-controls task-action-menu">
       {allSplits.length>1&&<select className="os-workflow-move" aria-label={'Перенести действие: '+item.title} value="" onChange={e=>void action('workflow_move',{id:item.id,splitId:e.target.value}).catch(()=>setWorkflowEditError('Не удалось перенести действие.'))}><option value="" disabled>Перенести в этап…</option>{allSplits.filter(s=>s.id!==split.id).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select>}
       <button type="button" title="Выше" aria-label={'Выше: '+item.title} disabled={reordering||arranged[0].id===item.id} onClick={()=>void reorder(item.id,-1)}>Переместить выше</button>
       <button type="button" title="Ниже" aria-label={'Ниже: '+item.title} disabled={reordering||arranged[arranged.length-1].id===item.id} onClick={()=>void reorder(item.id,1)}>Переместить ниже</button>
