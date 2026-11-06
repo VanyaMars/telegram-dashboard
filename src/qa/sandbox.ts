@@ -163,7 +163,7 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
   db.propertyFields||=[];db.propertyValues||={};
   if(action==='task_rollover'){
    const target=asStr(f.today);
-   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(target))throw Error('Неверная дата переноса');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(target))throw Error('Неверная дата переноса');
    let moved=0;
    for(const task of db.tasks){
     if(task.day&&task.day<target&&!task.completed&&!task.task_options?.archived&&!task.task_options?.template){task.day=target;moved++}
