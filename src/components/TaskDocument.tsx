@@ -7,22 +7,24 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import {Details,DetailsContent,DetailsSummary} from '@tiptap/extension-details';
 import {Icon} from './Icons';
+import {reportSaveState,retrySaveEvent} from '../lib/saveStatus';
 import {TaskBlockMenu,type TaskInsertKind,isTaskTool} from './TaskBlockMenu';
 import type {WBlock} from '../lib/workspace';
 
 type Change={doc:Record<string,any>;text:string;revision:number};
 export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(content:Record<string,unknown>)=>Promise<any>;onInsertBlock?:(type:'pipeline'|'image'|'database'|'page_link')=>void}){
  const draftKey='os-document:'+block.page_id+':'+block.id;
+ const saveKey='document:'+block.page_id+':'+block.id;
  const initial=()=>{try{const draft=localStorage.getItem(draftKey);if(draft)return JSON.parse(draft)}catch{}return block.content.document||{type:'doc',content:[block.type==='checklist'?{type:'taskList',content:[{type:'taskItem',attrs:{checked:!!block.content.checked},content:[{type:'paragraph',content:block.content.text?[{type:'text',text:block.content.text}]:[]}]}]}:{type:block.type==='heading'?'heading':'paragraph',attrs:block.type==='heading'?{level:2}:undefined,content:block.content.text?[{type:'text',text:block.content.text}]:[]}]}};
  const [status,setStatus]=useState(''),[menu,setMenu]=useState(false),[focused,setFocused]=useState(false),[anchor,setAnchor]=useState({top:0,left:0,width:288});
  const [empty,setEmpty]=useState(false),[link,setLink]=useState<string|null>(null);
  const saveRef=useRef(save);saveRef.current=save;
  const revision=useRef(0),pending=useRef<Change|null>(null),timer=useRef<ReturnType<typeof setTimeout>>(),queue=useRef(Promise.resolve());
  const editorRef=useRef<Editor|null>(null),frame=useRef<number>();
- const flush=()=>{if(timer.current)clearTimeout(timer.current);const change=pending.current;if(!change)return;pending.current=null;setStatus('Сохраняется…');queue.current=queue.current.catch(()=>{}).then(async()=>{try{
+ const flush=()=>{if(timer.current)clearTimeout(timer.current);const change=pending.current;if(!change)return;pending.current=null;setStatus('Сохраняется…');reportSaveState(saveKey,'saving');queue.current=queue.current.catch(()=>{}).then(async()=>{try{
   await saveRef.current({...block.content,document:change.doc,text:change.text});
-  if(change.revision===revision.current){try{if(localStorage.getItem(draftKey)===JSON.stringify(change.doc))localStorage.removeItem(draftKey)}catch{}setStatus('')}
- }catch{if(change.revision===revision.current){pending.current=change;setStatus('Не сохранено · повторить')}}})};
+  if(change.revision===revision.current){try{if(localStorage.getItem(draftKey)===JSON.stringify(change.doc))localStorage.removeItem(draftKey)}catch{}setStatus('');reportSaveState(saveKey,'saved')}
+ }catch{if(change.revision===revision.current){pending.current=change;setStatus('Не сохранено · повторить');reportSaveState(saveKey,'error')}}})};
  const flushRef=useRef(flush);flushRef.current=flush;
  const position=(reveal=false)=>{if(frame.current)cancelAnimationFrame(frame.current);frame.current=requestAnimationFrame(()=>{
   const ed=editorRef.current;if(!ed||ed.isDestroyed)return;
@@ -33,7 +35,13 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
    if(reveal&&ed.isFocused){const delta=caret.bottom>usableBottom-76?caret.bottom-(usableBottom-76):caret.top<top?caret.top-top:0;if(delta){window.scrollBy({top:delta,behavior:'instant'});caret=ed.view.coordsAtPos(ed.state.selection.head)}}
    const bounds=ed.view.dom.getBoundingClientRect();const viewWidth=viewport?.width||window.innerWidth;
    const left=Math.max(8,Math.min(bounds.left-34,viewWidth-48));const width=Math.min(280,viewWidth-left-12);
-   setAnchor({top:caret.top,left,width});setEmpty(ed.isEmpty);
+   // Pin the gutter to the beginning of the active paragraph, not to the wrapped caret line.
+   const at=ed.view.domAtPos(ed.state.selection.head);
+   const node=at.node.nodeType===1?at.node as Element:at.node.parentElement;
+   const paragraph=node?.closest('p,h1,h2,h3,li,blockquote,pre') as HTMLElement|null;
+   const paragraphTop=paragraph?.getBoundingClientRect().top;
+   const gripTop=typeof paragraphTop==='number'&&paragraphTop>=top-8?paragraphTop:caret.top;
+   setAnchor(prev=>prev.top===gripTop&&prev.left===left&&prev.width===width?prev:{top:gripTop,left,width});setEmpty(ed.isEmpty);
   }catch{}
  })};
  // Keep ProseMirror configuration stable while caret position and save state rerender React.
@@ -47,13 +55,14 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
  const editor=useEditor({extensions,content:initialDocument,editorProps,
   onCreate:({editor})=>{editorRef.current=editor;setEmpty(editor.isEmpty)},
   onFocus:()=>{setFocused(true);position(true)},onSelectionUpdate:()=>position(true),
-  onUpdate:({editor})=>{const doc=editor.getJSON();pending.current={doc,text:editor.getText(),revision:++revision.current};try{localStorage.setItem(draftKey,JSON.stringify(doc))}catch{}setStatus('Черновик');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>flushRef.current(),700);position(true)},
+  onUpdate:({editor})=>{const doc=editor.getJSON();pending.current={doc,text:editor.getText(),revision:++revision.current};try{localStorage.setItem(draftKey,JSON.stringify(doc))}catch{}setStatus('Черновик');reportSaveState(saveKey,'saving');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>flushRef.current(),700);position(true)},
   onBlur:({event})=>{flushRef.current();const target=event.relatedTarget as Element|null;if(!target?.closest?.('[data-editor-owner="'+block.id+'"]')){setFocused(false);setMenu(false);setLink(null)}}
  });
  editorRef.current=editor;
  useEffect(()=>{const leave=()=>flushRef.current();const visibility=()=>{if(document.visibilityState==='hidden')leave()};window.addEventListener('pagehide',leave);window.addEventListener('online',leave);document.addEventListener('visibilitychange',visibility);return()=>{leave();if(frame.current)cancelAnimationFrame(frame.current);window.removeEventListener('pagehide',leave);window.removeEventListener('online',leave);document.removeEventListener('visibilitychange',visibility)}},[]);
  useEffect(()=>{if(!focused)return;const track=()=>position(),reveal=()=>position(true);window.addEventListener('scroll',track,true);window.addEventListener('resize',reveal);window.visualViewport?.addEventListener('resize',reveal);window.visualViewport?.addEventListener('scroll',track);return()=>{window.removeEventListener('scroll',track,true);window.removeEventListener('resize',reveal);window.visualViewport?.removeEventListener('resize',reveal);window.visualViewport?.removeEventListener('scroll',track)}},[focused]);
  useEffect(()=>{if(!editor||revision.current)return;try{if(localStorage.getItem(draftKey)){pending.current={doc:editor.getJSON(),text:editor.getText(),revision:++revision.current};flushRef.current()}}catch{}},[editor]);
+ useEffect(()=>{const retry=()=>flushRef.current();window.addEventListener(retrySaveEvent,retry);return()=>window.removeEventListener(retrySaveEvent,retry)},[]);
  if(!editor)return null;
  const command=(fn:()=>unknown)=>{fn();setMenu(false);position()};
  const choose=(kind:TaskInsertKind)=>{
@@ -90,11 +99,9 @@ export function TaskDocument({block,save,onInsertBlock}:{block:WBlock;save:(cont
    </div>}
   {link!==null&&<form className="editor-link-form" onSubmit={e=>{e.preventDefault();if(/^(https?:\/\/|mailto:)/i.test(link)){editor.chain().focus().setLink({href:link}).run();setLink(null)}}}><input autoFocus aria-label="Адрес ссылки" placeholder="https://…" value={link} onChange={e=>setLink(e.target.value)}/><button type="submit" disabled={!/^(https?:\/\/|mailto:)/i.test(link)}>Добавить</button></form>}
  </div>;
- return <div className={'task-document-wrap '+(empty?'is-empty ':'')+(focused?'is-editing':'')} onClick={e=>{if(e.target===e.currentTarget)editor.commands.focus('end')}}>
+ return <div data-save-status={status} className={'task-document-wrap '+(empty?'is-empty ':'')+(focused?'is-editing':'')} onClick={e=>{if(e.target===e.currentTarget)editor.commands.focus('end')}}>
   {empty&&!focused&&<span className="task-document-placeholder" aria-hidden="true">Начни писать или нажми + для добавления блока</span>}
   <EditorContent editor={editor}/>
-  {status.startsWith('Не сохранено')&&<button className="task-save-status" type="button" onClick={flush} role="alert">{status}</button>}
-  {focused&&<span className="editor-save-hint" role="status">{status||'Сохранено'}</span>}
   {controls&&createPortal(controls,document.body)}
  </div>;
 }
