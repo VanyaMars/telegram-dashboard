@@ -1,5 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {request} from '../lib/api';
+import {reportSaveState} from '../lib/saveStatus';
 import {TaskPropertyAppearance,PROPERTY_ICON_DEFAULTS,type PropertyAppearance} from './TaskPropertyAppearance';
 
 export type TaskField={id:string;name:string;field_type:'duration'|'number'|'text'|'checkbox'|'date'|'select';options?:{choices?:string[];icon?:string;archived?:boolean}};
@@ -19,9 +20,9 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
  };
  useEffect(()=>{let live=true;Promise.all([request<{fields:TaskField[]}>('os8','task_property_fields'),request<{values:Record<string,string>}>('os8','task_property_values',{taskId})]).then(([f,v])=>{if(live){setFields(f.fields||[]);setValues(v.values||{})}}).catch(e=>{if(live)setError(e.message||'Свойства недоступны')});return()=>{live=false}},[taskId]);
  const save=async(field:TaskField,value:string)=>{
-  setBusy(true);setError('');setStatus('');
-  try{await request('os8','task_property_set',{taskId,propertyId:field.id,value});setValues(v=>({...v,[field.id]:value}));setStatus('Свойство сохранено');window.dispatchEvent(new Event('os11:properties-changed'))}
-  catch(e:any){setError(e.message||'Не удалось сохранить свойство')}
+  setBusy(true);setError('');setStatus('');const key='custom-property:'+taskId+':'+field.id;reportSaveState(key,'saving');
+  try{await request('os8','task_property_set',{taskId,propertyId:field.id,value});setValues(v=>({...v,[field.id]:value}));setStatus('Свойство сохранено');reportSaveState(key,'saved');window.dispatchEvent(new Event('os11:properties-changed'))}
+  catch(e:any){reportSaveState(key,'error');setError(e.message||'Не удалось сохранить свойство')}
   finally{setBusy(false)}
  };
  const create=async(e:React.MouseEvent<HTMLButtonElement>)=>{
@@ -29,10 +30,9 @@ export function TaskCustomProperties({taskId,pipelineProperties=[],progressAppea
   try{const created=await request('os8','task_property_define',{name,fieldType:type,icon:PROPERTY_ICON_DEFAULTS[type],choices:choices.split(',').map(x=>x.trim()).filter(Boolean)});await hide(created.id,false);await load();setName('');setChoices('');setAdding(false)}
   catch(e:any){setError(e.message||'Не удалось создать свойство')}finally{setBusy(false)}
  };
- return <div className="os-custom-properties os-custom-properties--embedded" aria-label="Дополнительные свойства задачи">
+ return <div className="os-custom-properties os-custom-properties--embedded" data-save-status={status} aria-label="Дополнительные свойства задачи">
   
   {error&&<p role="alert" className="os-inline-error">{error}</p>}
-  {status&&<p role="status" className="os-inline-hint">{status}</p>}
   {pipelineProperties.map(p=><div className="os-custom-property-row os-computed-progress" key={p.blockId}>
    <TaskPropertyAppearance fieldKey="progress" name={pipelineProperties.length===1?progressAppearance.name:p.label.replace(/^Прогресс/,progressAppearance.name)} icon={progressAppearance.icon} onChange={onProgressAppearance} onRemove={onRemoveProgress}/><div className="os-computed-progress-value">
     <div className="os-computed-progress-track" role="progressbar" aria-label={p.label} aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100}><span style={{width:p.percent+'%'}}/></div>

@@ -1,0 +1,22 @@
+/* ProDesk 6.15: calm sidebar, contextual workflow drag and stable editor controls. */
+.sidebar-section-toggle{width:100%;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:transparent;color:#969cad;font-size:10px;font-weight:750;letter-spacing:1.45px;text-align:left;padding:12px 15px 6px;cursor:pointer;border-radius:9px}
+.sidebar-section-toggle:hover,.sidebar-section-toggle:focus-visible{background:rgba(141,128,233,.08);color:var(--text)}
+.sidebar-section-toggle svg{flex:none;opacity:.8}
+.sidebar-recent{padding:9px 0 16px;border-top:1px solid var(--line);margin-top:13px}
+.sidebar-recent-link{border:0;background:transparent;width:100%;min-height:40px;display:flex;align-items:center;gap:10px;padding:9px 14px;text-align:left;border-radius:10px;color:var(--muted);font-size:12px;cursor:pointer}
+.sidebar-recent-link span{display:block;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-recent-link:hover,.sidebar-recent-link:focus-visible{background:var(--purple-soft);color:var(--purple)}
+.sidebar-recent-empty{padding:3px 15px 12px;font-size:11px;color:var(--muted);line-height:1.5}
+.os-workflow-row.is-grip-dragging{opacity:.54;outline:1px dashed var(--purple);outline-offset:-1px}
+.os-workflow-row.is-grip-target{background:var(--purple-soft);box-shadow:inset 0 2px 0 var(--purple);border-radius:7px}
+.os-workspace .workflow-actions>summary.os-workflow-drag-grip{width:38px;height:40px;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;user-select:none}
+.os-workspace .workflow-actions>summary.os-workflow-drag-grip:active{cursor:grabbing}
+.os-workflow-drag-grip .os-four-dot-grip{display:grid!important;grid-template-columns:repeat(2,4px);grid-template-rows:repeat(2,4px);gap:3px;flex:none!important;width:11px;height:11px;align-content:center;justify-content:center}
+.os-workflow-drag-grip .os-four-dot-grip i{display:block;width:4px;height:4px;background:currentColor;border-radius:50%;opacity:.85}
+.os-workflow-row .os-workflow-drag-grip:hover{color:var(--purple);background:var(--purple-soft)}
+.task-document-wrap .editor-save-hint,.task-document-wrap .task-save-status{display:none}
+.cloud-button.error{color:#c04444!important}
+.cloud-button.saving svg{animation:prodesk-cloud-pulse 1.5s ease-in-out infinite}
+@keyframes prodesk-cloud-pulse{50%{opacity:.42}}
+@media(prefers-reduced-motion:reduce){.cloud-button.saving svg{animation:none}}
+@media(max-width:600px){.sidebar-section-toggle{min-height:44px}.sidebar-recent-link{min-height:44px}}

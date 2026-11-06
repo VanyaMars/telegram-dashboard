@@ -14,7 +14,7 @@ assert.doesNotMatch(analytics,/focusIncome|Фокус по задачам/);asse
 assert.doesNotMatch(pages,/workspaceMode|showPages|mvp-pages-toggle/);
 assert.match(pages,/taskPage/);
 assert.match(pipeline,/LayoutGroup/);assert.match(pipeline,/useReducedMotion/);
-assert.match(read('package.json'),/"version": "6\.14\.0"/);
+assert.match(read('package.json'),/"version": "6\.15\.0"/);
 
 // ProDesk brand identity and non-destructive property presentation.
 assert.match(read('src/App.tsx'),/>ProDesk<\/strong>/);
@@ -28,5 +28,21 @@ assert.ok(!read('src/lib/api.ts').includes('goal_target_mode'),'No invented back
 console.log('6.8 integrated static checks: Home, Goals, Pages, Income, Pipeline and build label OK');
 
 assert.match(read('src/components/WorkspacePipeline.tsx'),/let committed=false/);
-assert.match(read('src/pages/Workspace.tsx'),/Назад в буфер задач/);
+assert.match(read('src/pages/Workspace.tsx'),/Назад/);
 assert.doesNotMatch(read('src/components/RegularGoals.tsx'),/Ручной прогресс|Ручной процент/);
+
+
+const prodeskFlow=read('src/App.tsx'),taskDoc=read('src/components/TaskDocument.tsx'),pipelineFlow=read('src/components/WorkspacePipeline.tsx'),os8Source=read('supabase/06-os8-index.ts');
+assert.match(prodeskFlow,/sidebar-section-toggle/);
+assert.match(prodeskFlow,/recentTasks\.slice\(0,10\)/);
+assert.match(prodeskFlow,/readSaveState/);
+assert.match(taskDoc,/paragraphTop/,'Editor gutter must follow active paragraph rather than caret wrapping');
+assert.doesNotMatch(taskDoc,/className="editor-save-hint"/);
+assert.match(pipelineFlow,/os-four-dot-grip/);
+assert.match(pipelineFlow,/workflow_reorder/);
+assert.match(read('src/pages/CorePages.tsx'),/\['working','В работе'\]/);
+assert.match(os8Source,/act==='task_rollover'/);
+assert.match(os8Source,/act==='task_library'/);
+assert.match(os8Source,/os9_regular_goal_tasks/);
+assert.match(read('src/AppContext.tsx'),/request\('os8','task_rollover'/);
+console.log('ProDesk flow 6.15: sidebar, recent tasks, stable gutter, cloud, working view and rollover contracts OK');

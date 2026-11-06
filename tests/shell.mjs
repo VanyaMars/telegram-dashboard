@@ -11,7 +11,8 @@ assert.doesNotMatch(app,/label:'Страницы'/,'Pages must not be a separate
 assert.match(app,/label:'Буфер задач'/);
 assert.doesNotMatch(read('src/pages/BufferWorkspace.tsx'),/Дополнительные страницы и базы|os-workspace-panel/);
 assert.match(read('src/pages/BufferWorkspace.tsx'),/taskPage/);
-assert.match(read('src/pages/Workspace.tsx'),/Назад в буфер задач/);
+assert.match(read('src/pages/Workspace.tsx'),/prodesk:task-return:/);
+assert.match(read('src/pages/Workspace.tsx'),/> Назад<\/button>/);
 assert.doesNotMatch(app,/label:'Доходы'/);
 assert.doesNotMatch(app,/label:'Фокус-таймер'|label:'Повторения'/);
 assert.match(app,/case 'analytics':return <MvpAnalyticsPage\/>/);
