@@ -19,4 +19,18 @@ for(const [view,key] of [['templates','template'],['archive','archived']]){await
 rows=[];result=await call({view:'completed'});assert.deepEqual(result.body.tasks,[]);assert.equal(result.body.hasMore,false);
 for(const fields of [{view:'unknown'},{offset:-1},{offset:1.1},{offset:100001}]){assert.equal((await call(fields)).status,400);assert.equal(calls.length,0)}
 assert.equal((await call({initData:'forged'})).status,401);assert.equal(calls.length,0);
+
+// A carry-over must be scoped to the signed user and never select completed tasks.
+calls=[];
+const target='2026-11-06';
+const rolloverResponse=await handler(new Request('https://example.test/os8',{method:'POST',body:JSON.stringify({initData:init.toString(),action:'task_rollover',today:target})}));
+assert.equal(rolloverResponse.status,200);
+assert.ok(calls.some(c=>c[0]==='eq'&&c[1]==='telegram_user_id'&&c[2]===owner));
+assert.ok(calls.some(c=>c[0]==='eq'&&c[1]==='completed'&&c[2]===false));
+assert.ok(calls.some(c=>c[0]==='lt'&&c[1]==='day'&&c[2]===target));
+result=await call({view:'working'});
+assert.equal(result.status,200);
+assert.ok(calls.some(c=>c[0]==='eq'&&c[1]==='completed'&&c[2]===false));
+assert.ok(calls.some(c=>c[0]==='from'&&c[1]==='os9_regular_goal_tasks'));
+assert.ok(calls.some(c=>c[0]==='from'&&c[1]==='os6_task_goal'));
 console.log('Task library Edge handler: signed auth, owner scope, all dates, filters, escaping, pagination and invalid input OK');
