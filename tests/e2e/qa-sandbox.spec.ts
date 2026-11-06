@@ -63,7 +63,7 @@ test('task properties autosave: category, notes and icon/title persist',async({p
  const notes=panel.getByRole('textbox',{name:'Заметки'});
  await notes.fill('Заметки сохраняются автоматически');
  await notes.blur();
- await expect(panel.getByRole('status').filter({hasText:'Сохранено'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Все изменения сохранены'})).toBeVisible();
  await page.reload();
  await page.getByRole('button',{name:'Свойства',exact:true}).click();
  await expect(page.locator('.os-task-properties').getByRole('textbox',{name:'Заметки'})).toHaveValue('Заметки сохраняются автоматически');
