@@ -17,7 +17,7 @@ type AppContextValue={
   tasks:Task[];buffer:Task[];recentTasks:RecentTask[];goals:Goal[];goalHistory:GoalPoint[];categories:Category[];os6:OS6Data;
   metrics:Record<string,DayMetrics>;previousMetrics:Record<string,DayMetrics>;legacyRows:any[];
   editor:Editor;setEditor:(e:Editor)=>void;message:string;notify:(m:string)=>void;recentDeleted:Task|null;undoDelete:()=>Promise<void>;
-  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
+  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;refreshTasks:(rollover?:boolean)=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
   reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
   saveCategory:(form:any)=>Promise<{id:string}|undefined>;deleteCategory:(cat:Category)=>Promise<void>;
@@ -49,14 +49,33 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
   const togglesInFlight=useRef(new Set<string>());
+  const dayReadVersion=useRef(0),metricsReadVersion=useRef(0);
   const notify=(m:string)=>{setMessage(m);};
   const open=(t:Tab)=>{const nextTab=t==='workspace'?'buffer':t;const hash=hashForTab(t);if(window.location.hash!==hash)window.location.hash=hash;setTab(nextTab);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
   useEffect(()=>{const handle=()=>setTab(tabFromHash(window.location.hash));window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
   const readDays=useCallback(async(d:string)=>{
+    const version=++dayReadVersion.current;
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});
+    if(version!==dayReadVersion.current||d!==dayRef.current)return;
     setTasks(sorted((data.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((data.buffer||[]).filter(t=>!t.task_options?.archived)));
   },[demo]);
+  // Ordinary task edits do not need profile initialization, repeat generation,
+  // categories, finance, goals history or rollover. Reconcile only task data.
+  const refreshTasks=async(rollover=false)=>{
+    // Reopening a completed past-day task must retain the existing carry-over
+    // behavior. Ordinary edits/toggles never need this maintenance request.
+    if(rollover&&!demo)await request('os8','task_rollover',{today});
+    const version=++metricsReadVersion.current;
+    const {start,end}=metricRange(mondayOf(today));
+    await Promise.all([
+      readDays(dayRef.current),
+      demo?Promise.resolve():request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end}).then(data=>{
+        if(version!==metricsReadVersion.current)return;
+        setMetrics(data.days||{});setPrevMetrics(data.days||{});
+      })
+    ]);
+  };
   const reload=useCallback(async(d:string,timezone:string)=>{
     if(demo){
       setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));setCategories(demoCategories);
@@ -103,9 +122,9 @@ export function AppProvider({children}:{children:React.ReactNode}){
   return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visible)};
   },[tz,today,ready,reload]);
   // Every selected date, including a return to today, must load the matching tasks.
-  useEffect(()=>{if(!ready||status==='error')return;void readDays(day);
+  useEffect(()=>{if(!ready||error)return;void readDays(day).catch(e=>notify(e.message||'Не удалось загрузить задачи'));
   // Avoid stale 'today' comparisons that made the Home screen show yesterday's tasks.
-  },[day,ready,readDays]);
+  },[day,ready,readDays,error]);
   useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},recentDeleted&&message==='Задача удалена'?8000:5500);return()=>clearTimeout(t)},[message,recentDeleted]);
   const refresh=async()=>{await reload(dayRef.current,tz);};
   const openTaskPage=async(task:Pick<Task,'id'|'title'>)=>{
@@ -127,29 +146,39 @@ export function AppProvider({children}:{children:React.ReactNode}){
     if(demo){const mock:Task={id:form.id||`demo-${Date.now()}`,title:form.title,notes:form.notes||'',sphere:form.sphere,day:form.day||null,priority:form.priority||'extra',completed:false};
       if(mock.day){setTasks(ts=>sorted([...ts.filter(t=>t.id!==mock.id),mock]));}else setBuffer(ts=>sorted([...ts.filter(t=>t.id!==mock.id),mock]));setEditor(null);notify('Добавлено в демонстрацию');return;}
     setStatus('saving');
+    dayReadVersion.current++;
+    let committed=false;
     try{
       const name=categories.find(c=>c.id===form.categoryId)?.name||form.sphere||'Без категории';
       const task={title:form.title.trim(),notes:form.notes||'',sphere:name,day:form.day||null,priority:form.priority||'extra'};
       // Moving/editing a task without an explicit goal selection must preserve its existing ambitious-goal link.
       const linkedGoalId=form.goalId===undefined?(os6.links.find(link=>link.task_id===form.id)?.goal_id||null):(form.goalId||null);
       const result=await request<{id:string}>('os6','task_save_and_link',{id:form.id||null,task,goal_id:linkedGoalId});
+      committed=true;
+      setOS6(old=>({...old,links:[...old.links.filter(link=>link.task_id!==result.id),...(linkedGoalId?[{task_id:result.id,goal_id:linkedGoalId}]:[])]}));
       if(form.categoryId!==undefined)await request('os61','task_category_set',{id:result.id,categoryId:form.categoryId||null});
-      setEditor(null);haptic();await reload(dayRef.current,tz);notify('Задача сохранена');
-    }catch(e:any){setStatus('error');notify(e.message||'Ошибка сохранения');throw e;}
+      setEditor(null);haptic();await refreshTasks();setStatus('saved');notify('Задача сохранена');
+    }catch(e:any){setStatus('error');
+      if(committed){setEditor(null);notify('Задача сохранена, но не удалось обновить все данные: '+(e.message||'Ошибка связи'));return;}
+      notify(e.message||'Ошибка сохранения');throw e;
+    }
   };
   const toggleTask=async(task:Task)=>{
     if(togglesInFlight.current.has(task.id))return;
     togglesInFlight.current.add(task.id);
+    dayReadVersion.current++;
+    setStatus('saving');
     const next={...task,completed:!task.completed};
     setTasks(x=>x.map(t=>t.id===task.id?next:t));
     let committed=false;
     try{
-      if(demo){haptic();return;}
+      if(demo){haptic();setStatus('demo');return;}
       await request('dashboard','task_toggle',{id:task.id,completed:next.completed});
       committed=true;haptic();
-      await reload(dayRef.current,tz);
+      await refreshTasks(task.completed&&!!task.day&&task.day<today);setStatus('saved');
     }catch(e:any){
-      if(!committed)setTasks(x=>x.map(t=>t.id===task.id?task:t));
+      if(!committed)setTasks(x=>x.map(t=>t.id===task.id?{...t,completed:task.completed}:t));
+      setStatus('error');
       notify((committed?'Задача сохранена, но не удалось обновить список: ':'Не удалось обновить задачу: ')+(e?.message||'Ошибка связи'));
     }finally{togglesInFlight.current.delete(task.id);}
   };
@@ -201,7 +230,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
     tasks,buffer,recentTasks,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
-    openTaskPage,refresh,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
+    openTaskPage,refresh,refreshTasks,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export const useApp=()=>{const v=useContext(Context);if(!v)throw Error('No AppProvider');return v;};

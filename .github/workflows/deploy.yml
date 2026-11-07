@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Run smoke tests
         run: npm run test:smoke
       - name: Workspace tests
@@ -51,6 +51,8 @@ jobs:
         run: npm run test:goals-workspace
       - name: 6.8 Integration
         run: npm run test:integration
+      - name: Patch behavior regression
+        run: npm run test:patch
       - name: Compile and build
         env:
           VITE_BUILD_SHA: ${{ github.sha }}
