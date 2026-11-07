@@ -8,5 +8,6 @@ export const motionTokens={
  card:{duration:0.28,ease:'easeOut'},
  route:{duration:0.18,ease:'easeOut'},
  feedback:{duration:0.18,ease:'easeOut'},
+ listRow:{duration:0.18,ease:[0.2,0,0,1]},
  progress:{duration:0.48,ease:'easeOut'}
 } as const;

@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useState,useRef} from 'react';
-import {AnimatePresence,LayoutGroup,useReducedMotion} from 'motion/react';
+import {AnimatePresence,LayoutGroup,useReducedMotion,useIsPresent} from 'motion/react';
 import * as m from 'motion/react-m';
 import {Icon} from './Icons';
 import {motionTokens} from './motionTokens';
@@ -14,6 +14,7 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
  const [localSplits,setLocalSplits]=useState<WSplit[]>([]);
  const [localItems,setLocalItems]=useState<WItem[]>([]);
  const [patches,setPatches]=useState<Record<string,Partial<WItem>>>({});
+ const [deletedItems,setDeletedItems]=useState<string[]>([]);
  const newStages=useRef(new Map<string,Promise<string>>()),stableKeys=useRef(new Map<string,string>());
  const serverSplits=useMemo(()=>initialSplits.filter(s=>s.block_id===blockId).sort((a,b)=>a.position-b.position),[initialSplits,blockId]);
  const splits=useMemo(()=>{
@@ -24,8 +25,9 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
  const items=useMemo(()=>{
   const ids=new Set(serverItems.map(t=>t.id));
   return [...serverItems,...localItems.filter(t=>!ids.has(t.id))]
+   .filter(t=>!deletedItems.includes(t.id))
    .map(t=>({...t,...patches[t.id]})).sort((a,b)=>a.position-b.position);
- },[serverItems,localItems,patches]);
+ },[serverItems,localItems,patches,deletedItems]);
  useEffect(()=>{
   const ids=new Set(serverSplits.map(s=>s.id));
   setLocalSplits(prev=>prev.some(s=>ids.has(s.id))?prev.filter(s=>!ids.has(s.id)):prev);
@@ -62,6 +64,9 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
    const actualSplitId=await (newStages.current.get(splitId)||Promise.resolve(splitId));
    const saved=await write('workflow_save',{splitId:actualSplitId,title});
    if(typeof saved?.id!=='string')throw Error('Сервер не вернул ID действия');
+   // The optimistic row and the confirmed row are the same React instance.
+   // Changing its key here would leave an exiting copy beside the new row.
+   stableKeys.current.set(saved.id,draft);
    setLocalItems(prev=>prev.map(i=>i.id===draft?{...i,id:saved.id,split_id:actualSplitId}:i));
    refreshLater();
   }catch(e){setLocalItems(prev=>prev.filter(i=>i.id!==draft));throw e}
@@ -70,6 +75,11 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
   setPatches(prev=>({...prev,[item.id]:{...prev[item.id],...patch}}));
   try{await write('workflow_save',{id:item.id,splitId:item.split_id,...patch});refreshLater()}
   catch(e){setPatches(prev=>{const next={...prev};delete next[item.id];return next});throw e}
+ };
+ const deleteWorkflow=async(item:WItem)=>{
+  setDeletedItems(prev=>[...new Set([...prev,item.id])]);
+  try{await write('workflow_delete',{id:item.id});refreshLater()}
+  catch(e){setDeletedItems(prev=>prev.filter(id=>id!==item.id));throw e}
  };
  const commitOrder=async(ids:string[])=>{
   if(movingRef.current)return;
@@ -121,16 +131,17 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
    <m.span initial={false} style={{width:'100%',transformOrigin:'0% 50%'}} animate={{scaleX:completed/100}}
     transition={reduced?{duration:0}:motionTokens.progress}/>
   </div>
-  {nextAction&&<p className="os-inline-hint">Следующее действие: {nextAction.title}</p>}
-  {total>0&&completed===100&&<p role="status" className="os-inline-hint">Все действия выполнены. Можно завершить задачу кнопкой вверху страницы.</p>}
+  <p className="os-inline-hint os-pipeline-feedback" role={total>0&&completed===100?'status':undefined}>
+   {nextAction?'Следующее действие: '+nextAction.title:total>0&&completed===100?'Все действия выполнены. Можно завершить задачу кнопкой вверху страницы.':'Добавь действие, чтобы начать выполнение.'}
+  </p>
   {orderError&&<div className="os-pipe-feedback" role="alert">{orderError}{failedOrder&&<button type="button" disabled={moving} onClick={()=>void commitOrder(failedOrder)}>Повторить перестановку</button>}</div>}
   <div className="os-pipe-tabs" role="tablist" aria-label="Этапы Pipeline">{arranged.map((s,i)=><button role="tab" key={s.id} aria-selected={active===s.id} className={active===s.id?'active':''} onClick={()=>setActive(s.id)}><small>Этап {i+1}</small>{s.title}</button>)}</div>
   <LayoutGroup id={'pipeline-'+blockId}>
    <div className="os-pipe-columns">{arranged.map((s,i)=>
     <m.div className={'os-split '+(active===s.id?'active expanded':'is-collapsed')} key={stableKeys.current.get(s.id)||s.id}
-     layout={reduced?false:'position'} initial={false} transition={reduced?{duration:0}:{type:'spring',stiffness:380,damping:34,mass:.8}}>
+     layout={reduced||!moving?false:'position'} initial={false} transition={reduced?{duration:0}:{type:'spring',stiffness:380,damping:34,mass:.8}}>
      <SplitColumn split={s}index={i}items={items.filter(x=>x.split_id===s.id)}
-      move={move}action={action}write={write}reload={reload}createWorkflow={createWorkflow}updateWorkflow={updateWorkflow}allSplits={arranged}
+      move={move}action={action}write={write}reload={reload}createWorkflow={createWorkflow}updateWorkflow={updateWorkflow}deleteWorkflow={deleteWorkflow}rowKey={id=>stableKeys.current.get(id)||id}allSplits={arranged}
       expanded={active===s.id}toggle={()=>setActive(s.id)}stageMoving={moving}/>
     </m.div>
    )}</div>
@@ -142,8 +153,8 @@ export function SplitPipeline({title='Pipeline',blockId,initialSplits,initialIte
   {newSplitError?<p className="os-inline-error" id="split-name-error" role="alert">{newSplitError}</p>:<p className="os-inline-hint">Введи название и нажми Enter ↵ или галочку</p>}
  </section>;
 }
-type ColumnProps={split:WSplit;index:number;items:WItem[];move:(id:string,step:number)=>Promise<void>;action:(name:string,body:Record<string,unknown>)=>Promise<any>;write:(action:string,body:Record<string,unknown>)=>Promise<any>;reload:()=>Promise<void>;createWorkflow:(splitId:string,title:string)=>Promise<void>;updateWorkflow:(item:WItem,patch:Partial<Pick<WItem,'completed'|'title'>>)=>Promise<void>;allSplits:WSplit[];expanded:boolean;toggle:()=>void;stageMoving:boolean};
-function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,updateWorkflow,allSplits,expanded,toggle,stageMoving}:ColumnProps){
+type ColumnProps={split:WSplit;index:number;items:WItem[];move:(id:string,step:number)=>Promise<void>;action:(name:string,body:Record<string,unknown>)=>Promise<any>;write:(action:string,body:Record<string,unknown>)=>Promise<any>;reload:()=>Promise<void>;createWorkflow:(splitId:string,title:string)=>Promise<void>;updateWorkflow:(item:WItem,patch:Partial<Pick<WItem,'completed'|'title'>>)=>Promise<void>;deleteWorkflow:(item:WItem)=>Promise<void>;rowKey:(id:string)=>string;allSplits:WSplit[];expanded:boolean;toggle:()=>void;stageMoving:boolean};
+function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,updateWorkflow,deleteWorkflow,rowKey,allSplits,expanded,toggle,stageMoving}:ColumnProps){
  const reduced=useReducedMotion();
  const [title,setTitle]=useState(split.title),[adding,setAdding]=useState(''),[editError,setEditError]=useState(''),[editing,setEditing]=useState<string|null>(null),[editText,setEditText]=useState(''),[editBusy,setEditBusy]=useState(false),[workflowEditError,setWorkflowEditError]=useState('');
  const [localOrder,setLocalOrder]=useState<string[]|null>(null),[orderError,setOrderError]=useState(''),[failedOrder,setFailedOrder]=useState<string[]|null>(null),[reordering,setReordering]=useState(false);
@@ -240,7 +251,7 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
   e.preventDefault();if(addRef.current)return;
   if(!adding.trim()){setEditError('Напиши действие перед добавлением');return}
   addRef.current=true;setAddingBusy(true);setEditError('');
-  const text=adding.trim();setAdding('');addInputRef.current?.focus();
+  const text=adding.trim();setAdding('');addInputRef.current?.focus({preventScroll:true});
   try{await createWorkflow(split.id,text)}
   catch{setAdding(current=>current||text);setEditError('Не удалось подтвердить действие. Проверь список перед повтором.')}
   finally{addRef.current=false;setAddingBusy(false)}
@@ -265,9 +276,8 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
    {orderError&&<p className="os-inline-error" role="alert">{orderError}{failedOrder&&<button type="button" className="os-pipe-retry" disabled={reordering} onClick={()=>void commitRowOrder(failedOrder)}>Повторить порядок</button>}</p>}
    {workflowEditError&&editing===null&&<p className="os-inline-error" role="alert">{workflowEditError}</p>}
    <LayoutGroup id={'workflow-'+split.id}><div className="os-workflow-list">
-    <AnimatePresence initial={false}>{arranged.map(item=><m.div data-workflow-id={item.id} className={'os-workflow-row '+(dragging===item.id?'is-grip-dragging ':'')+(dragOver===item.id?'is-grip-target':'')} key={item.id}
-     layout={reduced?false:'position'} initial={false} animate={{opacity:1}} exit={reduced?{opacity:0}:{opacity:0,y:-4}}
-     transition={reduced?{duration:0}:{type:'spring',stiffness:380,damping:34,mass:.8}}>
+    <AnimatePresence initial={false}>{arranged.map(item=><WorkflowPresence key={rowKey(item.id)} reordering={reordering}>
+     <div data-workflow-id={item.id} className={'os-workflow-row '+(dragging===item.id?'is-grip-dragging ':'')+(dragOver===item.id?'is-grip-target':'')}>
      <m.input type="checkbox" checked={item.completed} disabled={item.id.startsWith('pending-item-')||pendingItems.includes(item.id)}
       whileTap={reduced?undefined:{scale:0.97}} transition={reduced?{duration:0}:motionTokens.press}
       aria-label={'Выполнено: '+item.title} onChange={e=>void toggleDone(item,e.target.checked)}/>
@@ -285,9 +295,9 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
       {allSplits.length>1&&<select className="os-workflow-move" aria-label={'Перенести действие: '+item.title} value="" onChange={e=>void action('workflow_move',{id:item.id,splitId:e.target.value}).catch(()=>setWorkflowEditError('Не удалось перенести действие.'))}><option value="" disabled>Перенести в этап…</option>{allSplits.filter(s=>s.id!==split.id).map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select>}
       <button type="button" title="Выше" aria-label={'Выше: '+item.title} disabled={reordering||arranged[0].id===item.id} onClick={()=>void reorder(item.id,-1)}>Переместить выше</button>
       <button type="button" title="Ниже" aria-label={'Ниже: '+item.title} disabled={reordering||arranged[arranged.length-1].id===item.id} onClick={()=>void reorder(item.id,1)}>Переместить ниже</button>
-      <button type="button" title="Удалить" aria-label={'Удалить: '+item.title} onClick={()=>{if(window.confirm('Удалить это действие?'))void action('workflow_delete',{id:item.id}).catch(()=>setWorkflowEditError('Не удалось удалить действие.'))}}>Удалить действие</button>
+      <button type="button" title="Удалить" aria-label={'Удалить: '+item.title} onClick={()=>{if(window.confirm('Удалить это действие?')){addInputRef.current?.focus({preventScroll:true});void deleteWorkflow(item).catch(()=>setWorkflowEditError('Не удалось удалить действие.'))}}}>Удалить действие</button>
      </div></details>}
-    </m.div>)}</AnimatePresence>
+     </div></WorkflowPresence>)}</AnimatePresence>
    </div></LayoutGroup>
    <form className="os-workflow-add" onSubmit={e=>void addItem(e)}>
     <input ref={addInputRef} placeholder="Новое действие…" aria-label="Новое действие Workflow" value={adding} onChange={e=>{setAdding(e.target.value);setEditError('')}} maxLength={240}/>
@@ -296,4 +306,19 @@ function SplitColumn({split,index,items,move,action,write,reload,createWorkflow,
    {editError&&<p role="alert" className="os-inline-error">{editError}</p>}
   </div>
  </div>;
+}
+
+/** Only the changed row expands/collapses. A server acknowledgement must not
+ * re-run an entrance animation or spring the surrounding stage/form. */
+function WorkflowPresence({children,reordering}:{children:React.ReactNode;reordering:boolean}){
+ const reduced=useReducedMotion(),present=useIsPresent();
+ return <m.div className="os-workflow-presence" aria-hidden={!present||undefined}
+  layout={!reduced&&reordering?'position':false}
+  initial={reduced?false:{height:0,opacity:0,overflow:'hidden'}}
+  animate={{height:'auto',opacity:1,overflow:'hidden',transitionEnd:{overflow:'visible'}}}
+  exit={{height:0,opacity:0,overflow:'hidden'}}
+  style={{pointerEvents:present?undefined:'none'}}
+  transition={reduced?{duration:0}:motionTokens.listRow}>
+  {children}
+ </m.div>;
 }
