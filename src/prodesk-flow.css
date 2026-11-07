@@ -19,4 +19,8 @@
 .cloud-button.saving svg{animation:prodesk-cloud-pulse 1.5s ease-in-out infinite}
 @keyframes prodesk-cloud-pulse{50%{opacity:.42}}
 @media(prefers-reduced-motion:reduce){.cloud-button.saving svg{animation:none}}
+.os-pipeline-premium .os-workflow-list{gap:0}
+.os-workflow-presence{display:flow-root}
+.os-workflow-presence>.os-workflow-row{margin-bottom:5px}
+.os-pipeline-feedback{height:36px;min-height:36px;line-height:18px!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 @media(max-width:600px){.sidebar-section-toggle{min-height:44px}.sidebar-recent-link{min-height:44px}}
