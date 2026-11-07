@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Smoke tests
         run: npm run test:smoke
       - name: Workspace tests
@@ -54,5 +54,7 @@ jobs:
         run: node tests/task-property-autosave.mjs
       - name: Task library authorization and pagination
         run: node tests/task-library.mjs
+      - name: Patch behavior regression
+        run: npm run test:patch
       - name: Typecheck and build
         run: npm run build

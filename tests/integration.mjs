@@ -14,7 +14,7 @@ assert.doesNotMatch(analytics,/focusIncome|Фокус по задачам/);asse
 assert.doesNotMatch(pages,/workspaceMode|showPages|mvp-pages-toggle/);
 assert.match(pages,/taskPage/);
 assert.match(pipeline,/LayoutGroup/);assert.match(pipeline,/useReducedMotion/);
-assert.match(read('package.json'),/"version": "6\.15\.0"/);
+assert.match(read('package.json'),/"version": "6\.15\.1"/);
 
 // ProDesk brand identity and non-destructive property presentation.
 assert.match(read('src/App.tsx'),/>ProDesk<\/strong>/);

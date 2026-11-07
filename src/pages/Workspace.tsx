@@ -31,7 +31,7 @@ export function WorkspacePage({embedded=false}:{embedded?:boolean}){
  const {demo,today}=useApp(),[pages,setPages]=useState<WPage[]>([]),[sources,setSources]=useState<WSource[]>([]);
  const [selectedId,setSelectedId]=useState<string|null>(uuidRoute),[details,setDetails]=useState<WPageResponse|null>(null),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[recordPageIds,setRecordPageIds]=useState<string[]>([]),[newTitle,setNewTitle]=useState(''),[working,setWorking]=useState(false),[taskData,setTaskData]=useState<Task|null>(null);
- const pageRequest=useRef(0),writes=useRef(0);
+ const pageRequest=useRef(0),writes=useRef(0),selectedIdRef=useRef(selectedId);
  const openPage=useCallback((id:string)=>{window.location.hash=pageLink(id);window.scrollTo({top:0,behavior:'smooth'})},[]);
  const home=()=>{
   let stored='';try{stored=selectedId?sessionStorage.getItem('prodesk:task-return:'+selectedId)||'':''}catch{}
@@ -42,7 +42,13 @@ export function WorkspacePage({embedded=false}:{embedded?:boolean}){
  const loadList=useCallback(async()=>{if(demo){setLoading(false);return}try{const [data,taskPages,archives]=await Promise.all([workspaceRequest<{pages:WPage[];sources:WSource[];recordPageIds:string[]}>('bootstrap'),request<{pageIds:string[]}>('os8','task_page_links'),request<{pageIds:string[]}>('os9','archived_pages').catch((): {pageIds:string[]}=>({pageIds:[]}))]);setPages((data.pages||[]).filter(page=>!archives.pageIds.includes(page.id)));setSources(data.sources||[]);setRecordPageIds([...new Set([...(data.recordPageIds||[]),...(taskPages.pageIds||[])])]);setError('')}catch(e:any){setError(e.message||'Ошибка загрузки страниц')}finally{setLoading(false)}},[demo]);
  const loadPage=useCallback(async(id:string)=>{if(demo)return;const version=++pageRequest.current;setWorking(true);setError('');try{const [data,linked]=await Promise.all([workspaceRequest<WPageResponse>('page_get',{id}),request<{task:Task|null}>('os8','task_page_find',{pageId:id})]);if(version!==pageRequest.current)return;setDetails(data);setTaskData(linked.task||null);setError('')}catch(e:any){if(version!==pageRequest.current)return;setError(e.message||'Страница не загрузилась');setDetails(null);setTaskData(null)}finally{if(version===pageRequest.current)setWorking(false)}},[demo]);
  const refresh=useCallback(async()=>{if(selectedId)await loadPage(selectedId)},[loadList,loadPage,selectedId]);
- useEffect(()=>{const change=()=>{pageRequest.current++;setDetails(null);setTaskData(null);setSelectedId(uuidRoute())};window.addEventListener('hashchange',change);return()=>{window.removeEventListener('hashchange',change);pageRequest.current++}},[]);
+ useEffect(()=>{const change=()=>{
+  const next=uuidRoute();
+  // A page may mount before its pending hashchange is delivered. Do not cancel
+  // the initial request when that event still points at the same page.
+  if(next===selectedIdRef.current)return;
+  selectedIdRef.current=next;pageRequest.current++;setDetails(null);setTaskData(null);setSelectedId(next);
+ };window.addEventListener('hashchange',change);return()=>{window.removeEventListener('hashchange',change);pageRequest.current++}},[]);
  useEffect(()=>{void loadList()},[loadList]);
  useEffect(()=>{if(selectedId)void loadPage(selectedId);else setDetails(null)},[selectedId,loadPage]);
  const run=async(action:string,data:Record<string,unknown>)=>{
@@ -188,6 +194,9 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
  const [lastFailed,setLastFailed]=useState<{key:string;value:any;kind?:string}|null>(null);
  const queue=useRef<Promise<void>>(Promise.resolve()),pending=useRef(0),notesTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const notesCurrent=useRef(notes),notesSent=useRef(task.notes||'');
+ // The command bar can schedule this task while the inspector stays mounted.
+ // Keep its date current, without replacing an in-flight or failed date edit.
+ useEffect(()=>{if(!pending.current&&lastFailed?.key!=='day')setDay(task.day||'')},[task.day,status,lastFailed]);
  const names=(key:string)=>appearance[key]||DEFAULT_NATIVE_PROPERTIES[key];
  const hideNative=async(key:string,hidden:boolean)=>{const next=hidden?[...new Set([...hiddenNative,key])]:hiddenNative.filter(x=>x!==key);setHiddenNative(next);try{await request('os8','task_options_set',{taskId:task.id,patch:{hiddenNativeProperties:next}});await onSaved()}catch(e:any){setHiddenNative(hiddenNative);setError(e.message||'Не удалось изменить видимость свойства')}};
  useEffect(()=>{let active=true;request<{fields:Record<string,PropertyAppearance>}>('os8','task_native_fields').then(r=>{if(active)setAppearance({...DEFAULT_NATIVE_PROPERTIES,...r.fields})}).catch(e=>{if(active)setError(e.message||'Не удалось загрузить настройки свойств')});return()=>{active=false}},[task.id]);

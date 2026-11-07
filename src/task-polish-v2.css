@@ -3,6 +3,7 @@
 .task-inspector .os-task-properties{background:transparent!important}
 .task-command-bar{gap:12px!important}
 .task-command-bar .task-work-control{margin-left:0!important;order:0}
+.task-command-bar .task-work-calendar{left:0;right:auto;min-width:0;width:min(280px,calc(100vw - 72px))}
 .task-command-bar .task-properties-toggle{margin-left:0!important;order:1;gap:9px!important}
 .task-command-bar .task-properties-toggle svg:last-child{color:var(--muted);margin-left:5px}
 .task-command-bar .task-actions{margin-left:auto!important;order:2}

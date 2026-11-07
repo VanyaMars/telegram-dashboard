@@ -33,6 +33,7 @@ type QAState={
  taskPages:Record<string,string>;trash:Record<string,Task>;
  propertyFields?:Array<{id:string;slug?:string|null;name:string;field_type:string;options:{icon?:string;choices?:string[]}}>;
  propertyValues?:Record<string,Record<string,string>>;
+ goalRollups?:Array<{goal_kind:'regular'|'strategic';goal_id:string;property_id:string;label:string;target:number|null}>;
 };
 const now=()=>new Date().toISOString();
 const newId=()=>crypto.randomUUID();
@@ -161,6 +162,32 @@ function mutate(db:QAState,fn:string,action:string,f:Record<string,unknown>):Rec
  }
  if(fn==='os8'){
   db.propertyFields||=[];db.propertyValues||={};
+  if(action==='goal_rollup_get'||action==='goal_rollup_save'){
+   const kind=asStr(f.kind),goalId=asStr(f.goalId);
+   if(!['regular','strategic'].includes(kind)||!goalId)throw Error('Некорректная цель');
+   const goal=kind==='regular'?db.regularGoals.find(g=>g.id===goalId):db.goals.find(g=>g.id===goalId);
+   if(!goal)throw Error('Цель не найдена');
+   const fields=db.propertyFields.filter(x=>['duration','number'].includes(x.field_type)).slice(0,100);
+   db.goalRollups||=[];
+   if(action==='goal_rollup_save'){
+    const propertyId=asStr(f.propertyId),field=db.propertyFields.find(x=>x.id===propertyId);
+    if(!field||!['duration','number'].includes(field.field_type))throw Error('Нужно числовое поле');
+    const match=(r:NonNullable<QAState['goalRollups']>[number])=>r.goal_kind===kind&&r.goal_id===goalId&&r.property_id===propertyId;
+    if(f.remove===true){db.goalRollups=db.goalRollups.filter(r=>!match(r));return ok()}
+    const target=f.target===''||f.target==null?null:Number(f.target),label=asStr(f.label).trim().slice(0,80);
+    if(!label||target!==null&&(!Number.isFinite(target)||target<=0||target>1e12))throw Error('Проверь показатель');
+    db.goalRollups=db.goalRollups.filter(r=>!match(r)).concat({goal_kind:kind as 'regular'|'strategic',goal_id:goalId,property_id:propertyId,label,target});
+    return ok();
+   }
+   const ids=new Set(kind==='regular'?Object.keys(db.regularLinks).filter(id=>db.regularLinks[id]===goalId):db.os6.links.filter(l=>l.goal_id===goalId).map(l=>l.task_id));
+   if(ids.size>1000)throw Error('Слишком много задач');
+   const sums:Record<string,number>={};
+   for(const taskId of ids)for(const [id,value] of Object.entries(db.propertyValues[taskId]||{})){
+    if(!fields.some(field=>field.id===id)||value==='')continue;
+    const n=Number(value);if(Number.isFinite(n))sums[id]=(sums[id]||0)+n;
+   }
+   return ok({fields:fields.map(({id,name,field_type})=>({id,name,field_type})),rollups:db.goalRollups.filter(r=>r.goal_kind===kind&&r.goal_id===goalId).map(({property_id,label,target})=>({property_id,label,target,total:sums[property_id]||0})),linkedTasks:ids.size});
+  }
   if(action==='task_rollover'){
    const target=asStr(f.today);
    if(!/^\d{4}-\d{2}-\d{2}$/.test(target))throw Error('Неверная дата переноса');

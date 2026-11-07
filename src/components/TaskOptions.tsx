@@ -3,14 +3,26 @@ import {request} from '../lib/api';
 import {useApp} from '../AppContext';
 import {Icon} from './Icons';
 import type {Task} from '../types';
+import {reportSaveState,retrySaveEvent} from '../lib/saveStatus';
 
 export function TaskOptions({task,onSaved,propertiesOpen,onToggleProperties}:{task:Task;onSaved:()=>Promise<void>;propertiesOpen:boolean;onToggleProperties:()=>void}){
- const {refresh,today,openTaskPage}=useApp();
+ const {refreshTasks,today,openTaskPage}=useApp();
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[calendarOpen,setCalendarOpen]=useState(false),[selectedDay,setSelectedDay]=useState(task.day||today);
  const menu=useRef<HTMLDetailsElement>(null),locked=useRef(false);
+ const retry=useRef<(()=>void)|null>(null),saveKey='task-command:'+task.id;
+ useEffect(()=>{const repeat=()=>retry.current?.();window.addEventListener(retrySaveEvent,repeat);return()=>{window.removeEventListener(retrySaveEvent,repeat);reportSaveState(saveKey,'saved')}},[saveKey]);
  const options=task.task_options||{};
  useEffect(()=>{setSelectedDay(task.day||today);if(task.day)setCalendarOpen(false)},[task.id,task.day,today]);
- const run=async(action:()=>Promise<void>,reloadPage=true)=>{if(locked.current)return;locked.current=true;setBusy(true);setError('');try{await action();await refresh();if(reloadPage)await onSaved();if(menu.current)menu.current.open=false}catch(e:any){setError(e.message||'Изменение не сохранено')}finally{locked.current=false;setBusy(false)}};
+ const run=async(action:()=>Promise<void>,reloadPage=true)=>{if(locked.current)return;locked.current=true;setBusy(true);setError('');retry.current=null;reportSaveState(saveKey,'saving');let committed=false;try{
+  await action();committed=true;
+  await Promise.all([refreshTasks(task.completed&&!!task.day&&task.day<today),reloadPage?onSaved():Promise.resolve()]);
+  if(menu.current)menu.current.open=false;
+  reportSaveState(saveKey,'saved');
+ }catch(e:any){
+  reportSaveState(saveKey,committed?'saved':'error');
+  if(!committed)retry.current=()=>{void run(action,reloadPage)};
+  setError((committed?'Изменение сохранено, но обновить данные не удалось: ':'Изменение не сохранено: ')+(e.message||'Ошибка связи'));
+ }finally{locked.current=false;setBusy(false)}};
  const patch=(patch:Record<string,unknown>)=>request('os8','task_options_set',{taskId:task.id,patch});
  return <div className="task-options">
   <div className="task-command-bar" aria-label="Управление задачей">
