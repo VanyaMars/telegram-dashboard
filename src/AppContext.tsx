@@ -17,7 +17,7 @@ type AppContextValue={
   tasks:Task[];buffer:Task[];recentTasks:RecentTask[];goals:Goal[];goalHistory:GoalPoint[];categories:Category[];os6:OS6Data;
   metrics:Record<string,DayMetrics>;previousMetrics:Record<string,DayMetrics>;legacyRows:any[];
   editor:Editor;setEditor:(e:Editor)=>void;message:string;notify:(m:string)=>void;recentDeleted:Task|null;undoDelete:()=>Promise<void>;
-  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;refreshTasks:(rollover?:boolean)=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
+  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;refreshTasks:(rollover?:boolean)=>Promise<void>;syncTaskCategory:(taskId:string,categoryId:string|null)=>void;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
   reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
   saveCategory:(form:any)=>Promise<{id:string}|undefined>;deleteCategory:(cat:Category)=>Promise<void>;
@@ -49,7 +49,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
   const togglesInFlight=useRef(new Set<string>());
-  const dayReadVersion=useRef(0),metricsReadVersion=useRef(0);
+  const dayReadVersion=useRef(0),metricsReadVersion=useRef(0),loadedDayRef=useRef<string|null>(null);
   const notify=(m:string)=>{setMessage(m);};
   const open=(t:Tab)=>{const nextTab=t==='workspace'?'buffer':t;const hash=hashForTab(t);if(window.location.hash!==hash)window.location.hash=hash;setTab(nextTab);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
   useEffect(()=>{const handle=()=>setTab(tabFromHash(window.location.hash));window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
@@ -58,6 +58,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});
     if(version!==dayReadVersion.current||d!==dayRef.current)return;
+    loadedDayRef.current=d;
     setTasks(sorted((data.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((data.buffer||[]).filter(t=>!t.task_options?.archived)));
   },[demo]);
   // Ordinary task edits do not need profile initialization, repeat generation,
@@ -86,9 +87,13 @@ export function AppProvider({children}:{children:React.ReactNode}){
     setStatus('connecting');
     try{
       // dashboard creates the profile before os6_settings uses its foreign key.
-      await request('dashboard','read',{week:mondayOf(d)});
-      const firstOS6=await request<OS6Data>('os6','bootstrap');
-      const initialized=await request<{tz:string;today:string;categories:Category[]}>('os61','bootstrap',{deviceTimezone:initialTimezone()});
+      const initialWeek=mondayOf(d);
+      const initialDashboard=await request<{days:any[]}>('dashboard','read',{week:initialWeek});
+      // Independent bootstrap endpoints can run simultaneously after the profile exists.
+      const [firstOS6,initialized]=await Promise.all([
+        request<OS6Data>('os6','bootstrap'),
+        request<{tz:string;today:string;categories:Category[]}>('os61','bootstrap',{deviceTimezone:initialTimezone()})
+      ]);
       const actualTZ=initialized.tz;const actualToday=initialized.today;
       // Same task ID is carried to today on reconnect; the server checks ownership and never moves completed tasks.
       await request('os8','task_rollover',{today:actualToday});
@@ -96,16 +101,24 @@ export function AppProvider({children}:{children:React.ReactNode}){
       setDay(prev=>prev===today?actualToday:prev);
       const actualDay=dayRef.current===today?actualToday:dayRef.current;
       const monday=mondayOf(actualToday),{start,end}=metricRange(monday);
-      const [list,goalData,legacy,weekMetrics]=await Promise.all([
+      // Only tasks and goals block the first usable screen. Secondary statistics
+      // are populated afterwards so the user can start working sooner.
+      const [list,goalData]=await Promise.all([
         request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:actualDay}),
-        request<{goals:Goal[];history:GoalPoint[]}>('dashboard','goals_list'),
-        request<{days:any[]}>('dashboard','read',{week:monday}),
-        request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end})
+        request<{goals:Goal[];history:GoalPoint[]}>('dashboard','goals_list')
       ]);
+      loadedDayRef.current=actualDay;
       setTasks(sorted((list.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((list.buffer||[]).filter(t=>!t.task_options?.archived)));setGoals(goalData.goals||[]);
-      setGoalHistory(goalData.history||[]);setLegacyRows(legacy.days||[]);
-      setMetrics(weekMetrics.days||{});setPrevMetrics(weekMetrics.days||{});
+      setGoalHistory(goalData.history||[]);
+      if(initialWeek===monday)setLegacyRows(initialDashboard.days||[]);
       setStatus('saved');setReady(true);setError('');
+      const metricsVersion=++metricsReadVersion.current;
+      void request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end}).then(data=>{
+        if(metricsVersion!==metricsReadVersion.current)return;
+        setMetrics(data.days||{});setPrevMetrics(data.days||{});
+      }).catch(()=>{/* Secondary analytics never block task capture */});
+      if(initialWeek!==monday)void request<{days:any[]}>('dashboard','read',{week:monday})
+        .then(data=>setLegacyRows(data.days||[])).catch(()=>{});
     }catch(e:any){setError(e.message||'Не удалось подключиться');setStatus('error');setReady(true);}
   },[demo,today]);
   useEffect(()=>{setupTelegram();if(!demo&&!isQAMode()&&!initData()){setStatus('error');setReady(true);setError('Открой приложение через бота ProDesk в Telegram.');return;}
@@ -122,10 +135,19 @@ export function AppProvider({children}:{children:React.ReactNode}){
   return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visible)};
   },[tz,today,ready,reload]);
   // Every selected date, including a return to today, must load the matching tasks.
-  useEffect(()=>{if(!ready||error)return;void readDays(day).catch(e=>notify(e.message||'Не удалось загрузить задачи'));
+  useEffect(()=>{if(!ready||error||loadedDayRef.current===day)return;void readDays(day).catch(e=>notify(e.message||'Не удалось загрузить задачи'));
   // Avoid stale 'today' comparisons that made the Home screen show yesterday's tasks.
   },[day,ready,readDays,error]);
   useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},recentDeleted&&message==='Задача удалена'?8000:5500);return()=>clearTimeout(t)},[message,recentDeleted]);
+  // Keep category chips, grouped Buffer columns and task details consistent after
+  // a native property save without reloading the entire dashboard.
+  const syncTaskCategory=(taskId:string,categoryId:string|null)=>{
+    // An older in-flight tasks_list must not overwrite the just-committed category.
+    dayReadVersion.current++;
+    const category=categories.find(c=>c.id===categoryId);
+    const patch=(items:Task[])=>items.map(t=>t.id===taskId?{...t,os61_category_id:category?.id||null,sphere:category?.name||'Без категории'}:t);
+    setBuffer(patch);setTasks(patch);setCalendarTasks(patch);
+  };
   const refresh=async()=>{await reload(dayRef.current,tz);};
   const openTaskPage=async(task:Pick<Task,'id'|'title'>)=>{
     if(demo){notify('Открой Mini App через Telegram для редактирования страниц задач');return;}
@@ -230,7 +252,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
     tasks,buffer,recentTasks,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
-    openTaskPage,refresh,refreshTasks,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
+    openTaskPage,refresh,refreshTasks,syncTaskCategory,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export const useApp=()=>{const v=useContext(Context);if(!v)throw Error('No AppProvider');return v;};

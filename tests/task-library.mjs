@@ -22,7 +22,7 @@ assert.equal((await call({initData:'forged'})).status,401);assert.equal(calls.le
 
 // A carry-over must be scoped to the signed user and never select completed tasks.
 calls=[];
-const target='2026-11-06';
+const target=new Date().toISOString().slice(0,10);
 const rolloverResponse=await handler(new Request('https://example.test/os8',{method:'POST',body:JSON.stringify({initData:init.toString(),action:'task_rollover',today:target})}));
 assert.equal(rolloverResponse.status,200);
 assert.ok(calls.some(c=>c[0]==='eq'&&c[1]==='telegram_user_id'&&c[2]===owner));
