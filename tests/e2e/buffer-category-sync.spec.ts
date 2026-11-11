@@ -27,7 +27,7 @@ test('Telegram webhook category is immediately regrouped in Buffer after inspect
  const panel=page.locator('.os-task-properties');
  await panel.getByRole('button',{name:'Выбрать категорию'}).click();
  await panel.locator('.os-category-menu').getByRole('button',{name:'Быт',exact:true}).click();
- await expect(page.getByRole('button',{name:'Все изменения сохранены'})).toBeVisible();
+ await expect(panel).toHaveAttribute('data-save-status','saved');
  await page.getByRole('button',{name:'Назад',exact:true}).click();
  const into=page.locator('.buffer-group').filter({has:page.getByRole('heading',{name:'Быт',exact:true})});
  await expect(into.locator('.task-row').filter({hasText:'Задача из Telegram webhook'})).toBeVisible();
