@@ -49,7 +49,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   const [legacyRows,setLegacyRows]=useState<any[]>([]);const [calendarTasks,setCalendarTasks]=useState<Task[]>([]);
   const [editor,setEditor]=useState<Editor>(null);const [message,setMessage]=useState('');const [recentDeleted,setRecentDeleted]=useState<Task|null>(null);
   const togglesInFlight=useRef(new Set<string>());
-  const dayReadVersion=useRef(0),metricsReadVersion=useRef(0);
+  const dayReadVersion=useRef(0),metricsReadVersion=useRef(0),loadedDayRef=useRef<string|null>(null);
   const notify=(m:string)=>{setMessage(m);};
   const open=(t:Tab)=>{const nextTab=t==='workspace'?'buffer':t;const hash=hashForTab(t);if(window.location.hash!==hash)window.location.hash=hash;setTab(nextTab);setSidebar(false);setEditor(null);window.scrollTo({top:0,behavior:'smooth'});};
   useEffect(()=>{const handle=()=>setTab(tabFromHash(window.location.hash));window.addEventListener('hashchange',handle);return()=>window.removeEventListener('hashchange',handle)},[]);
@@ -58,6 +58,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
     if(demo){setTasks(sorted(demoTasks.filter(t=>t.day===d)));setBuffer(sorted(demoTasks.filter(t=>t.day===null)));return;}
     const data=await request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:d});
     if(version!==dayReadVersion.current||d!==dayRef.current)return;
+    loadedDayRef.current=d;
     setTasks(sorted((data.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((data.buffer||[]).filter(t=>!t.task_options?.archived)));
   },[demo]);
   // Ordinary task edits do not need profile initialization, repeat generation,
@@ -106,6 +107,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
         request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:actualDay}),
         request<{goals:Goal[];history:GoalPoint[]}>('dashboard','goals_list')
       ]);
+      loadedDayRef.current=actualDay;
       setTasks(sorted((list.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((list.buffer||[]).filter(t=>!t.task_options?.archived)));setGoals(goalData.goals||[]);
       setGoalHistory(goalData.history||[]);
       if(initialWeek===monday)setLegacyRows(initialDashboard.days||[]);
@@ -133,7 +135,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visible)};
   },[tz,today,ready,reload]);
   // Every selected date, including a return to today, must load the matching tasks.
-  useEffect(()=>{if(!ready||error)return;void readDays(day).catch(e=>notify(e.message||'Не удалось загрузить задачи'));
+  useEffect(()=>{if(!ready||error||loadedDayRef.current===day)return;void readDays(day).catch(e=>notify(e.message||'Не удалось загрузить задачи'));
   // Avoid stale 'today' comparisons that made the Home screen show yesterday's tasks.
   },[day,ready,readDays,error]);
   useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},recentDeleted&&message==='Задача удалена'?8000:5500);return()=>clearTimeout(t)},[message,recentDeleted]);
