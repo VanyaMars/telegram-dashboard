@@ -17,7 +17,7 @@ type AppContextValue={
   tasks:Task[];buffer:Task[];recentTasks:RecentTask[];goals:Goal[];goalHistory:GoalPoint[];categories:Category[];os6:OS6Data;
   metrics:Record<string,DayMetrics>;previousMetrics:Record<string,DayMetrics>;legacyRows:any[];
   editor:Editor;setEditor:(e:Editor)=>void;message:string;notify:(m:string)=>void;recentDeleted:Task|null;undoDelete:()=>Promise<void>;
-  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;refreshTasks:(rollover?:boolean)=>Promise<void>;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
+  openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;refreshTasks:(rollover?:boolean)=>Promise<void>;syncTaskCategory:(taskId:string,categoryId:string|null)=>void;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
   reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
   saveCategory:(form:any)=>Promise<{id:string}|undefined>;deleteCategory:(cat:Category)=>Promise<void>;
@@ -126,6 +126,13 @@ export function AppProvider({children}:{children:React.ReactNode}){
   // Avoid stale 'today' comparisons that made the Home screen show yesterday's tasks.
   },[day,ready,readDays,error]);
   useEffect(()=>{if(!message)return;const t=setTimeout(()=>{setMessage('');setRecentDeleted(null);},recentDeleted&&message==='Задача удалена'?8000:5500);return()=>clearTimeout(t)},[message,recentDeleted]);
+  // Keep category chips, grouped Buffer columns and task details consistent after
+  // a native property save without reloading the entire dashboard.
+  const syncTaskCategory=(taskId:string,categoryId:string|null)=>{
+    const category=categories.find(c=>c.id===categoryId);
+    const patch=(items:Task[])=>items.map(t=>t.id===taskId?{...t,os61_category_id:category?.id||null,sphere:category?.name||'Без категории'}:t);
+    setBuffer(patch);setTasks(patch);setCalendarTasks(patch);
+  };
   const refresh=async()=>{await reload(dayRef.current,tz);};
   const openTaskPage=async(task:Pick<Task,'id'|'title'>)=>{
     if(demo){notify('Открой Mini App через Telegram для редактирования страниц задач');return;}
@@ -230,7 +237,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
     tasks,buffer,recentTasks,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
-    openTaskPage,refresh,refreshTasks,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
+    openTaskPage,refresh,refreshTasks,syncTaskCategory,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export const useApp=()=>{const v=useContext(Context);if(!v)throw Error('No AppProvider');return v;};
