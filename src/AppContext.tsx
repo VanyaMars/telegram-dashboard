@@ -140,6 +140,8 @@ export function AppProvider({children}:{children:React.ReactNode}){
   // Keep category chips, grouped Buffer columns and task details consistent after
   // a native property save without reloading the entire dashboard.
   const syncTaskCategory=(taskId:string,categoryId:string|null)=>{
+    // An older in-flight tasks_list must not overwrite the just-committed category.
+    dayReadVersion.current++;
     const category=categories.find(c=>c.id===categoryId);
     const patch=(items:Task[])=>items.map(t=>t.id===taskId?{...t,os61_category_id:category?.id||null,sphere:category?.name||'Без категории'}:t);
     setBuffer(patch);setTasks(patch);setCalendarTasks(patch);
