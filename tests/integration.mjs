@@ -46,3 +46,11 @@ assert.match(os8Source,/act==='task_library'/);
 assert.match(os8Source,/os9_regular_goal_tasks/);
 assert.match(read('src/AppContext.tsx'),/request\('os8','task_rollover'/);
 console.log('ProDesk flow 6.15: sidebar, recent tasks, stable gutter, cloud, working view and rollover contracts OK');
+
+const contextSource=read('src/AppContext.tsx'),workspaceSource=read('src/pages/Workspace.tsx');
+assert.match(contextSource,/const \[firstOS6,initialized\]=await Promise\.all/,'Startup bootstrap requests must execute concurrently after profile initialization');
+assert.match(contextSource,/loadedDayRef\.current===day/,'Startup must not duplicate the first tasks_list request');
+assert.match(contextSource,/syncTaskCategory:\(taskId:string,categoryId:string\|null\)=>void/);
+assert.match(contextSource,/setBuffer\(patch\);setTasks\(patch\)/,'Category update must immediately reconcile loaded task lists');
+assert.match(workspaceSource,/if\(key==='category'\)syncTaskCategory\(task\.id,value\|\|null\)/,'Native category changes must update Buffer after successful backend save');
+console.log('ProDesk startup and category synchronization contracts OK');
