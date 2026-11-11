@@ -181,7 +181,7 @@ function PageBlock({block,onInsertBlock,pages,sources,data,openPage,write,refres
 }
 
 function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTitle:string;onSaved:()=>Promise<void>;pipelineProperties:ReturnType<typeof taskPipelineProperties>}){
- const {categories,saveCategory,goals,os6}=useApp();const {goals:regularGoals}=useRegularGoals();
+ const {categories,saveCategory,syncTaskCategory,goals,os6}=useApp();const {goals:regularGoals}=useRegularGoals();
  const [day,setDay]=useState(task.day||'');
  const [categoryId,setCategoryId]=useState(task.os61_category_id||categories.find(c=>c.name===task.sphere)?.id||'');
  const [notesVisible,setNotesVisible]=useState(task.task_options?.notesVisible ?? !!task.notes);
@@ -206,6 +206,7 @@ function TaskPageProperties({task,onSaved,pipelineProperties}:{task:Task;pageTit
   const savingKey='native:'+task.id+':'+key+':'+pending.current;reportSaveState(savingKey,'saving');
   queue.current=queue.current.catch(()=>{}).then(async()=>{
    await request('os8','task_native_patch',{taskId:task.id,...patch});
+   if(key==='category')syncTaskCategory(task.id,value||null);
    if(key==='notes')notesSent.current=String(value);
    if(key==='goal')window.dispatchEvent(new Event('os8:goals-changed'));
    await onSaved();
