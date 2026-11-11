@@ -86,9 +86,13 @@ export function AppProvider({children}:{children:React.ReactNode}){
     setStatus('connecting');
     try{
       // dashboard creates the profile before os6_settings uses its foreign key.
-      await request('dashboard','read',{week:mondayOf(d)});
-      const firstOS6=await request<OS6Data>('os6','bootstrap');
-      const initialized=await request<{tz:string;today:string;categories:Category[]}>('os61','bootstrap',{deviceTimezone:initialTimezone()});
+      const initialWeek=mondayOf(d);
+      const initialDashboard=await request<{days:any[]}>('dashboard','read',{week:initialWeek});
+      // Independent bootstrap endpoints can run simultaneously after the profile exists.
+      const [firstOS6,initialized]=await Promise.all([
+        request<OS6Data>('os6','bootstrap'),
+        request<{tz:string;today:string;categories:Category[]}>('os61','bootstrap',{deviceTimezone:initialTimezone()})
+      ]);
       const actualTZ=initialized.tz;const actualToday=initialized.today;
       // Same task ID is carried to today on reconnect; the server checks ownership and never moves completed tasks.
       await request('os8','task_rollover',{today:actualToday});
@@ -96,16 +100,23 @@ export function AppProvider({children}:{children:React.ReactNode}){
       setDay(prev=>prev===today?actualToday:prev);
       const actualDay=dayRef.current===today?actualToday:dayRef.current;
       const monday=mondayOf(actualToday),{start,end}=metricRange(monday);
-      const [list,goalData,legacy,weekMetrics]=await Promise.all([
+      // Only tasks and goals block the first usable screen. Secondary statistics
+      // are populated afterwards so the user can start working sooner.
+      const [list,goalData]=await Promise.all([
         request<{daily:Task[];buffer:Task[]}>('dashboard','tasks_list',{day:actualDay}),
-        request<{goals:Goal[];history:GoalPoint[]}>('dashboard','goals_list'),
-        request<{days:any[]}>('dashboard','read',{week:monday}),
-        request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end})
+        request<{goals:Goal[];history:GoalPoint[]}>('dashboard','goals_list')
       ]);
       setTasks(sorted((list.daily||[]).filter(t=>!t.task_options?.archived)));setBuffer(sorted((list.buffer||[]).filter(t=>!t.task_options?.archived)));setGoals(goalData.goals||[]);
-      setGoalHistory(goalData.history||[]);setLegacyRows(legacy.days||[]);
-      setMetrics(weekMetrics.days||{});setPrevMetrics(weekMetrics.days||{});
+      setGoalHistory(goalData.history||[]);
+      if(initialWeek===monday)setLegacyRows(initialDashboard.days||[]);
       setStatus('saved');setReady(true);setError('');
+      const metricsVersion=++metricsReadVersion.current;
+      void request<{days:Record<string,DayMetrics>}>('os6','metrics',{start,end}).then(data=>{
+        if(metricsVersion!==metricsReadVersion.current)return;
+        setMetrics(data.days||{});setPrevMetrics(data.days||{});
+      }).catch(()=>{/* Secondary analytics never block task capture */});
+      if(initialWeek!==monday)void request<{days:any[]}>('dashboard','read',{week:monday})
+        .then(data=>setLegacyRows(data.days||[])).catch(()=>{});
     }catch(e:any){setError(e.message||'Не удалось подключиться');setStatus('error');setReady(true);}
   },[demo,today]);
   useEffect(()=>{setupTelegram();if(!demo&&!isQAMode()&&!initData()){setStatus('error');setReady(true);setError('Открой приложение через бота ProDesk в Telegram.');return;}
