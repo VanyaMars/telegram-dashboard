@@ -324,8 +324,9 @@ test('Today has one task list, a 100% completion scale and an optional Buffer pi
  await expect(toggle).toHaveAttribute('aria-expanded','true');
  const picker=page.locator('#today-buffer-picker');
  await expect(picker).toBeVisible();
- const firstBufferTask=picker.locator('input[type="checkbox"]').first();
- await firstBufferTask.check();
+ const firstBufferTask=picker.locator('.today-picker-task').first();
+ await firstBufferTask.click();
+ await expect(firstBufferTask.locator('input[type="checkbox"]')).toBeChecked();
  await expect(picker.getByRole('button',{name:/Добавить выбранные/})).toBeEnabled();
 });
 
@@ -574,7 +575,9 @@ test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({
  await page.getByRole('button',{name:/Из буфера/}).click();
  const picker=page.locator('#today-buffer-picker');
  await picker.getByRole('searchbox',{name:'Поиск задач в буфере'}).fill('Сквозная задача Personal OS 6.9.1');
- await picker.locator('input[type="checkbox"]').check();
+ const selectedTask=picker.locator('.today-picker-task').filter({hasText:'Сквозная задача Personal OS 6.9.1'});
+ await selectedTask.click();
+ await expect(selectedTask.locator('input[type="checkbox"]')).toBeChecked();
  await picker.getByRole('button',{name:/Добавить выбранные/}).click();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await expect(page.locator('.goal-work-grid').first()).toBeVisible();
