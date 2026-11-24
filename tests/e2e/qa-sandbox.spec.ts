@@ -177,11 +177,11 @@ test('6.7.2 F03: selected section, date and Back/Forward survive reload',async({
  await todayNav.click();
  await expect(todayNav).toHaveAttribute('aria-current','page');
  await page.getByRole('button',{name:'Следующий день'}).click();
- const selected=await page.getByLabel('Дата задач').inputValue();
+ const selected=await page.locator('.today-date-trigger > span').textContent();
  await expect.poll(() => new URL(page.url()).hash).toBe('#/tab/today');
  await page.reload();
  await expect(todayNav).toHaveAttribute('aria-current','page');
- await expect(page.getByLabel('Дата задач')).toHaveValue(selected);
+ await expect(page.locator('.today-date-trigger > span')).toHaveText(selected!);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await page.goBack();
  await expect(todayNav).toHaveAttribute('aria-current','page');

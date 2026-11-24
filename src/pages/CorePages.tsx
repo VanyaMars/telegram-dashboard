@@ -5,7 +5,7 @@ import {Card,Dialog,Empty,GoalMini,Pill,ProgressBar,SectionHead,Sparkline,WeekBa
 import {TaskLibrary,type TaskLibraryView} from '../components/TaskLibrary';
 import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
-import {dateAdd,goalProgress,mondayOf,prettyDay,progress,shortDay,weekDates} from '../lib/date';
+import {dateAdd,goalProgress,monthDays,mondayOf,prettyDay,progress,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
 import {GoalsWorkspace} from '../components/GoalsWorkspace';
@@ -72,12 +72,13 @@ export function HomePage(){
 
 
 export function TodayPage(){
- const {day,setDay,today,tasks,buffer,categories,saveTask,setEditor}=useApp();
+ const {day,setDay,today,tasks,buffer,categories,saveTask,setEditor,calendarTasks,getCalendar}=useApp();
  const pending=tasks.filter(task=>!task.completed),completed=tasks.filter(task=>task.completed);
  const percent=tasks.length?progress(completed.length,tasks.length):0;
  const cardMeta=useTaskCardMeta(tasks.map(task=>task.id));
  const [completedOpen,setCompletedOpen]=useState(false);
  const [moving,setMoving]=useState(false),[pickerOpen,setPickerOpen]=useState(false),[moveError,setMoveError]=useState('');
+ const [datePickerOpen,setDatePickerOpen]=useState(false),[calendarMonth,setCalendarMonth]=useState(day.slice(0,7)),[calendarSelection,setCalendarSelection]=useState(day),[calendarLoading,setCalendarLoading]=useState(false);
  const [bufferQuery,setBufferQuery]=useState(''),[categoryFilter,setCategoryFilter]=useState('all'),[selectedBuffer,setSelectedBuffer]=useState<string[]>([]);
  const visibleBuffer=useMemo(()=>buffer.filter(task=>{
   const category=categories.find(item=>item.id===task.os61_category_id)||categories.find(item=>item.name===task.sphere);
@@ -108,25 +109,59 @@ export function TodayPage(){
  const pipelineActions=pipelineTasks.reduce((sum,task)=>sum+(cardMeta[task.id]?.pipelineActions||0),0);
  const waitingCount=tasks.length-pipelineTasks.length;
  const analysisLoading=tasks.some(task=>!cardMeta[task.id]);
+ const calendarStart=`${calendarMonth}-01`;
+ const calendarCount=monthDays(calendarStart);
+ const calendarPad=(new Date(`${calendarStart}T12:00:00Z`).getUTCDay()+6)%7;
+ const selectedDayTasks=calendarSelection===day?tasks:calendarTasks.filter(task=>task.day===calendarSelection);
+ const selectedDayDone=selectedDayTasks.filter(task=>task.completed).length;
+ const dateButtonLabel=new Date(`${day}T12:00:00Z`).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',timeZone:'UTC'});
+ const weekdayLabel=new Date(`${day}T12:00:00Z`).toLocaleDateString('ru-RU',{weekday:'long',timeZone:'UTC'});
+ useEffect(()=>{
+  if(!datePickerOpen)return;
+  const end=`${calendarMonth}-${String(monthDays(`${calendarMonth}-01`)).padStart(2,'0')}`;
+  setCalendarLoading(true);
+  void getCalendar(`${calendarMonth}-01`,end).finally(()=>setCalendarLoading(false));
+ },[datePickerOpen,calendarMonth]);
+ const openDatePicker=()=>{setCalendarMonth(day.slice(0,7));setCalendarSelection(day);setDatePickerOpen(true)};
+ const shiftCalendarMonth=(amount:number)=>{
+  const first=new Date(`${calendarMonth}-01T12:00:00Z`);first.setUTCMonth(first.getUTCMonth()+amount);
+  setCalendarMonth(first.toISOString().slice(0,7));
+ };
 
  return <div className="page-stack today-action-flow">
   <div className="page-heading">
-   <div><h1>Сегодня</h1><p>{prettyDay(day)}</p></div>
-   <div className="date-chooser"><button onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button><input aria-label="Дата задач" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button></div>
+   <div><h1>Сегодня</h1></div>
+   <div className="today-date-chooser">
+    <button type="button" onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button>
+    <button type="button" className="today-date-trigger" onClick={openDatePicker} aria-label={`Выбрать дату, сейчас ${prettyDay(day)}`}><span>{dateButtonLabel}</span><small>{weekdayLabel}</small><Icon name="calendar" size={17}/></button>
+    <button type="button" onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button>
+   </div>
   </div>
   {day!==today&&<button className="pill-tab today-return" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
   <Card className="today-summary today-summary--compact">
-   <div className="today-progress-heading"><div><span className="today-summary-kicker">ПЛАН ДНЯ</span><strong className="today-status-copy">{statusText}</strong></div><strong className="today-percent">{percent}%</strong></div>
+   <div className="today-progress-heading"><div><strong className="today-status-copy">{statusText}</strong></div><strong className="today-percent">{percent}%</strong></div>
    <div className="today-progress-track" data-level={progressLevel(percent)} role="progressbar" aria-label="Выполнение задач дня" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span className="today-progress-fill" style={{width:percent+'%'}}/></div>
-   <div className="today-progress-scale"><span>{completed.length} готово</span><span>{tasks.length} всего</span></div>
-  </Card>
-  <Card className="today-insights">
-   <div className="today-insights-heading"><span className="today-insights-icon"><Icon name="chart" size={16}/></span><div><h2>План в действиях</h2><p>Сводка по задачам на сегодня</p></div></div>
-   <div className="today-insights-grid">
-    <div className="today-insight today-insight--pipeline"><span className="today-insight-label"><Icon name="list" size={15}/>Действия в Pipeline</span><strong>{analysisLoading?'…':pipelineActions}</strong><small>{analysisLoading?'Считаем шаги':`${pipelineCount} Pipeline · ${pipelineTasks.length} ${pluralCount(pipelineTasks.length,['задача','задачи','задач'])}`}</small></div>
-    <div className="today-insight today-insight--planning"><span className="today-insight-label"><Icon name="clock" size={15}/>Планирование</span><strong>{analysisLoading?'…':waitingCount?`${waitingCount} ${pluralCount(waitingCount,['задача','задачи','задач'])}`:'Готово'}</strong><small>{analysisLoading?'Проверяем планы':waitingCount?`${waitingCount===1?'ждёт':'ждут'} Pipeline`:'У каждой задачи есть Pipeline'}</small></div>
+   <div className="today-progress-scale"><span>{completed.length} готово</span><span>{tasks.length} задач</span></div>
+   <div className="today-analytics-line" aria-label="Аналитика плана">
+    <span><Icon name="list" size={14}/><strong>{analysisLoading?'…':pipelineActions}</strong> {pluralCount(pipelineActions,['шаг','шага','шагов'])} <i>·</i> {analysisLoading?'…':pipelineCount} Pipeline</span>
+    <span><Icon name="clock" size={14}/>{analysisLoading?'…':waitingCount?`${waitingCount} без плана`:'Всё запланировано'}</span>
    </div>
   </Card>
+  <Dialog open={datePickerOpen} onClose={()=>setDatePickerOpen(false)} title="Выбрать день" className="today-calendar-dialog">
+   <div className="today-calendar-content">
+    <div className="today-calendar-month"><button type="button" onClick={()=>shiftCalendarMonth(-1)} aria-label="Предыдущий месяц"><Icon name="left"/></button><strong>{new Date(`${calendarMonth}-01T12:00:00Z`).toLocaleDateString('ru-RU',{month:'long',year:'numeric',timeZone:'UTC'})}</strong><button type="button" onClick={()=>shiftCalendarMonth(1)} aria-label="Следующий месяц"><Icon name="right"/></button></div>
+    <div className="today-calendar-grid" aria-label="Календарь задач">
+     {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(label=><span className="today-calendar-weekday" key={label}>{label}</span>)}
+     {Array.from({length:calendarPad},(_,index)=><span className="today-calendar-empty" role="presentation" key={`blank-${index}`}/>)}
+     {Array.from({length:calendarCount},(_,index)=>{const date=`${calendarMonth}-${String(index+1).padStart(2,'0')}`;const count=calendarTasks.filter(task=>task.day===date).length;return <button type="button" aria-label={`${index+1}${count?`, ${count} задач`:''}`} aria-pressed={calendarSelection===date} aria-current={date===today?'date':undefined} className={'today-calendar-day '+(calendarSelection===date?'is-selected ':'')+(date===today?'is-today':'')} onClick={()=>setCalendarSelection(date)} key={date}><span>{index+1}</span>{count>0&&<i><b/></i>}</button>})}
+    </div>
+    <div className="today-calendar-agenda">
+     <div><strong>{prettyDay(calendarSelection)}</strong><span>{calendarLoading&&calendarSelection!==day?'Загружаем…':selectedDayTasks.length?`${selectedDayDone} из ${selectedDayTasks.length} готово`:'План пока пуст'}</span></div>
+     {selectedDayTasks.length>0&&<ul>{selectedDayTasks.slice(0,3).map(task=><li key={task.id} className={task.completed?'is-done':''}>{task.title}</li>)}</ul>}
+     <button type="button" className="btn accent" onClick={()=>{setDay(calendarSelection);setDatePickerOpen(false)}}>{selectedDayTasks.length?'Открыть план дня':'Запланировать день'}<Icon name="right" size={16}/></button>
+    </div>
+   </div>
+  </Dialog>
   <Card className="today-task-group">
    <div className="today-list-heading">
     <h2>Задачи</h2>
