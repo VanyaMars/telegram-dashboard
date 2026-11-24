@@ -322,7 +322,12 @@ test('Today has one task list, a 100% completion scale and an optional Buffer pi
  await expect(toggle).toHaveAttribute('aria-expanded','false');
  await toggle.click();
  await expect(toggle).toHaveAttribute('aria-expanded','true');
- await expect(page.locator('#today-buffer-picker')).toBeVisible();
+ const picker=page.locator('#today-buffer-picker');
+ await expect(picker).toBeVisible();
+ const firstBufferTask=picker.locator('.today-picker-task').first();
+ await firstBufferTask.click();
+ await expect(firstBufferTask.locator('input[type="checkbox"]')).toBeChecked();
+ await expect(picker.getByRole('button',{name:/Добавить выбранные/})).toBeEnabled();
 });
 
 test('6.8 Action Flow: planning keeps the linked goal and task ID',async({page})=>{
@@ -568,8 +573,12 @@ test('6.9.1 integration: Buffer→Today→Goals→task page→Analytics',async({
  await expect(page.getByRole('button',{name:'Сквозная задача Personal OS 6.9.1',exact:true})).toBeVisible();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
  await page.getByRole('button',{name:/Из буфера/}).click();
- await page.getByRole('combobox',{name:'Задача из буфера'}).selectOption({label:'Сквозная задача Personal OS 6.9.1'});
- await page.locator('#today-buffer-picker').getByRole('button',{name:/В день/}).click();
+ const picker=page.locator('#today-buffer-picker');
+ await picker.getByRole('searchbox',{name:'Поиск задач в буфере'}).fill('Сквозная задача Personal OS 6.9.1');
+ const selectedTask=picker.locator('.today-picker-task').filter({hasText:'Сквозная задача Personal OS 6.9.1'});
+ await selectedTask.click();
+ await expect(selectedTask.locator('input[type="checkbox"]')).toBeChecked();
+ await picker.getByRole('button',{name:/Добавить выбранные/}).click();
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Цели'}).click();
  await expect(page.locator('.goal-work-grid').first()).toBeVisible();
  await openSampleTaskPage(page);

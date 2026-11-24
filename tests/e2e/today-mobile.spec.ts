@@ -46,7 +46,7 @@ test('Today keeps task order on priority changes and preserves priority across r
  await actions.click();
  await list.getByRole('button',{name:'Сделать важной'}).click();
  await expect(row).toHaveClass(/today-task-important/);
- await expect(row.getByRole('img',{name:'Важная задача'})).toBeVisible();
+ await expect(row.locator('.today-importance')).toHaveCount(0);
  expect(await list.locator('.task-text').allTextContents()).toEqual(titles);
  await actions.press('ArrowDown');
  await expect.poll(async()=>await list.locator('.task-text').allTextContents()).not.toEqual(titles);

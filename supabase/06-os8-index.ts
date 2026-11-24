@@ -314,8 +314,8 @@ Deno.serve(async(req:Request)=>{
    const ids=Array.isArray(body.taskIds)?[...new Set(body.taskIds.filter(idOk))].slice(0,120):[];
    if(!ids.length)return reply({ok:true,cards:{}});
    const owned=await must(db.from('personal_tasks').select('id').eq('telegram_user_id',uid).in('id',ids));
-   const cards:Record<string,{emoji:string;progress:number|null}>={};
-   for(const t of owned)cards[t.id]={emoji:'📋',progress:null};
+   const cards:Record<string,{emoji:string;progress:number|null;pipelineActions:number;pipelineCount:number}>={};
+   for(const t of owned)cards[t.id]={emoji:'📋',progress:null,pipelineActions:0,pipelineCount:0};
    if(!owned.length)return reply({ok:true,cards});
    const links=await must(db.from('os8_task_pages').select('task_id,page_id').eq('telegram_user_id',uid).in('task_id',owned.map((t:any)=>t.id)));
    if(!links.length)return reply({ok:true,cards});
@@ -328,7 +328,7 @@ Deno.serve(async(req:Request)=>{
     const pipelines=blocks.filter((b:any)=>b.page_id===l.page_id);
     const splitIds=new Set(splits.filter((x:any)=>pipelines.some((b:any)=>b.id===x.block_id)).map((x:any)=>x.id));
     const relevant=items.filter((x:any)=>splitIds.has(x.split_id));
-    cards[l.task_id]={emoji:icon&&icon!=='📝'&&icon!=='📄'?icon:'📋',progress:pipelines.length?(relevant.length?Math.round(relevant.filter((x:any)=>x.completed).length/relevant.length*100):0):null};
+    cards[l.task_id]={emoji:icon&&icon!=='📝'&&icon!=='📄'?icon:'📋',progress:pipelines.length?(relevant.length?Math.round(relevant.filter((x:any)=>x.completed).length/relevant.length*100):0):null,pipelineActions:relevant.length,pipelineCount:pipelines.length};
    }
    return reply({ok:true,cards});
   }

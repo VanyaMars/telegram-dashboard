@@ -14,6 +14,7 @@ import {PlanScore} from '../components/PlanScore';
 import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
 import {QuickCategory} from '../components/QuickCategory';
+import {useTaskCardMeta} from '../components/TaskCardMeta';
 import '../task-polish-v2.css';
 import '../today.css';
 
@@ -21,6 +22,8 @@ const sums=(days:Record<string,DayMetrics>,dates:string[])=>dates.reduce((a,d)=>
 function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important');const extra=tasks.filter(t=>t.priority==='extra');
   return {important:imp.length,doneImportant:imp.filter(t=>t.completed).length,extra:extra.length,doneExtra:extra.filter(t=>t.completed).length};
 }
+function pluralCount(value:number,forms:string[]){const mod10=value%10,mod100=value%100;return forms[mod10===1&&mod100!==11?0:mod10>=2&&mod10<=4&&(mod100<12||mod100>14)?1:2]||forms[2]}
+function progressLevel(value:number){if(value>=100)return'complete';if(value>=75)return'near';if(value>=50)return'momentum';if(value>=25)return'building';if(value>0)return'start';return'rest'}
 
 export function HomePage(){
  const {today,day,setDay,tasks,goals,goalHistory,metrics,open,setEditor,openTaskPage}=useApp();
@@ -69,19 +72,42 @@ export function HomePage(){
 
 
 export function TodayPage(){
- const {day,setDay,today,tasks,buffer,saveTask,setEditor}=useApp();
+ const {day,setDay,today,tasks,buffer,categories,saveTask,setEditor}=useApp();
  const pending=tasks.filter(task=>!task.completed),completed=tasks.filter(task=>task.completed);
- const percent=pending.length?Math.min(99,progress(completed.length,tasks.length)):tasks.length?100:0;
+ const percent=tasks.length?progress(completed.length,tasks.length):0;
+ const cardMeta=useTaskCardMeta(tasks.map(task=>task.id));
  const [completedOpen,setCompletedOpen]=useState(false);
- const [bufferId,setBufferId]=useState(''),[bufferPriority,setBufferPriority]=useState<'important'|'extra'>('extra');
  const [moving,setMoving]=useState(false),[pickerOpen,setPickerOpen]=useState(false),[moveError,setMoveError]=useState('');
- const transfer=async()=>{
-  const task=buffer.find(t=>t.id===bufferId);if(!task||moving)return;
-  setMoving(true);setMoveError('');
-  try{await saveTask({id:task.id,title:task.title,notes:task.notes,sphere:task.sphere,categoryId:task.os61_category_id||null,day,priority:bufferPriority});setBufferId('');setPickerOpen(false)}
-  catch(e:any){setMoveError(e?.message||'Не удалось перенести задачу. Попробуй снова.')}
-  finally{setMoving(false)}
+ const [bufferQuery,setBufferQuery]=useState(''),[categoryFilter,setCategoryFilter]=useState('all'),[selectedBuffer,setSelectedBuffer]=useState<string[]>([]);
+ const visibleBuffer=useMemo(()=>buffer.filter(task=>{
+  const category=categories.find(item=>item.id===task.os61_category_id)||categories.find(item=>item.name===task.sphere);
+  const matchesCategory=categoryFilter==='all'||(categoryFilter==='uncategorized'?!category:category?.id===categoryFilter);
+  const matchesQuery=(task.title+' '+task.notes).toLocaleLowerCase('ru').includes(bufferQuery.trim().toLocaleLowerCase('ru'));
+  return matchesCategory&&matchesQuery;
+ }),[buffer,categories,categoryFilter,bufferQuery]);
+ const toggleBufferSelection=(id:string)=>setSelectedBuffer(current=>current.includes(id)?current.filter(item=>item!==id):[...current,id]);
+ const closePicker=()=>{if(moving)return;setPickerOpen(false);setMoveError('');setSelectedBuffer([]);setBufferQuery('');setCategoryFilter('all')};
+ const transferSelected=async()=>{
+  const selected=buffer.filter(task=>selectedBuffer.includes(task.id));if(!selected.length||moving)return;
+  setMoving(true);setMoveError('');const moved:string[]=[];
+  try{
+   for(const task of selected){
+    await saveTask({id:task.id,title:task.title,notes:task.notes,sphere:task.sphere,categoryId:task.os61_category_id||categories.find(item=>item.name===task.sphere)?.id||null,day,priority:task.priority});
+    moved.push(task.id);
+   }
+   setPickerOpen(false);setMoveError('');setSelectedBuffer([]);setBufferQuery('');setCategoryFilter('all');
+  }catch(e:any){
+   setSelectedBuffer(current=>current.filter(id=>!moved.includes(id)));
+   setMoveError(e?.message||'Не удалось перенести все задачи. Оставшиеся можно добавить повторно.');
+  }finally{setMoving(false)}
  };
+ const inWork=tasks.length-completed.length;
+ const statusText=!tasks.length?'Добавь задачи, чтобы собрать план дня':!inWork?`Все ${tasks.length} ${pluralCount(tasks.length,['задача','задачи','задач'])} готовы`:!completed.length?`${inWork} ${pluralCount(inWork,['задача','задачи','задач'])} в работе`:`${completed.length} ${pluralCount(completed.length,['задача готова','задачи готовы','задач готовы'])}, ещё ${inWork} ${pluralCount(inWork,['задача','задачи','задач'])} в работе`;
+ const pipelineTasks=tasks.filter(task=>(cardMeta[task.id]?.pipelineCount||0)>0);
+ const pipelineCount=pipelineTasks.reduce((sum,task)=>sum+(cardMeta[task.id]?.pipelineCount||0),0);
+ const pipelineActions=pipelineTasks.reduce((sum,task)=>sum+(cardMeta[task.id]?.pipelineActions||0),0);
+ const waitingCount=tasks.length-pipelineTasks.length;
+ const analysisLoading=tasks.some(task=>!cardMeta[task.id]);
 
  return <div className="page-stack today-action-flow">
   <div className="page-heading">
@@ -90,29 +116,48 @@ export function TodayPage(){
   </div>
   {day!==today&&<button className="pill-tab today-return" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
   <Card className="today-summary today-summary--compact">
-   <div className="today-progress-heading"><span>Выполнено {completed.length} из {tasks.length}</span><strong>{percent}%</strong></div>
-   <ProgressBar value={percent} label="Выполнение задач дня"/>
+   <div className="today-progress-heading"><div><span className="today-summary-kicker">ПЛАН ДНЯ</span><strong className="today-status-copy">{statusText}</strong></div><strong className="today-percent">{percent}%</strong></div>
+   <div className="today-progress-track" data-level={progressLevel(percent)} role="progressbar" aria-label="Выполнение задач дня" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span className="today-progress-fill" style={{width:percent+'%'}}/></div>
+   <div className="today-progress-scale"><span>{completed.length} готово</span><span>{tasks.length} всего</span></div>
+  </Card>
+  <Card className="today-insights">
+   <div className="today-insights-heading"><span className="today-insights-icon"><Icon name="chart" size={16}/></span><div><h2>План в действиях</h2><p>Сводка по задачам на сегодня</p></div></div>
+   <div className="today-insights-grid">
+    <div className="today-insight today-insight--pipeline"><span className="today-insight-label"><Icon name="list" size={15}/>Действия в Pipeline</span><strong>{analysisLoading?'…':pipelineActions}</strong><small>{analysisLoading?'Считаем шаги':`${pipelineCount} Pipeline · ${pipelineTasks.length} ${pluralCount(pipelineTasks.length,['задача','задачи','задач'])}`}</small></div>
+    <div className="today-insight today-insight--planning"><span className="today-insight-label"><Icon name="clock" size={15}/>Планирование</span><strong>{analysisLoading?'…':waitingCount?`${waitingCount} ${pluralCount(waitingCount,['задача','задачи','задач'])}`:'Готово'}</strong><small>{analysisLoading?'Проверяем планы':waitingCount?`${waitingCount===1?'ждёт':'ждут'} Pipeline`:'У каждой задачи есть Pipeline'}</small></div>
+   </div>
   </Card>
   <Card className="today-task-group">
    <div className="today-list-heading">
     <h2>Задачи</h2>
     <div className="today-list-actions">
-     <button type="button" className="btn outline quick-plan-toggle" aria-expanded={pickerOpen} aria-controls={pickerOpen?'today-buffer-picker':undefined} onClick={()=>setPickerOpen(value=>!value)}><Icon name="inbox" size={17}/> Из буфера</button>
+     <button type="button" className="btn outline quick-plan-toggle" aria-expanded={pickerOpen} aria-controls={pickerOpen?'today-buffer-picker':undefined} onClick={()=>setPickerOpen(true)}><Icon name="inbox" size={17}/> Из буфера</button>
      <button type="button" className="btn accent" onClick={()=>setEditor({type:'task',day,priority:'extra'})}><Icon name="plus" size={18}/> Задача</button>
     </div>
    </div>
-   {pickerOpen&&<div id="today-buffer-picker" className="today-buffer-picker">
-    <div className="quick-plan-form"><select aria-label="Задача из буфера" value={bufferId} onChange={e=>{const id=e.target.value;setBufferId(id);setBufferPriority(buffer.find(task=>task.id===id)?.priority??'extra')}}><option value="">{buffer.length?'Выбрать задачу…':'Буфер пуст'}</option>{buffer.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select>
-     <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="extra">Обычная</option><option value="important">Важная</option></select>
-     <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={()=>void transfer()}>{moving?'Переносим…':'В день'} <Icon name="right" size={16}/></button>
-    </div>{moveError&&<p className="next-step-error" role="alert">{moveError}</p>}
-   </div>}
-   <TaskList items={pending} zone="today" emptyMessage={completed.length?'Все задачи на этот день выполнены':'На этот день пока нет задач'}/>
+   <Dialog open={pickerOpen} onClose={closePicker} title="Добавить из буфера" className="today-buffer-dialog">
+    <div id="today-buffer-picker" className="today-picker-content">
+     <label className="today-picker-search"><Icon name="search" size={18}/><input autoFocus type="search" value={bufferQuery} onChange={event=>setBufferQuery(event.target.value)} placeholder="Найти задачу" aria-label="Поиск задач в буфере"/></label>
+     <div className="today-picker-categories" role="group" aria-label="Фильтр по категории">
+      <button type="button" className={categoryFilter==='all'?'is-active':''} onClick={()=>setCategoryFilter('all')}>Все <span>{buffer.length}</span></button>
+      {buffer.some(task=>!(categories.find(item=>item.id===task.os61_category_id)||categories.find(item=>item.name===task.sphere)))&&<button type="button" className={categoryFilter==='uncategorized'?'is-active':''} onClick={()=>setCategoryFilter('uncategorized')}>Без категории <span>{buffer.filter(task=>!(categories.find(item=>item.id===task.os61_category_id)||categories.find(item=>item.name===task.sphere))).length}</span></button>}
+      {categories.map(category=><button type="button" key={category.id} className={categoryFilter===category.id?'is-active':''} onClick={()=>setCategoryFilter(category.id)}><i style={{background:category.color}}/>{category.name}<span>{buffer.filter(task=>task.os61_category_id===category.id||(!task.os61_category_id&&task.sphere===category.name)).length}</span></button>)}
+     </div>
+     <div className="today-picker-results" role="group" aria-label="Задачи из буфера">
+      {!buffer.length?<div className="today-picker-empty"><Icon name="inbox" size={22}/><strong>Буфер пуст</strong><span>Добавь задачу в буфер, и она появится здесь.</span></div>
+       :!visibleBuffer.length?<div className="today-picker-empty"><Icon name="search" size={22}/><strong>Ничего не найдено</strong><span>Измени поиск или выбери другую категорию.</span></div>
+       :visibleBuffer.map(task=>{const category=categories.find(item=>item.id===task.os61_category_id)||categories.find(item=>item.name===task.sphere);const selected=selectedBuffer.includes(task.id);return <label className={'today-picker-task '+(selected?'is-selected':'')} key={task.id}><input type="checkbox" checked={selected} onChange={()=>toggleBufferSelection(task.id)}/><span className="today-picker-check"><Icon name="check" size={14}/></span><span className="today-picker-task-copy"><strong>{task.title}</strong><small>{category&&<><i style={{background:category.color}}/>{category.name}</>}{task.notes&&<span>{task.notes}</span>}</small></span><span className="today-picker-priority">{task.priority==='important'?'Важная':'Обычная'}</span></label>})}
+     </div>
+     {moveError&&<p className="today-picker-error" role="alert">{moveError}</p>}
+     <div className="today-picker-footer"><span>{selectedBuffer.length?`Выбрано: ${selectedBuffer.length}`:'Отметь одну или несколько задач'}</span><button className="btn accent" type="button" disabled={!selectedBuffer.length||moving} onClick={()=>void transferSelected()}>{moving?'Добавляем…':`Добавить выбранные${selectedBuffer.length?` · ${selectedBuffer.length}`:''}`}<Icon name="arrow-right" size={16}/></button></div>
+    </div>
+   </Dialog>
+   <TaskList items={pending} zone="today" cardMeta={cardMeta} emptyMessage={completed.length?'Все задачи на этот день выполнены':'На этот день пока нет задач'}/>
    {completed.length>0&&<div className="done-group today-done-group">
     <button type="button" className="done-toggle today-done-toggle" onClick={()=>setCompletedOpen(value=>!value)} aria-expanded={completedOpen} aria-controls={completedOpen?'today-completed':undefined}>
      <Icon name="check-circle" size={17}/> Выполнено <span>{completed.length}</span><Icon name={completedOpen?'up':'down'} size={16}/>
     </button>
-    {completedOpen&&<div id="today-completed"><TaskList items={completed} zone="today"/></div>}
+    {completedOpen&&<div id="today-completed"><TaskList items={completed} zone="today" cardMeta={cardMeta}/></div>}
    </div>}
   </Card>
  </div>;

@@ -104,6 +104,14 @@ function BrowserEntry({ children }: { children: ReactNode }) {
   };
 
   if (session && !completing) return <Fragment key={session.userId}>{children}</Fragment>;
+  if (restoring || completing) return <main className="browser-auth-loading" role="status" aria-live="polite">
+    <section className="browser-auth-loading-card" aria-label="Загрузка ProDesk">
+      <img className="browser-auth-loading-logo" src={import.meta.env.BASE_URL + 'prodesk-mark.svg'} width={56} height={56} alt="" />
+      <strong>ProDesk</strong>
+      <span>Собираем твой день</span>
+      <div className="browser-auth-loading-track" role="progressbar" aria-label="Открываем приложение"><i /></div>
+    </section>
+  </main>;
 
   return <main className="browser-auth">
     <section className="browser-auth-card" aria-labelledby="browser-auth-title">
@@ -113,9 +121,9 @@ function BrowserEntry({ children }: { children: ReactNode }) {
       {retryRestore && <button type="button" className="btn accent browser-auth-button" onClick={() => { setError(''); setRestoring(true); }}>
         Повторить подключение
       </button>}
-      <button type="button" className="btn accent browser-auth-button" onClick={() => void start()} disabled={starting || completing || restoring}>
+      <button type="button" className="btn accent browser-auth-button" onClick={() => void start()} disabled={starting}>
         <Send size={18} aria-hidden="true" />
-        {completing ? 'Подтверждаем вход…' : starting ? 'Открываем Telegram…' : restoring ? 'Восстанавливаем вход…' : 'Войти через Telegram'}
+        {starting ? 'Открываем Telegram…' : 'Войти через Telegram'}
       </button>
       {error && <p className="browser-auth-error" role="alert">{error}</p>}
     </section>
