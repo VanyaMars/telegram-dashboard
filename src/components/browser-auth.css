@@ -55,6 +55,21 @@
     linear-gradient(155deg, #faf9ff, var(--page) 70%);
 }
 
+.browser-app-underlay {
+  min-height: 100dvh;
+}
+
+.browser-app-underlay[aria-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.browser-auth-loading--cover {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
 .browser-auth-loading-card {
   width: min(100%, 300px);
   display: grid;

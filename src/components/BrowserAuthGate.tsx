@@ -16,6 +16,7 @@ export function BrowserAuthGate({ children }: { children: ReactNode }) {
 function BrowserEntry({ children }: { children: ReactNode }) {
   const [completing, setCompleting] = useState(hasLoginCallback);
   const [session, setSession] = useState(readBrowserSession);
+  const [applicationReady, setApplicationReady] = useState(false);
   const [starting, setStarting] = useState(false);
   const [restoring, setRestoring] = useState(!session && !completing);
   const [retryRestore, setRetryRestore] = useState(false);
@@ -55,9 +56,16 @@ function BrowserEntry({ children }: { children: ReactNode }) {
   }, [restoring]);
 
   useEffect(() => {
+    const onReady = () => setApplicationReady(true);
+    window.addEventListener('prodesk:app-initialized', onReady);
+    return () => window.removeEventListener('prodesk:app-initialized', onReady);
+  }, []);
+
+  useEffect(() => {
     const onEnd = (event: Event) => {
       const expired = (event as CustomEvent<boolean>).detail;
       setSession(null);
+      setApplicationReady(false);
       setError('');
       setRetryRestore(false);
       restoreRequestedAfterExpiry.current = expired;
@@ -103,14 +111,12 @@ function BrowserEntry({ children }: { children: ReactNode }) {
     }
   };
 
-  if (session && !completing) return <Fragment key={session.userId}>{children}</Fragment>;
+  if (session && !completing) return <Fragment key={session.userId}>
+    <div className={'browser-app-underlay '+(applicationReady?'is-ready':'')} aria-hidden={!applicationReady}>{children}</div>
+    {!applicationReady&&<BrowserLoadingScreen cover/>}
+  </Fragment>;
   if (restoring || completing) return <main className="browser-auth-loading" role="status" aria-live="polite">
-    <section className="browser-auth-loading-card" aria-label="Загрузка ProDesk">
-      <img className="browser-auth-loading-logo" src={import.meta.env.BASE_URL + 'prodesk-mark.svg'} width={56} height={56} alt="" />
-      <strong>ProDesk</strong>
-      <span>Собираем твой день</span>
-      <div className="browser-auth-loading-track" role="progressbar" aria-label="Открываем приложение"><i /></div>
-    </section>
+    <BrowserLoadingCard/>
   </main>;
 
   return <main className="browser-auth">
@@ -128,4 +134,17 @@ function BrowserEntry({ children }: { children: ReactNode }) {
       {error && <p className="browser-auth-error" role="alert">{error}</p>}
     </section>
   </main>;
+}
+
+function BrowserLoadingScreen({cover=false}:{cover?:boolean}){
+  return <main className={'browser-auth-loading '+(cover?'browser-auth-loading--cover':'')} role="status" aria-live="polite"><BrowserLoadingCard/></main>;
+}
+
+function BrowserLoadingCard(){
+  return <section className="browser-auth-loading-card" aria-label="Загрузка ProDesk">
+    <img className="browser-auth-loading-logo" src={import.meta.env.BASE_URL + 'prodesk-mark.svg'} width={56} height={56} alt="" />
+    <strong>ProDesk</strong>
+    <span>Собираем твой день</span>
+    <div className="browser-auth-loading-track" role="progressbar" aria-label="Открываем приложение"><i /></div>
+  </section>;
 }

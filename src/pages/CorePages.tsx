@@ -103,9 +103,8 @@ export function TodayPage(){
   }finally{setMoving(false)}
  };
  const inWork=tasks.length-completed.length;
- const statusText=!tasks.length?'Добавь задачи, чтобы собрать план дня':!inWork?`Все ${tasks.length} ${pluralCount(tasks.length,['задача','задачи','задач'])} готовы`:!completed.length?`${inWork} ${pluralCount(inWork,['задача','задачи','задач'])} в работе`:`${completed.length} ${pluralCount(completed.length,['задача готова','задачи готовы','задач готовы'])}, ещё ${inWork} ${pluralCount(inWork,['задача','задачи','задач'])} в работе`;
+ const statusText=!tasks.length?'Добавь задачи, чтобы собрать план дня':inWork?`${inWork} ${pluralCount(inWork,['задача','задачи','задач'])} в работе`:'Все задачи готовы';
  const pipelineTasks=tasks.filter(task=>(cardMeta[task.id]?.pipelineCount||0)>0);
- const pipelineCount=pipelineTasks.reduce((sum,task)=>sum+(cardMeta[task.id]?.pipelineCount||0),0);
  const pipelineActions=pipelineTasks.reduce((sum,task)=>sum+(cardMeta[task.id]?.pipelineActions||0),0);
  const waitingCount=tasks.length-pipelineTasks.length;
  const analysisLoading=tasks.some(task=>!cardMeta[task.id]);
@@ -141,9 +140,8 @@ export function TodayPage(){
   <Card className="today-summary today-summary--compact">
    <div className="today-progress-heading"><div><strong className="today-status-copy">{statusText}</strong></div><strong className="today-percent">{percent}%</strong></div>
    <div className="today-progress-track" data-level={progressLevel(percent)} role="progressbar" aria-label="Выполнение задач дня" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span className="today-progress-fill" style={{width:percent+'%'}}/></div>
-   <div className="today-progress-scale"><span>{completed.length} готово</span><span>{tasks.length} задач</span></div>
    <div className="today-analytics-line" aria-label="Аналитика плана">
-    <span><Icon name="list" size={14}/><strong>{analysisLoading?'…':pipelineActions}</strong> {pluralCount(pipelineActions,['шаг','шага','шагов'])} <i>·</i> {analysisLoading?'…':pipelineCount} Pipeline</span>
+    <span><Icon name="list" size={14}/><strong>{analysisLoading?'…':pipelineActions}</strong> {pluralCount(pipelineActions,['шаг','шага','шагов'])}</span>
     <span><Icon name="clock" size={14}/>{analysisLoading?'…':waitingCount?`${waitingCount} без плана`:'Всё запланировано'}</span>
    </div>
   </Card>
