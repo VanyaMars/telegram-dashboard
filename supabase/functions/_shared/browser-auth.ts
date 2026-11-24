@@ -92,8 +92,8 @@ export async function verifyLoginState(token: unknown) {
   return await crypto.subtle.verify('HMAC', key, rawSignature, message) ? { challenge, nonce } : null;
 }
 
-export async function createBrowserSession(user: BrowserUser) {
-  const expires = Math.floor(Date.now() / 1000) + sessionLifetime;
+export async function createBrowserSession(user: BrowserUser, lifetime = sessionLifetime) {
+  const expires = Math.floor(Date.now() / 1000) + lifetime;
   const token = await signBrowserCredential({
     sub: String(user.id), first_name: user.first_name, username: user.username
   }, expires);

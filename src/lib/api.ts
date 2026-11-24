@@ -1,12 +1,13 @@
+import {restoreBrowserSession} from './browserLogin';
+import {SUPABASE_URL} from './supabase';
 import {initData} from './telegram';
 import {endBrowserSession,readBrowserSession} from './browserSession';
 import {isQAMode,qaRequest} from '../qa/sandbox';
-export const SUPABASE_URL=import.meta.env.VITE_SUPABASE_URL||'https://lfhqzgmcvfebzcyvdqff.supabase.co';
 export type FunctionName='dashboard'|'os6'|'os61'|'os7'|'os8'|'os9';
 export async function request<T=any>(fn:FunctionName,action:string,fields:Record<string,unknown>={}):Promise<T>{
   if(isQAMode())return qaRequest<T>(fn,action,fields);
   const token=initData();
-  const browserSession=token?null:readBrowserSession()?.token;
+  const browserSession=token?null:(readBrowserSession()??await restoreBrowserSession())?.token;
   if(!token&&!browserSession)throw new Error('Войди в ProDesk через Telegram.');
   const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),22000);
   try{

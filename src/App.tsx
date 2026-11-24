@@ -15,7 +15,8 @@ import {HomePage,TodayPage,GoalsPage,GoalEditor,AnalyticsPage} from './pages/Cor
 import {CalendarPage,TomorrowPage,FinancePage,SportPage,ChallengesPage,ReviewPage,DisciplinePage,CategoriesPage,SettingsPage,HelpPage,EntityEditor} from './pages/ExtraPages';
 import type {Tab} from './types';
 import {initData,telegram} from './lib/telegram';
-import {endBrowserSession,readBrowserSession} from './lib/browserSession';
+import {signOutBrowser} from './lib/browserLogin';
+import {readBrowserSession} from './lib/browserSession';
 import {LogOut} from 'lucide-react';
 import {BufferWorkspacePage} from './pages/BufferWorkspace';
 import {MvpAnalyticsPage} from './pages/MvpAnalytics';
@@ -77,7 +78,7 @@ function Sidebar(){
   </aside>
  </>;
 }
-function Header(){const{tab,sidebar,setSidebar,status,refresh,setHelp,demo}=useApp();
+function Header(){const{tab,sidebar,setSidebar,status,refresh,setHelp,demo,notify}=useApp();
   const mobileLabel=appNames[tab]||'ProDesk';
   const qa=isQAMode();
   const [editorSave,setEditorSave]=useState(readSaveState);
@@ -90,7 +91,7 @@ function Header(){const{tab,sidebar,setSidebar,status,refresh,setHelp,demo}=useA
     <div className="topbar-right">{qa?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}
      <button className={'icon-btn cloud-button '+(failed?'error':saving?'saving':'saved')} onClick={onCloudClick} title={cloudLabel} aria-label={cloudLabel} aria-live="polite"><Icon name={cloud} size={21}/></button>
      <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button>
-     {!qa&&!demo&&!initData()&&readBrowserSession()&&<button type="button" className="icon-btn" aria-label="Выйти из ProDesk" title="Выйти из ProDesk" onClick={()=>endBrowserSession()}><LogOut size={20}/></button>}</div>
+     {!qa&&!demo&&!initData()&&readBrowserSession()&&<button type="button" className="icon-btn" aria-label="Выйти из ProDesk" title="Выйти из ProDesk" onClick={()=>void signOutBrowser().catch(()=>notify('Не удалось завершить сессию браузера. Повтори попытку.'))}><LogOut size={20}/></button>}</div>
   </header>;
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{mobilePrimary.map(n=><BottomItem key={n.id} {...n}/>) }<MoreBottomItem/></nav>}
