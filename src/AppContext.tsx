@@ -124,6 +124,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
         .then(data=>setLegacyRows(data.days||[])).catch(()=>{});
     }catch(e:any){setError(e.message||'Не удалось подключиться');setStatus('error');setReady(true);}
   },[demo,today]);
+  useEffect(()=>{if(ready||error)window.dispatchEvent(new Event('prodesk:app-initialized'))},[ready,error]);
   useEffect(()=>{setupTelegram();
     void reload(today,tz);
     // Initial user authentication is done only at the verified server.
