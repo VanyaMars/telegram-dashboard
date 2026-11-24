@@ -71,7 +71,7 @@ export function Empty({icon='inbox',title,description,action}:{icon?:string;titl
 export function SectionHead({title,caption,action}:{title:string;caption?:string;action?:React.ReactNode}){
   return <div className="section-head"><div><h2>{title}</h2>{caption&&<p>{caption}</p>}</div>{action}</div>;
 }
-export function Dialog({open,onClose,title,children}:{open:boolean;onClose:()=>void;title:string;children:React.ReactNode}){
+export function Dialog({open,onClose,title,children,className=''}:{open:boolean;onClose:()=>void;title:string;children:React.ReactNode;className?:string}){
   const reduced=useReducedMotion();
   const sheetRef=useRef<HTMLDivElement>(null);
   const onCloseRef=useRef(onClose);
@@ -106,7 +106,7 @@ export function Dialog({open,onClose,title,children}:{open:boolean;onClose:()=>v
   if(!open)return null;
   // Portaling to body avoids stacking contexts from animated cards and routes.
   return createPortal(<div className="modal-backdrop" role="presentation" onPointerDown={e=>{if(e.target===e.currentTarget)onCloseRef.current()}}>
-    <m.div ref={sheetRef} tabIndex={-1} className="modal-sheet" role="dialog" aria-modal="true" aria-label={title} initial={reduced?false:{opacity:0,y:12,scale:0.985}} animate={{opacity:1,y:0,scale:1}} transition={{duration:reduced?0:0.22,ease:'easeOut'}}><div className="modal-top"><h3>{title}</h3><button type="button" className="icon-btn" onClick={()=>onCloseRef.current()} aria-label="Закрыть"><Icon name="x"/></button></div>{children}</m.div>
+    <m.div ref={sheetRef} tabIndex={-1} className={'modal-sheet '+className} role="dialog" aria-modal="true" aria-label={title} initial={reduced?false:{opacity:0,y:12,scale:0.985}} animate={{opacity:1,y:0,scale:1}} transition={{duration:reduced?0:0.22,ease:'easeOut'}}><div className="modal-top"><h3>{title}</h3><button type="button" className="icon-btn" onClick={()=>onCloseRef.current()} aria-label="Закрыть"><Icon name="x"/></button></div>{children}</m.div>
   </div>,document.body);
 }
 export function StatusToast(){

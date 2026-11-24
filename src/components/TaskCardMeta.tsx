@@ -1,11 +1,11 @@
 import React,{useEffect,useState} from 'react';
 import {request} from '../lib/api';
-export type TaskCardMeta={emoji:string;progress:number|null};
+export type TaskCardMeta={emoji:string;progress:number|null;pipelineActions:number;pipelineCount:number};
 const cache=new Map<string,TaskCardMeta>();
 export function useTaskCardMeta(ids:string[]){
  const [data,setData]=useState<Record<string,TaskCardMeta>>({});
  const key=[...ids].sort().join(',');
- useEffect(()=>{let live=true;if(!ids.length)return;request<{cards:Record<string,TaskCardMeta>}>('os8','task_cards_meta',{taskIds:ids}).then(r=>{if(!live)return;Object.entries(r.cards||{}).forEach(([id,x])=>cache.set(id,x));setData(Object.fromEntries(ids.map(id=>[id,cache.get(id)||{emoji:'📋',progress:null}])))}).catch(()=>{if(live)setData(Object.fromEntries(ids.map(id=>[id,cache.get(id)||{emoji:'📋',progress:null}])))});return()=>{live=false}},[key]);
+ useEffect(()=>{let live=true;if(!ids.length){setData({});return}request<{cards:Record<string,TaskCardMeta>}>('os8','task_cards_meta',{taskIds:ids}).then(r=>{if(!live)return;Object.entries(r.cards||{}).forEach(([id,x])=>cache.set(id,x));setData(Object.fromEntries(ids.map(id=>[id,cache.get(id)||{emoji:'📋',progress:null,pipelineActions:0,pipelineCount:0}])))}).catch(()=>{if(live)setData(Object.fromEntries(ids.map(id=>[id,cache.get(id)||{emoji:'📋',progress:null,pipelineActions:0,pipelineCount:0}])))});return()=>{live=false}},[key]);
  return data;
 }
 export const EMOJI_GROUPS:Record<string,string[]>={Действия:['📋','✅','🎯','📌','📝','📅','⏰','🔥','⚡','💡','🚀','⭐','🏆','📈','🔔','🔑'],Работа:['💼','💻','📊','📁','🗂️','🎨','✍️','📷','💰','💳','📞','🌐','🧠','🔧'],Жизнь:['🏠','🛒','🍎','🍽️','🚗','🚲','🏃','🏋️','💪','❤️','📚','🎧','🎮','🎉','☕','🌱'],Люди:['🙂','😀','😎','🤝','👨‍👩‍👧','👤','👥','🙌','💬']};
