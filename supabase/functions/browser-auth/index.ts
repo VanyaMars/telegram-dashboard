@@ -1,3 +1,4 @@
+import { browserDeviceAction, deviceSessionLifetime, registerBrowserDevice } from './device-session.ts';
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@6.1.3';
 import { browserRedirectUrl, browserSiteOrigin, createBrowserSession, createLoginState, verifyLoginState } from '../_shared/browser-auth.ts';
 
@@ -61,6 +62,10 @@ Deno.serve(async (request: Request) => {
       return reply({ ok: true, authorizationUrl, state });
     }
 
+    if (body.action === 'device_challenge' || body.action === 'device_refresh' || body.action === 'device_logout') {
+      const result = await browserDeviceAction(body, body.action);
+      return reply(result.payload, result.status);
+    }
     if (body.action !== 'exchange') return reply({ error: 'Неверный запрос.' }, 400);
     const { code, verifier } = body;
     if (typeof code !== 'string' || !code || code.length > 2048 ||
@@ -123,7 +128,13 @@ Deno.serve(async (request: Request) => {
       return reply({ error: 'Этот аккаунт пока не имеет доступа к ProDesk.' }, 403);
     }
 
-    return reply({ ok: true, session: await createBrowserSession(identity) });
+    let deviceId: string | null = null;
+    if (body.devicePublicKey !== undefined) {
+      try { deviceId = await registerBrowserDevice(identity.id, body.devicePublicKey); }
+      catch { console.warn('browser-auth: could not register browser device'); }
+    }
+    const session = await createBrowserSession(identity, deviceId ? deviceSessionLifetime : undefined);
+    return reply({ ok: true, session: deviceId ? { ...session, deviceId } : session });
   } catch {
     return reply({ error: 'Не удалось войти. Попробуй ещё раз.' }, 503);
   }

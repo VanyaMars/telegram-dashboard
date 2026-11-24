@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, Fragment, type ReactNode } from 'react';
 import { Send } from 'lucide-react';
 import { initData } from '../lib/telegram';
 import { isQAMode } from '../qa/sandbox';
-import { finishBrowserLogin, hasLoginCallback, startBrowserLogin } from '../lib/browserLogin';
-import { browserSessionEnded, endBrowserSession, readBrowserSession } from '../lib/browserSession';
+import { finishBrowserLogin, hasLoginCallback, restoreBrowserSession, startBrowserLogin } from '../lib/browserLogin';
+import { browserSessionEnded, browserSessionUpdated, endBrowserSession, readBrowserSession, type BrowserSession } from '../lib/browserSession';
+import { deviceLogoutKey } from '../lib/browserDevice';
 import './browser-auth.css';
 
 export function BrowserAuthGate({ children }: { children: ReactNode }) {
@@ -16,8 +17,11 @@ function BrowserEntry({ children }: { children: ReactNode }) {
   const [completing, setCompleting] = useState(hasLoginCallback);
   const [session, setSession] = useState(readBrowserSession);
   const [starting, setStarting] = useState(false);
+  const [restoring, setRestoring] = useState(!session && !completing);
+  const [retryRestore, setRetryRestore] = useState(false);
   const [error, setError] = useState('');
   const exchange = useRef<ReturnType<typeof finishBrowserLogin> | null>(null);
+  const restoreRequestedAfterExpiry = useRef(false);
 
   useEffect(() => {
     if (!completing) return;
@@ -30,18 +34,62 @@ function BrowserEntry({ children }: { children: ReactNode }) {
   }, [completing]);
 
   useEffect(() => {
+    if (!restoring) return;
+    let active = true;
+    setRetryRestore(false);
+    void restoreBrowserSession().then(next => {
+      if (!active) return;
+      setSession(next);
+      if (!next && restoreRequestedAfterExpiry.current) setError('Сессия истекла. Войди снова.');
+    }).catch(() => {
+      if (!active) return;
+      setError('Не удалось восстановить вход. Проверь соединение.');
+      setRetryRestore(true);
+    }).finally(() => {
+      if (active) {
+        restoreRequestedAfterExpiry.current = false;
+        setRestoring(false);
+      }
+    });
+    return () => { active = false; };
+  }, [restoring]);
+
+  useEffect(() => {
     const onEnd = (event: Event) => {
+      const expired = (event as CustomEvent<boolean>).detail;
       setSession(null);
-      setError((event as CustomEvent<boolean>).detail ? 'Сессия истекла. Войди снова.' : '');
+      setError('');
+      setRetryRestore(false);
+      restoreRequestedAfterExpiry.current = expired;
+      setRestoring(expired);
+    };
+    const onUpdate = (event: Event) => {
+      setSession((event as CustomEvent<BrowserSession>).detail);
     };
     window.addEventListener(browserSessionEnded, onEnd);
-    return () => window.removeEventListener(browserSessionEnded, onEnd);
+    window.addEventListener(browserSessionUpdated, onUpdate);
+    return () => {
+      window.removeEventListener(browserSessionEnded, onEnd);
+      window.removeEventListener(browserSessionUpdated, onUpdate);
+    };
   }, []);
 
   useEffect(() => {
     if (!session) return;
-    const timer = window.setTimeout(() => endBrowserSession(true), Math.max(0, session.expiresAt - Date.now()));
-    return () => window.clearTimeout(timer);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === deviceLogoutKey && event.newValue === session.deviceId) endBrowserSession();
+    };
+    window.addEventListener('storage', onStorage);
+    const remaining = Math.max(0, session.expiresAt - Date.now());
+    const expiry = window.setTimeout(() => endBrowserSession(true), remaining);
+    const renewal = session.deviceId ? window.setTimeout(() => {
+      void restoreBrowserSession().catch(() => { /* Keep the active session until expiry. */ });
+    }, Math.max(0, remaining - 30000)) : undefined;
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.clearTimeout(expiry);
+      window.clearTimeout(renewal);
+    };
   }, [session]);
 
   const start = async () => {
@@ -55,16 +103,19 @@ function BrowserEntry({ children }: { children: ReactNode }) {
     }
   };
 
-  if (session && !completing) return <>{children}</>;
+  if (session && !completing) return <Fragment key={session.userId}>{children}</Fragment>;
 
   return <main className="browser-auth">
     <section className="browser-auth-card" aria-labelledby="browser-auth-title">
       <img className="browser-auth-logo" src={import.meta.env.BASE_URL + 'prodesk-mark.svg'} width={48} height={48} alt="" />
       <h1 id="browser-auth-title">ProDesk</h1>
       <p>Войди через Telegram, чтобы открыть свои задачи, цели и прогресс.</p>
-      <button type="button" className="btn accent browser-auth-button" onClick={() => void start()} disabled={starting || completing}>
+      {retryRestore && <button type="button" className="btn accent browser-auth-button" onClick={() => { setError(''); setRestoring(true); }}>
+        Повторить подключение
+      </button>}
+      <button type="button" className="btn accent browser-auth-button" onClick={() => void start()} disabled={starting || completing || restoring}>
         <Send size={18} aria-hidden="true" />
-        {completing ? 'Подтверждаем вход…' : starting ? 'Открываем Telegram…' : 'Войти через Telegram'}
+        {completing ? 'Подтверждаем вход…' : starting ? 'Открываем Telegram…' : restoring ? 'Восстанавливаем вход…' : 'Войти через Telegram'}
       </button>
       {error && <p className="browser-auth-error" role="alert">{error}</p>}
     </section>
