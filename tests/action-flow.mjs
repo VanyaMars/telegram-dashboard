@@ -9,7 +9,7 @@ for(const path of ['src/pages/CorePages.tsx','src/pages/PlanningPage.tsx','src/A
 const core=read('src/pages/CorePages.tsx'),planning=read('src/pages/PlanningPage.tsx'),context=read('src/AppContext.tsx');
 assert.match(core,/СЛЕДУЮЩИЙ ШАГ/);
 assert.match(core,/next-step-title/);
-assert.match(core,/today-task-group--/);
+assert.match(core,/today-task-group/);
 assert.match(core,/buffer-quick/);
 assert.match(core,/submitting\.current/);
 assert.match(core,/Сбросить фильтры/);

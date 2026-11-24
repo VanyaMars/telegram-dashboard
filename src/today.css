@@ -1,0 +1,178 @@
+.today-action-flow {
+  gap: 14px;
+}
+
+.today-action-flow .page-heading {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.today-action-flow .page-heading h1 {
+  margin-block: 0 4px;
+}
+
+.today-action-flow .today-return {
+  align-self: flex-start;
+}
+
+.today-action-flow .today-summary {
+  display: grid;
+  gap: 10px;
+  padding: 15px 18px;
+}
+
+.today-progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.today-progress-heading strong {
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.today-summary .progress-track {
+  height: 6px;
+}
+
+.today-action-flow .today-task-group {
+  padding: 12px clamp(10px, 3vw, 18px);
+}
+
+.today-list-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 2px 8px;
+}
+
+.today-list-heading h2 {
+  font-size: 16px;
+  letter-spacing: -.2px;
+}
+
+.today-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.today-list-actions .btn {
+  min-height: 44px;
+  padding: 0 10px;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.today-buffer-picker {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f6f6fa;
+}
+
+.today-buffer-picker .quick-plan-form {
+  margin-top: 0;
+}
+
+.today-task-group .task-list {
+  gap: 5px;
+}
+
+.today-task-group .today-task-row {
+  min-height: 48px;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+}
+
+.today-task-group .today-task-row.today-task-important {
+  border-color: #daba76 !important;
+  background: #fffdf6 !important;
+}
+
+.today-task-group .today-task-row.task-drop-target {
+  border-color: var(--purple) !important;
+}
+
+.today-task-row .task-leading-actions {
+  order: 2;
+  flex-shrink: 0;
+}
+
+.today-task-row .task-leading-actions .task-popover {
+  left: auto;
+  right: 0;
+}
+
+.today-task-row .task-leading-actions .drag-handle {
+  width: 40px;
+  height: 44px;
+}
+
+.today-task-row .task-copy {
+  gap: 3px;
+}
+
+.today-task-row .task-text {
+  overflow-wrap: anywhere;
+}
+
+.today-task-row .task-labels:empty {
+  display: none;
+}
+
+.today-importance {
+  display: inline-flex;
+  vertical-align: -.12em;
+  margin-inline-end: 6px;
+  color: #8a5515;
+}
+
+.today-importance svg {
+  fill: #f4cd74;
+}
+
+.today-task-group .today-task-row .task-checkbox {
+  color: #176243;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.today-task-group .today-task-row .task-checkbox::before {
+  inset: 12px;
+  border-radius: 50%;
+  border-color: #a5a8b4;
+}
+
+.today-task-group .today-task-row .task-checkbox.checked::before {
+  background: #e3f4e9;
+  border-color: #b4d7c2;
+}
+
+.today-task-group .task-checkmark {
+  line-height: 0;
+}
+
+.today-task-group .today-done-group {
+  margin-top: 9px;
+  padding-top: 4px;
+}
+
+.today-done-toggle span {
+  font-variant-numeric: tabular-nums;
+}

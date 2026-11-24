@@ -297,17 +297,27 @@ test('6.8 Action Flow: fast Buffer capture prevents duplicate Enter and clears s
  await expect(page.getByRole('button',{name:'QA быстрый захват 6.8',exact:true})).toBeVisible();
 });
 
-test('6.8 Action Flow: Today important tasks before score and optional Buffer picker',async({page})=>{
+test('Today has one task list, a 100% completion scale and an optional Buffer picker',async({page})=>{
  await enter(page);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
- await expect(page.locator('.today-task-group--important')).toBeVisible();
- await expect(page.locator('.today-summary--compact')).toBeVisible();
- const above=await page.evaluate(()=>{
-  const imp=document.querySelector('.today-task-group--important');
-  const score=document.querySelector('.today-summary--compact');
-  return !!(imp&&score&&(imp.compareDocumentPosition(score)&Node.DOCUMENT_POSITION_FOLLOWING));
- });
- expect(above).toBe(true);
+ const list=page.locator('.today-task-group > .task-list');
+ await expect(list).toHaveCount(1);
+ await list.getByRole('button',{name:'Действия с задачей Подвести итоги недели'}).click();
+ await list.getByRole('button',{name:'Сделать важной'}).click();
+ await expect(list.locator('.today-task-important')).toHaveCount(1);
+ await expect(list.getByRole('button',{name:'Выполнить: Записаться на ТО'})).toBeVisible();
+ const progress=page.getByRole('progressbar',{name:'Выполнение задач дня'});
+ await expect(progress).toHaveAttribute('aria-valuemax','100');
+ const incomplete=list.locator('button.task-checkbox');
+ for(let remaining=await incomplete.count();remaining>0;remaining--) await incomplete.first().click();
+ await expect(progress).toHaveAttribute('aria-valuenow','100');
+ await page.getByRole('button',{name:/Выполнено/}).click();
+ const completed=page.locator('#today-completed').getByRole('button',{name:'Снять выполнение: Записаться на ТО'});
+ await expect(completed).toBeVisible();
+ await expect(completed.locator('svg')).toHaveAttribute('width','13');
+ expect(await completed.evaluate(button=>getComputedStyle(button).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+ await completed.click();
+ await expect(progress).not.toHaveAttribute('aria-valuenow','100');
  const toggle=page.getByRole('button',{name:/Из буфера/});
  await expect(toggle).toHaveAttribute('aria-expanded','false');
  await toggle.click();
@@ -605,7 +615,7 @@ test('6.9: Focus, Income tab and Repeats are not in the product UI',async({page}
  await expect(page.getByRole('button',{name:'Начать с 5 минут'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Начать фокус'})).toHaveCount(0);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Сегодня'}).click();
- await expect(page.locator('.today-task-group--important')).toBeVisible();
+ await expect(page.locator('.today-task-group')).toBeVisible();
  await expect(page.locator('.today-start-focus')).toHaveCount(0);
  await page.locator('.sidebar-scroll').getByRole('button',{name:'Аналитика'}).click();
  await expect(page.getByRole('heading',{name:'Полученный доход'})).toBeVisible();

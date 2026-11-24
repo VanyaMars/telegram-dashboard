@@ -5,7 +5,7 @@ import {Card,Dialog,Empty,GoalMini,Pill,ProgressBar,SectionHead,Sparkline,WeekBa
 import {TaskLibrary,type TaskLibraryView} from '../components/TaskLibrary';
 import {TaskList} from '../components/Tasks';
 import type {DayMetrics,Goal,Task} from '../types';
-import {dateAdd,goalProgress,mondayOf,prettyDay,progress,score,shortDay,weekDates} from '../lib/date';
+import {dateAdd,goalProgress,mondayOf,prettyDay,progress,shortDay,weekDates} from '../lib/date';
 import {request} from '../lib/api';
 import {RegularGoals} from '../components/RegularGoals';
 import {GoalsWorkspace} from '../components/GoalsWorkspace';
@@ -15,11 +15,11 @@ import {GoalSnapshot,GoalValues} from '../components/GoalValues';
 import {PremiumAction} from '../components/PremiumControls';
 import {QuickCategory} from '../components/QuickCategory';
 import '../task-polish-v2.css';
+import '../today.css';
 
 const sums=(days:Record<string,DayMetrics>,dates:string[])=>dates.reduce((a,d)=>{const m=days[d];return {tasks:a.tasks+(m?.tasks||0),sales:a.sales+(m?.sales||0),sport:a.sport+(m?.sport||0)};},{tasks:0,sales:0,sport:0});
 function dayKpi(tasks:Task[]){const imp=tasks.filter(t=>t.priority==='important');const extra=tasks.filter(t=>t.priority==='extra');
-  return {important:imp.length,doneImportant:imp.filter(t=>t.completed).length,extra:extra.length,doneExtra:extra.filter(t=>t.completed).length,
-    score:score(imp.length,imp.filter(t=>t.completed).length,extra.length,extra.filter(t=>t.completed).length)};
+  return {important:imp.length,doneImportant:imp.filter(t=>t.completed).length,extra:extra.length,doneExtra:extra.filter(t=>t.completed).length};
 }
 
 export function HomePage(){
@@ -69,10 +69,11 @@ export function HomePage(){
 
 
 export function TodayPage(){
- const{day,setDay,today,tasks,buffer,saveTask,setEditor,open}=useApp();
- const k=dayKpi(tasks),important=tasks.filter(t=>t.priority==='important'),extra=tasks.filter(t=>t.priority==='extra');
- const [expanded,setExpanded]=useState<Record<string,boolean>>({});
- const [bufferId,setBufferId]=useState(''),[bufferPriority,setBufferPriority]=useState<'important'|'extra'>('important');
+ const {day,setDay,today,tasks,buffer,saveTask,setEditor}=useApp();
+ const pending=tasks.filter(task=>!task.completed),completed=tasks.filter(task=>task.completed);
+ const percent=pending.length?Math.min(99,progress(completed.length,tasks.length)):tasks.length?100:0;
+ const [completedOpen,setCompletedOpen]=useState(false);
+ const [bufferId,setBufferId]=useState(''),[bufferPriority,setBufferPriority]=useState<'important'|'extra'>('extra');
  const [moving,setMoving]=useState(false),[pickerOpen,setPickerOpen]=useState(false),[moveError,setMoveError]=useState('');
  const transfer=async()=>{
   const task=buffer.find(t=>t.id===bufferId);if(!task||moving)return;
@@ -81,36 +82,39 @@ export function TodayPage(){
   catch(e:any){setMoveError(e?.message||'Не удалось перенести задачу. Попробуй снова.')}
   finally{setMoving(false)}
  };
- const group=(items:Task[],zone:'important'|'extra')=>{
-  const pending=items.filter(t=>!t.completed),done=items.filter(t=>t.completed);
-  return <Card className={'task-group today-task-group today-task-group--'+zone}><div className="task-group-heading"><div className="task-group-icon"><Icon name={zone==='important'?'target':'zap'} size={20}/></div><div><h3>{zone==='important'?'Самые важные':'Дополнительные'}</h3><span>{done.length} из {items.length} выполнено</span></div><button className="btn small outline" onClick={()=>setEditor({type:'task',day,priority:zone})}><Icon name="plus" size={16}/> Задача</button></div>
-    <TaskList items={pending} zone={zone} emptyMessage={done.length?'Все задачи этой группы выполнены':'Добавь задачу, чтобы начать'}/>
-    {!!done.length&&<div className="done-group"><button className="done-toggle" onClick={()=>setExpanded(p=>({...p,[zone]:!p[zone]}))} aria-expanded={!!expanded[zone]}><Icon name="check-circle" size={16}/> Выполнено · {done.length}<Icon name={expanded[zone]?'up':'down'} size={16}/></button>
-      {expanded[zone]&&<TaskList zone={zone} items={done}/>}</div>}
-   </Card>
- };
+
  return <div className="page-stack today-action-flow">
-  <div className="page-heading"><div><p className="eyebrow">ПЛАН НА ДЕНЬ</p><h1>Сегодня</h1><p>{prettyDay(day)}</p></div><div className="date-chooser"><button onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button><input aria-label="Дата задач" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button></div></div>
-  {day!==today&&<button className="pill-tab" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
-  {group(important,'important')}
-  <div className="today-after-important">
-   <Card className="today-summary today-summary--compact"><div className="today-numbers"><span className="eyebrow">РЕЗУЛЬТАТ ДНЯ</span><span className="status-pill">{k.important&&k.important===k.doneImportant?'Главное закрыто':'Фокус на главном'}</span></div>
-    <PlanScore important={k.important} doneImportant={k.doneImportant} extra={k.extra} doneExtra={k.doneExtra}/>
-    <div className="summary-grid"><div><span>Важные</span><b>{progress(k.doneImportant,k.important)}%</b></div><div><span>Дополнительные</span><b>{progress(k.doneExtra,k.extra)}%</b></div></div>
-   </Card>
-   <div className="quick-plan-disclosure"><button className="btn outline quick-plan-toggle" aria-expanded={pickerOpen} aria-controls="today-buffer-picker" onClick={()=>setPickerOpen(v=>!v)}><Icon name="inbox" size={18}/> Из буфера {buffer.length>0?'· '+buffer.length:''}<Icon name={pickerOpen?'up':'down'} size={16}/></button>
-    {pickerOpen&&<Card className="quick-plan-card" ><div id="today-buffer-picker"><div className="card-title-row"><div><h2>Перенести из буфера</h2><p className="tiny-note">Категория и связь с целью сохранятся.</p></div></div>
-     <div className="quick-plan-form"><select aria-label="Задача из буфера" value={bufferId} onChange={e=>setBufferId(e.target.value)}><option value="">Выбрать задачу…</option>{buffer.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select>
-      <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="important">Важная</option><option value="extra">Дополнительная</option></select>
-      <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={()=>void transfer()}>{moving?'Переносим…':'В день'} <Icon name="right" size={16}/></button>
-     </div>{moveError&&<p className="next-step-error" role="alert">{moveError}</p>}</div>
-    </Card>}
-   </div>
+  <div className="page-heading">
+   <div><h1>Сегодня</h1><p>{prettyDay(day)}</p></div>
+   <div className="date-chooser"><button onClick={()=>setDay(dateAdd(day,-1))} aria-label="Предыдущий день"><Icon name="left"/></button><input aria-label="Дата задач" type="date" value={day} onChange={e=>setDay(e.target.value)}/><button onClick={()=>setDay(dateAdd(day,1))} aria-label="Следующий день"><Icon name="right"/></button></div>
   </div>
-  {group(extra,'extra')}
-  <button className="btn add-inline" onClick={()=>setEditor({type:'task',day,priority:'important'})}><Icon name="plus" size={20}/> Добавить задачу</button>
-  <button className="link-action center" onClick={()=>{sessionStorage.setItem('os-task-view','completed');open('buffer')}}><Icon name="check-circle" size={17}/> Все завершённые задачи <Icon name="right" size={15}/></button>
-  <button className="link-action center" onClick={()=>open('buffer')}><Icon name="inbox" size={17}/> Открыть буфер задач <Icon name="right" size={15}/></button>
+  {day!==today&&<button className="pill-tab today-return" onClick={()=>setDay(today)}>Вернуться к сегодняшнему дню</button>}
+  <Card className="today-summary today-summary--compact">
+   <div className="today-progress-heading"><span>Выполнено {completed.length} из {tasks.length}</span><strong>{percent}%</strong></div>
+   <ProgressBar value={percent} label="Выполнение задач дня"/>
+  </Card>
+  <Card className="today-task-group">
+   <div className="today-list-heading">
+    <h2>Задачи</h2>
+    <div className="today-list-actions">
+     <button type="button" className="btn outline quick-plan-toggle" aria-expanded={pickerOpen} aria-controls={pickerOpen?'today-buffer-picker':undefined} onClick={()=>setPickerOpen(value=>!value)}><Icon name="inbox" size={17}/> Из буфера</button>
+     <button type="button" className="btn accent" onClick={()=>setEditor({type:'task',day,priority:'extra'})}><Icon name="plus" size={18}/> Задача</button>
+    </div>
+   </div>
+   {pickerOpen&&<div id="today-buffer-picker" className="today-buffer-picker">
+    <div className="quick-plan-form"><select aria-label="Задача из буфера" value={bufferId} onChange={e=>{const id=e.target.value;setBufferId(id);setBufferPriority(buffer.find(task=>task.id===id)?.priority??'extra')}}><option value="">{buffer.length?'Выбрать задачу…':'Буфер пуст'}</option>{buffer.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select>
+     <select aria-label="Важность" value={bufferPriority} onChange={e=>setBufferPriority(e.target.value as 'important'|'extra')}><option value="extra">Обычная</option><option value="important">Важная</option></select>
+     <button className="btn accent" type="button" disabled={!bufferId||moving} onClick={()=>void transfer()}>{moving?'Переносим…':'В день'} <Icon name="right" size={16}/></button>
+    </div>{moveError&&<p className="next-step-error" role="alert">{moveError}</p>}
+   </div>}
+   <TaskList items={pending} zone="today" emptyMessage={completed.length?'Все задачи на этот день выполнены':'На этот день пока нет задач'}/>
+   {completed.length>0&&<div className="done-group today-done-group">
+    <button type="button" className="done-toggle today-done-toggle" onClick={()=>setCompletedOpen(value=>!value)} aria-expanded={completedOpen} aria-controls={completedOpen?'today-completed':undefined}>
+     <Icon name="check-circle" size={17}/> Выполнено <span>{completed.length}</span><Icon name={completedOpen?'up':'down'} size={16}/>
+    </button>
+    {completedOpen&&<div id="today-completed"><TaskList items={completed} zone="today"/></div>}
+   </div>}
+  </Card>
  </div>;
 }
 

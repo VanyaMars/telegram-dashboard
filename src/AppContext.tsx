@@ -12,6 +12,7 @@ export type RecentTask={id:string;title:string};
 const recentKey=()=>isQAMode()?'prodesk:recent:qa:'+(readQASession()?.id||'guest'):'prodesk:recent:tg:'+(telegram()?.initDataUnsafe?.user?.id||readBrowserSession()?.userId||'anonymous');
 const readRecent=():RecentTask[]=>{try{const parsed=JSON.parse(localStorage.getItem(recentKey())||'[]');return Array.isArray(parsed)?parsed.filter(x=>typeof x?.id==='string'&&typeof x?.title==='string').slice(0,10):[]}catch{return[]}};
 type Editor={type:'task'|'goal'|'finance'|'workout'|'weight'|'exercise'|'repeat'|'challenge';item?:any;day?:string|null;priority?:TaskPriority} | null;
+export type TaskOrderSection=TaskPriority|'today'|'buffer';
 type AppContextValue={
   demo:boolean;ready:boolean;error:string;status:CloudStatus;tz:string;today:string;day:string;setDay:(d:string)=>void;
   tab:Tab;open:(t:Tab)=>void;sidebar:boolean;setSidebar:(v:boolean)=>void;help:boolean;setHelp:(v:boolean)=>void;
@@ -19,7 +20,8 @@ type AppContextValue={
   metrics:Record<string,DayMetrics>;previousMetrics:Record<string,DayMetrics>;legacyRows:any[];
   editor:Editor;setEditor:(e:Editor)=>void;message:string;notify:(m:string)=>void;recentDeleted:Task|null;undoDelete:()=>Promise<void>;
   openTaskPage:(task:Pick<Task,'id'|'title'>)=>Promise<void>;refresh:()=>Promise<void>;refreshTasks:(rollover?:boolean)=>Promise<void>;syncTaskCategory:(taskId:string,categoryId:string|null)=>void;saveTask:(form:any)=>Promise<void>;toggleTask:(task:Task)=>Promise<void>;deleteTask:(task:Task)=>Promise<void>;
-  reorder:(id:string,section:'important'|'extra'|'buffer',beforeId?:string|null)=>Promise<void>;
+  reorder:(id:string,section:TaskOrderSection,beforeId?:string|null)=>Promise<void>;
+  setTaskPriority:(task:Task,priority:TaskPriority)=>Promise<void>;
   saveGoal:(form:any)=>Promise<void>;deleteGoal:(goal:Goal)=>Promise<void>;
   saveCategory:(form:any)=>Promise<{id:string}|undefined>;deleteCategory:(cat:Category)=>Promise<void>;
   mutate:(fn:'os6'|'os61'|'dashboard',action:string,data?:Record<string,unknown>)=>Promise<any>;
@@ -221,11 +223,24 @@ export function AppProvider({children}:{children:React.ReactNode}){
       setRecentDeleted(null);notify('Задача восстановлена');
     }catch(e:any){notify('Не удалось восстановить: '+e.message);}
   };
-  const reorder=async(id:string,section:'important'|'extra'|'buffer',beforeId:string|null=null)=>{
+  const setTaskPriority=async(task:Task,priority:TaskPriority)=>{
+    if(!task.day||task.priority===priority)return;
+    try{
+      if(!demo){
+        setStatus('saving');
+        await request('os8','task_native_patch',{taskId:task.id,key:'priority',value:priority});
+      }
+      dayReadVersion.current++;
+      setTasks(current=>current.map(item=>item.id===task.id?{...item,priority}:item));
+      setStatus(demo?'demo':'saved');
+      haptic();
+    }catch(e:any){setStatus('error');notify('Не удалось изменить важность: '+e.message);}
+  };
+  const reorder=async(id:string,section:TaskOrderSection,beforeId:string|null=null)=>{
     const all=sorted([...tasks,...buffer]),moving=all.find(t=>t.id===id);if(!moving)return;
-    const nextDay=section==='buffer'?null:dayRef.current;const nextPriority=section==='buffer'?'extra':section;
+    const nextDay=section==='buffer'?null:dayRef.current;const nextPriority=section==='today'?moving.priority:section==='buffer'?'extra':section;
     const rest=all.filter(t=>t.id!==id);
-    const zone=rest.filter(t=>t.day===nextDay&&(nextDay===null||t.priority===nextPriority));
+    const zone=rest.filter(t=>t.day===nextDay&&(nextDay===null||section==='today'||t.priority===nextPriority));
     const targetIdx=beforeId?zone.findIndex(t=>t.id===beforeId):-1;
     const insertAt=targetIdx>=0?targetIdx:zone.length;
     zone.splice(insertAt,0,{...moving,day:nextDay,priority:nextPriority,completed:moving.day===nextDay?moving.completed:false});
@@ -235,7 +250,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
     setTasks(sorted(next.filter(t=>t.day===dayRef.current)));setBuffer(sorted(next.filter(t=>t.day===null)));
     if(demo){haptic();return;}
     const sections=[{d:moving.day,p:moving.priority},{d:nextDay,p:nextPriority}];
-    const affected=next.filter(t=>sections.some(s=>t.day===s.d&&(s.d===null||t.priority===s.p)));
+    const affected=next.filter(t=>sections.some(s=>t.day===s.d&&(s.d===null||section==='today'||t.priority===s.p)));
     const rows=affected.map(t=>({id:t.id,day:t.day,priority:t.priority,position:Number(t.os61_position||1024)}));
     try{setStatus('saving');await request('os61','task_reorder',{items:rows});haptic();await reload(dayRef.current,tz);}
     catch(e:any){setTasks(oldTasks);setBuffer(oldBuffer);setStatus('error');notify('Перестановка не сохранена: '+e.message);}
@@ -253,7 +268,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
   };
   const value:AppContextValue={demo,ready,error,status,tz,today,day,setDay,tab,open,sidebar,setSidebar,help,setHelp,
     tasks,buffer,recentTasks,goals,goalHistory,categories,os6,metrics,previousMetrics,legacyRows,editor,setEditor,message,notify,recentDeleted,undoDelete,
-    openTaskPage,refresh,refreshTasks,syncTaskCategory,saveTask,toggleTask,deleteTask,reorder,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
+    openTaskPage,refresh,refreshTasks,syncTaskCategory,saveTask,toggleTask,deleteTask,reorder,setTaskPriority,saveGoal,deleteGoal,saveCategory,deleteCategory,mutate,calendarTasks,getCalendar};
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export const useApp=()=>{const v=useContext(Context);if(!v)throw Error('No AppProvider');return v;};

@@ -41,7 +41,7 @@ export function TaskPriorityField({task,onSaved,appearance,onAppearanceChange,on
    <form className="task-priority-form" onSubmit={e=>void create(e)}>
     <label>Название<input autoFocus aria-label="Название приоритета" maxLength={60} value={name} onChange={e=>setName(e.target.value)}/></label>
     <label>Группа плана<select aria-label="Группа плана" value={group} onChange={e=>setGroup(e.target.value as 'important'|'extra')}><option value="extra">Обычные задачи</option><option value="important">Важные задачи</option></select></label>
-    <p>Группа определяет, где задача появится в плане дня.</p><button className="btn accent" disabled={!name.trim()||busy}>Создать</button>
+    <p>Группа определяет, будет ли задача выделена в плане дня.</p><button className="btn accent" disabled={!name.trim()||busy}>Создать</button>
    </form>
   </Dialog>
  </div>;
