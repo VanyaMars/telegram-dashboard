@@ -1,7 +1,8 @@
 // Personal OS 6.4: earnings for task pages. Verify JWT OFF only with Telegram HMAC verification intact.
 // Personal OS 6.3: task pages and regular goals. Verify JWT OFF ONLY with Telegram HMAC verification intact.
 import {createClient} from 'npm:@supabase/supabase-js@2';
-const origin='https://vanyamars.github.io';
+import { browserSiteOrigin, verifyBrowserUser } from "./functions/_shared/browser-auth.ts";
+const origin=browserSiteOrigin();
 const headers={'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Vary':'Origin'};
 const reply=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers});
 const enc=new TextEncoder();
@@ -33,7 +34,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(req.method!=='POST')return reply({ok:false,error:'POST required'},405);
  try{
-  const body=await req.json();const uid=await verify(String(body?.initData||''));
+  const body=await req.json();const uid=await verify(String(body?.initData||'')) ?? (!body?.initData ? (await verifyBrowserUser(body?.browserSession))?.id : null);
   if(!uid)return reply({ok:false,error:'Telegram authorization failed'},401);
   const allowed=Deno.env.get('TG_ALLOWED_USER_ID');if(allowed&&allowed!==String(uid))return reply({ok:false,error:'Access denied'},403);
   const db=admin(),act=String(body.action||'');

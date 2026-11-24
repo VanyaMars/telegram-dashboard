@@ -13,7 +13,9 @@ import {TaskEditor} from './components/Tasks';
 import {HomePage,TodayPage,GoalsPage,GoalEditor,AnalyticsPage} from './pages/CorePages';
 import {CalendarPage,TomorrowPage,FinancePage,SportPage,ChallengesPage,ReviewPage,DisciplinePage,CategoriesPage,SettingsPage,HelpPage,EntityEditor} from './pages/ExtraPages';
 import type {Tab} from './types';
-import {telegram} from './lib/telegram';
+import {initData,telegram} from './lib/telegram';
+import {endBrowserSession,readBrowserSession} from './lib/browserSession';
+import {LogOut} from 'lucide-react';
 import {BufferWorkspacePage} from './pages/BufferWorkspace';
 import {MvpAnalyticsPage} from './pages/MvpAnalytics';
 import {PlanningPage} from './pages/PlanningPage';
@@ -86,7 +88,8 @@ function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
   return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
     <div className="topbar-right">{qa?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}
      <button className={'icon-btn cloud-button '+(failed?'error':saving?'saving':'saved')} onClick={onCloudClick} title={cloudLabel} aria-label={cloudLabel} aria-live="polite"><Icon name={cloud} size={21}/></button>
-     <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button></div>
+     <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button>
+     {!qa&&!demo&&!initData()&&readBrowserSession()&&<button type="button" className="icon-btn" aria-label="Выйти из ProDesk" title="Выйти из ProDesk" onClick={()=>endBrowserSession()}><LogOut size={20}/></button>}</div>
   </header>;
 }
 function BottomNav(){return <nav className="bottom-nav" aria-label="Основная навигация">{mobilePrimary.map(n=><BottomItem key={n.id} {...n}/>) }<MoreBottomItem/></nav>}

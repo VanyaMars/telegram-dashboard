@@ -2,8 +2,9 @@
 // New categories, task ordering and reliable account-local date.
 // Never expose service role credentials. Verify JWT OFF, Telegram initData checked below.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { browserSiteOrigin, verifyBrowserUser } from "./functions/_shared/browser-auth.ts";
 
-const SITE_ORIGIN = "https://vanyamars.github.io";
+const SITE_ORIGIN = browserSiteOrigin();
 const CORS = {"Access-Control-Allow-Origin":SITE_ORIGIN,"Access-Control-Allow-Headers":"content-type",
   "Access-Control-Allow-Methods":"POST,OPTIONS","Content-Type":"application/json; charset=utf-8","Vary":"Origin"};
 const json=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:CORS});
@@ -86,7 +87,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return json({error:"POST only"},405);
   try{
     let b:any;try{b=await req.json();}catch{return json({error:"Invalid JSON"},400);}
-    const uid=await verifyTelegram(String(b?.initData||""));
+    const uid=await verifyTelegram(String(b?.initData||"")) ?? (!b?.initData ? (await verifyBrowserUser(b?.browserSession))?.id : null);
     if(!uid)return json({error:"Открой приложение через Telegram повторно"},401);
     const allowed=Deno.env.get("TG_ALLOWED_USER_ID");if(allowed&&allowed!==String(uid))return json({error:"Доступ закрыт"},403);
     const db=admin();const action=String(b?.action||"");

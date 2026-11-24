@@ -1,14 +1,15 @@
 import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {Category,CloudStatus,DayMetrics,Goal,GoalPoint,OS6Data,Tab,Task,TaskPriority} from './types';
 import {request} from './lib/api';
-import {initData,setupTelegram,haptic,telegram} from './lib/telegram';
+import {readBrowserSession} from './lib/browserSession';
+import {setupTelegram,haptic,telegram} from './lib/telegram';
 import {isQAMode,readQASession} from './qa/sandbox';
 import {dateInZone,initialTimezone,mondayOf,metricRange,dateAdd} from './lib/date';
 import {tabFromHash,hashForTab,loadSelectedDay,rememberSelectedDay} from './lib/navigation';
 import {demoToday,demoTasks,demoGoals,demoCategories,demoOS6,demoGoalHistory} from './lib/demo';
 
 export type RecentTask={id:string;title:string};
-const recentKey=()=>isQAMode()?'prodesk:recent:qa:'+(readQASession()?.id||'guest'):'prodesk:recent:tg:'+(telegram()?.initDataUnsafe?.user?.id||'anonymous');
+const recentKey=()=>isQAMode()?'prodesk:recent:qa:'+(readQASession()?.id||'guest'):'prodesk:recent:tg:'+(telegram()?.initDataUnsafe?.user?.id||readBrowserSession()?.userId||'anonymous');
 const readRecent=():RecentTask[]=>{try{const parsed=JSON.parse(localStorage.getItem(recentKey())||'[]');return Array.isArray(parsed)?parsed.filter(x=>typeof x?.id==='string'&&typeof x?.title==='string').slice(0,10):[]}catch{return[]}};
 type Editor={type:'task'|'goal'|'finance'|'workout'|'weight'|'exercise'|'repeat'|'challenge';item?:any;day?:string|null;priority?:TaskPriority} | null;
 type AppContextValue={
@@ -121,7 +122,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
         .then(data=>setLegacyRows(data.days||[])).catch(()=>{});
     }catch(e:any){setError(e.message||'Не удалось подключиться');setStatus('error');setReady(true);}
   },[demo,today]);
-  useEffect(()=>{setupTelegram();if(!demo&&!isQAMode()&&!initData()){setStatus('error');setReady(true);setError('Открой приложение через бота ProDesk в Telegram.');return;}
+  useEffect(()=>{setupTelegram();
     void reload(today,tz);
     // Initial user authentication is done only at the verified server.
   // eslint-disable-next-line react-hooks/exhaustive-deps

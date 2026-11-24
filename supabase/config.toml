@@ -1,0 +1,26 @@
+project_id = "prodesk"
+
+[functions.browser-auth]
+verify_jwt = false
+
+[functions.dashboard]
+verify_jwt = false
+
+[functions.os6]
+verify_jwt = false
+
+[functions.os61]
+entrypoint = "./02-os61-index.ts"
+verify_jwt = false
+
+[functions.os7]
+entrypoint = "./04-os7-index.ts"
+verify_jwt = false
+
+[functions.os8]
+entrypoint = "./06-os8-index.ts"
+verify_jwt = false
+
+[functions.os9]
+entrypoint = "./08-os9-index.ts"
+verify_jwt = false
