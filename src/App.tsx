@@ -6,6 +6,7 @@ import {MotionRoute} from './components/OSMotion';
 import {isQAMode} from './qa/sandbox';
 import {APP_BUILD_LABEL} from './lib/version';
 import {readSaveState,retrySaveEvent} from './lib/saveStatus';
+import {useMobileMenuSwipe} from './lib/useMobileMenuSwipe';
 import * as m from 'motion/react-m';
 import {useReducedMotion} from 'motion/react';
 import {motionTokens} from './components/motionTokens';
@@ -58,7 +59,7 @@ function Sidebar(){
 
  return <>
   <div className={'sidebar-scrim '+(sidebar?'visible':'')} onClick={()=>setSidebar(false)} aria-hidden="true"/>
-  <aside className={'app-sidebar '+(sidebar?'is-open':'')} aria-label="Боковая навигация">
+  <aside id="prodesk-sidebar" className={'app-sidebar '+(sidebar?'is-open':'')} aria-label="Боковая навигация">
    <div className="brand"><div className="brand-logo"><img src="/telegram-dashboard/prodesk-mark.svg" alt="" width={35} height={35}/></div><div><strong>ProDesk</strong><small>Оседлай хаос</small></div><button className="mobile-close icon-btn" onClick={()=>setSidebar(false)} aria-label="Закрыть меню"><Icon name="x"/></button></div>
    <nav className="sidebar-scroll">
     {label('main','ОСНОВНОЕ')}
@@ -76,7 +77,7 @@ function Sidebar(){
   </aside>
  </>;
 }
-function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
+function Header(){const{tab,sidebar,setSidebar,status,refresh,setHelp,demo}=useApp();
   const mobileLabel=appNames[tab]||'ProDesk';
   const qa=isQAMode();
   const [editorSave,setEditorSave]=useState(readSaveState);
@@ -85,7 +86,7 @@ function Header(){const{tab,setSidebar,status,refresh,setHelp,demo}=useApp();
   const cloud=failed?'cloud-off':saving?'cloud':'cloud-check';
   const cloudLabel=failed?'Не сохранено — нажми для повтора':saving?'Сохраняется…':'Все изменения сохранены';
   const onCloudClick=()=>{if(editorSave==='error'){window.dispatchEvent(new Event(retrySaveEvent));return}void refresh()};
-  return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
+  return <header className="topbar"><div className="topbar-left"><button className="icon-btn hamburger" onClick={()=>setSidebar(true)} aria-label="Открыть меню" aria-expanded={sidebar} aria-controls="prodesk-sidebar"><Icon name="menu" size={23}/></button><span className="mobile-title">{mobileLabel}</span></div>
     <div className="topbar-right">{qa?<span className="demo-tag">QA · ЛОКАЛЬНО</span>:demo&&<span className="demo-tag">ДЕМО</span>}
      <button className={'icon-btn cloud-button '+(failed?'error':saving?'saving':'saved')} onClick={onCloudClick} title={cloudLabel} aria-label={cloudLabel} aria-live="polite"><Icon name={cloud} size={21}/></button>
      <button className="icon-btn" onClick={()=>setHelp(true)} aria-label="Открыть справку"><Icon name="help" size={21}/></button>
@@ -107,7 +108,7 @@ function MoreBottomItem(){
   const {tab,sidebar,setSidebar}=useApp();const reduced=useReducedMotion();
   const active=!(['today','buffer','goals'] as Tab[]).includes(tab);
  return <button className={active?'current':''} type="button" onClick={()=>setSidebar(true)}
-  aria-label="Ещё" aria-expanded={sidebar}>
+  aria-label="Ещё" aria-expanded={sidebar} aria-controls="prodesk-sidebar">
   {active&&<m.span className="motion-bottom-pill" layoutId="os-bottom-active"
    aria-hidden="true" initial={false} transition={reduced?{duration:0}:motionTokens.selection}/>}
   <Icon name="menu" size={22}/><span>Ещё</span>
@@ -127,7 +128,8 @@ function HelpSheet(){const{help,setHelp,open}=useApp();return <Dialog open={help
   <div className="help-tip"><Icon name="calendar"/><span>«Сегодня» определяется по часовому поясу твоего профиля.</span></div>
   <button className="btn accent full" onClick={()=>{setHelp(false);open('help')}}>Полная справка</button>
   </div></Dialog>}
-export default function App(){const{ready,error,refresh,tab}=useApp();
+export default function App(){const{ready,error,refresh,tab,sidebar,setSidebar}=useApp();
+  useMobileMenuSwipe(sidebar,setSidebar);
   useEffect(()=>{const dismiss=(e:PointerEvent)=>{document.querySelectorAll<HTMLDetailsElement>('details.task-actions[open],details.os-split-menu[open]').forEach(menu=>{if(e.target instanceof Node&&!menu.contains(e.target))menu.open=false})};const choose=(e:MouseEvent)=>{if(e.target instanceof Element){const button=e.target.closest('button');const menu=button?.closest<HTMLDetailsElement>('details.os-split-menu,details.workflow-actions');if(menu)menu.open=false}};document.addEventListener('pointerdown',dismiss);document.addEventListener('click',choose);return()=>{document.removeEventListener('pointerdown',dismiss);document.removeEventListener('click',choose)}},[]);
   useEffect(()=>{const app=telegram();const back=()=>{const modal=document.querySelector('.modal-backdrop');if(modal){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));return;}window.history.back()};
     app?.BackButton?.onClick?.(back);return()=>{app?.BackButton?.offClick?.(back)}},[]);

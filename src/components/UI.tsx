@@ -32,12 +32,12 @@ export function Card({children,className='',onClick}:{children:React.ReactNode;c
 export function Pill({children,accent='lavender'}:{children:React.ReactNode;accent?:string}){
   return <span className={'pill pill-'+accent}>{children}</span>;
 }
-export function ProgressBar({value,max=100,secondary=0}:{value:number;max?:number;secondary?:number}){
+export function ProgressBar({value,max=100,secondary=0,label}:{value:number;max?:number;secondary?:number;label?:string}){
  const reduced=useReducedMotion();
  const first=max>0?Math.min(max,Math.max(0,value)):0;
  const extra=max>0?Math.min(max-first,Math.max(0,secondary)):0;
  const ratio=max>0?first/max:0,total=max>0?(first+extra)/max:0;
- return <div className="progress-track premium-progress-track" role="progressbar"
+ return <div className="progress-track premium-progress-track" role="progressbar" aria-label={label}
   aria-valuemin={0} aria-valuemax={max} aria-valuenow={first+extra}>
   {extra>0&&<m.span className="progress-fill secondary motion-progress-fill"
    initial={false} animate={{scaleX:total}} style={{transformOrigin:'0% 50%'}}
