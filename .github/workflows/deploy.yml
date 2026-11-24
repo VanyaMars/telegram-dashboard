@@ -62,7 +62,12 @@ jobs:
       - name: Upload built site
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: ./dist
+      - name: Wait for Pages artifact indexing
+        run: sleep 30
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
