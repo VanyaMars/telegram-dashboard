@@ -1,0 +1,46 @@
+.browser-auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at 50% 25%, #edeaff, var(--page) 70%);
+}
+
+.browser-auth-card {
+  width: min(100%, 406px);
+  padding: clamp(24px, 7vw, 40px);
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--white);
+  box-shadow: 0 24px 64px rgba(44, 35, 92, .09);
+  text-align: center;
+}
+
+.browser-auth-logo {
+  margin-bottom: 4px;
+}
+
+.browser-auth-card h1 {
+  font-size: 36px;
+  letter-spacing: -.055em;
+}
+
+.browser-auth-card p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.browser-auth .browser-auth-button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.browser-auth-card .browser-auth-error {
+  color: #a6223e;
+  font-size: 14px;
+}

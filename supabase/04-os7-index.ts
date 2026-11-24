@@ -1,7 +1,8 @@
 // Personal OS Workspace. New separate Edge Function "os7". Verify JWT OFF ONLY if Telegram initData HMAC validation remains intact.
 import {createClient} from "npm:@supabase/supabase-js@2";
+import { browserSiteOrigin, verifyBrowserUser } from "./functions/_shared/browser-auth.ts";
 
-const SITE_ORIGIN = "https://vanyamars.github.io";
+const SITE_ORIGIN = browserSiteOrigin();
 const CORS = {"Access-Control-Allow-Origin":SITE_ORIGIN,"Access-Control-Allow-Headers":"content-type",
   "Access-Control-Allow-Methods":"POST,OPTIONS","Content-Type":"application/json; charset=utf-8","Vary":"Origin"};
 const json=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:CORS});
@@ -113,7 +114,7 @@ Deno.serve(async(req:Request)=>{
  try{
   if(req.headers.get('content-length')&&Number(req.headers.get('content-length'))>60000)return fail('Слишком большой запрос',413);
   let b:any;try{b=await req.json();}catch{return fail('Некорректный JSON')}
-  const uid=await verifyTelegram(String(b?.initData||''));if(!uid)return fail('Открой Mini App через Telegram',401);
+  const uid=await verifyTelegram(String(b?.initData||'')) ?? (!b?.initData ? (await verifyBrowserUser(b?.browserSession))?.id : null);if(!uid)return fail('Открой Mini App через Telegram',401);
   const allowed=Deno.env.get('TG_ALLOWED_USER_ID');if(allowed&&allowed!==String(uid))return fail('Доступ закрыт',403);
   const db=admin(),act=String(b?.action||'');
   if(act==='bootstrap'){
