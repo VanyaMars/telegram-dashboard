@@ -1,8 +1,9 @@
-import { jwtVerify, SignJWT, type JWTPayload } from 'npm:jose@6.1.3';
+import { base64url, jwtVerify, SignJWT, type JWTPayload } from 'npm:jose@6.1.3';
 
 const issuer = 'prodesk-browser-auth';
 const sessionAudience = 'prodesk-api';
-const loginAudience = 'prodesk-telegram-login';
+const loginStatePattern = /^v1\.([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})\.([0-9a-z]{1,8})\.([A-Za-z0-9_-]{43})$/;
+const loginLifetime = 600;
 const sessionLifetime = 12 * 60 * 60;
 const encoder = new TextEncoder();
 
@@ -28,24 +29,24 @@ function signingKey() {
   return secret && /^[a-f0-9]{64}$/i.test(secret) ? encoder.encode(secret) : null;
 }
 
-async function signBrowserCredential(payload: JWTPayload, audience: string, expiresAt: number) {
+async function signBrowserCredential(payload: JWTPayload, expiresAt: number) {
   const key = signingKey();
   if (!key) throw new Error('Browser session signing is unavailable');
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuer(issuer)
-    .setAudience(audience)
+    .setAudience(sessionAudience)
     .setIssuedAt()
     .setExpirationTime(expiresAt)
     .sign(key);
 }
 
-async function verifyBrowserCredential(token: unknown, audience: string) {
+async function verifyBrowserCredential(token: unknown) {
   const key = signingKey();
   if (!key || typeof token !== 'string' || token.length > 4096) return null;
   try {
     const { payload } = await jwtVerify(token, key, {
-      algorithms: ['HS256'], issuer, audience, typ: 'JWT', requiredClaims: ['iat', 'exp']
+      algorithms: ['HS256'], issuer, audience: sessionAudience, typ: 'JWT', requiredClaims: ['iat', 'exp']
     });
     return payload;
   } catch {
@@ -53,26 +54,54 @@ async function verifyBrowserCredential(token: unknown, audience: string) {
   }
 }
 
+async function loginSigningKey() {
+  const secret = signingKey();
+  if (!secret) return null;
+  return await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+
+function loginStateMessage(state: string) {
+  return encoder.encode('prodesk-telegram-login:' + state);
+}
+
 export async function createLoginState(challenge: string, nonce: string) {
-  return await signBrowserCredential({ challenge, nonce }, loginAudience, Math.floor(Date.now() / 1000) + 600);
+  const key = await loginSigningKey();
+  if (!key) throw new Error('Telegram login state signing is unavailable');
+
+  // Telegram limits the length of the OAuth state. Keep the PKCE challenge,
+  // nonce and expiry in a compact signed value instead of a JWT.
+  const expiry = (Math.floor(Date.now() / 1000) + loginLifetime).toString(36);
+  const state = ['v1', challenge, nonce, expiry].join('.');
+  const signature = await crypto.subtle.sign('HMAC', key, loginStateMessage(state));
+  return state + '.' + base64url.encode(new Uint8Array(signature));
 }
 
 export async function verifyLoginState(token: unknown) {
-  const payload = await verifyBrowserCredential(token, loginAudience);
-  if (typeof payload?.challenge !== 'string' || typeof payload.nonce !== 'string') return null;
-  return { challenge: payload.challenge, nonce: payload.nonce };
+  if (typeof token !== 'string' || token.length > 143) return null;
+  const match = loginStatePattern.exec(token);
+  if (!match || match[0] !== token) return null;
+  const [, challenge, nonce, expiry, signature] = match;
+  const expiresAt = Number.parseInt(expiry, 36);
+  if (expiresAt <= Math.floor(Date.now() / 1000)) return null;
+
+  const key = await loginSigningKey();
+  if (!key) return null;
+  const rawSignature = new Uint8Array(base64url.decode(signature));
+  if (base64url.encode(rawSignature) !== signature) return null;
+  const message = loginStateMessage(token.slice(0, token.lastIndexOf('.')));
+  return await crypto.subtle.verify('HMAC', key, rawSignature, message) ? { challenge, nonce } : null;
 }
 
 export async function createBrowserSession(user: BrowserUser) {
   const expires = Math.floor(Date.now() / 1000) + sessionLifetime;
   const token = await signBrowserCredential({
     sub: String(user.id), first_name: user.first_name, username: user.username
-  }, sessionAudience, expires);
+  }, expires);
   return { token, userId: user.id, expiresAt: expires * 1000 };
 }
 
 export async function verifyBrowserUser(token: unknown): Promise<BrowserUser | null> {
-  const payload = await verifyBrowserCredential(token, sessionAudience);
+  const payload = await verifyBrowserCredential(token);
   const id = Number(payload?.sub);
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   return {
