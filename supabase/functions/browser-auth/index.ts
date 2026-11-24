@@ -46,8 +46,8 @@ Deno.serve(async (request: Request) => {
       if (typeof body.challenge !== 'string' || !challengePattern.test(body.challenge)) {
         return reply({ error: 'Неверный запрос входа.' }, 400);
       }
-      const nonce = base64url(crypto.getRandomValues(new Uint8Array(32)));
-      const state = await createLoginState(body.challenge, nonce);
+      const stateRandom = base64url(crypto.getRandomValues(new Uint8Array(32)));
+      const state = await createLoginState(body.challenge, stateRandom);
       const authorizationUrl = new URL(issuer + '/auth');
       authorizationUrl.search = new URLSearchParams({
         client_id: settings.botId,
@@ -55,7 +55,6 @@ Deno.serve(async (request: Request) => {
         response_type: 'code',
         scope: 'openid profile',
         state,
-        nonce,
         code_challenge: body.challenge,
         code_challenge_method: 'S256'
       }).toString();
@@ -97,8 +96,16 @@ Deno.serve(async (request: Request) => {
       const { payload } = await jwtVerify(idToken, telegramKeys, {
         algorithms: ['RS256'], issuer, audience: settings.botId, requiredClaims: ['sub', 'iat', 'exp']
       });
-      const id = payload.id;
-      if (typeof id !== 'number' || payload.nonce !== state.nonce || !Number.isSafeInteger(id) || id <= 0) {
+      // Telegram's code flow documents issuer, audience and expiry validation.
+      // Existing requests may still have a nonce from the previous deployment.
+      if (payload.nonce !== undefined && payload.nonce !== state.nonce) {
+        console.warn('browser-auth: Telegram nonce mismatch');
+        return reply({ error: 'Telegram не подтвердил профиль.' }, 401);
+      }
+      const rawId = payload.id;
+      const id = typeof rawId === 'string' && /^[1-9]\d*$/.test(rawId) ? Number(rawId) : rawId;
+      if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0) {
+        console.warn('browser-auth: missing or invalid Telegram profile ID');
         return reply({ error: 'Telegram не подтвердил профиль.' }, 401);
       }
       identity = {
@@ -108,6 +115,7 @@ Deno.serve(async (request: Request) => {
         username: typeof payload.preferred_username === 'string' ? payload.preferred_username.slice(0, 64) : undefined
       };
     } catch {
+      console.warn('browser-auth: Telegram ID token verification failed');
       return reply({ error: 'Telegram не подтвердил вход.' }, 401);
     }
     const allowedUser = Deno.env.get('TG_ALLOWED_USER_ID');
